@@ -511,12 +511,20 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			WorkspaceRoot:    workspaceRoot,
 		}
 
-		// This should fail because file exists, but if we bypass that check,
-		// the atomic write should still protect the original
-		_, err := WriteFile(ctx, "test.txt", "new content", nil)
-		// This will fail at file existence check, but let's test the atomic write path
-		// by using edit_file.go or directly calling the atomic write function
-		// For now, verify the original file is still intact
+		// Resolve path to get absolute path
+		abs, _, err := Resolve(ctx, "test.txt")
+		if err != nil {
+			t.Fatalf("failed to resolve path: %v", err)
+		}
+
+		// Call writeFileAtomic directly to bypass WriteFile's existence check
+		// This tests the atomic write path when rename fails
+		err = writeFileAtomic(ctx, abs, []byte("new content"), 0o644)
+		if err == nil {
+			t.Fatal("expected error from rename failure")
+		}
+
+		// Verify original file is still intact (atomic write protects it)
 		content, err := fs.ReadFileRange("/workspace/test.txt", 0, 0)
 		if err != nil {
 			t.Fatalf("failed to read original file: %v", err)
