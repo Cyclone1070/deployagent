@@ -20,7 +20,7 @@ func TestEditFile(t *testing.T) {
 		clock := NewMockClock()
 
 		originalContent := []byte("original content")
-		fs.CreateFile("/workspace/test.txt", originalContent, clock.Now(), 0644)
+		fs.CreateFile("/workspace/test.txt", originalContent, clock.Now(), 0o644)
 
 		// Read file to populate cache
 		ctx := &WorkspaceContext{
@@ -40,7 +40,7 @@ func TestEditFile(t *testing.T) {
 
 		// Modify file externally (simulate external change)
 		modifiedContent := []byte("modified externally")
-		fs.WriteFile("/workspace/test.txt", modifiedContent, 0644)
+		fs.CreateFile("/workspace/test.txt", modifiedContent, clock.Now(), 0o644)
 
 		// Try to edit - should fail with conflict
 		ops := []Operation{
@@ -392,7 +392,7 @@ func TestEditFile(t *testing.T) {
 		clock := NewMockClock()
 
 		originalContent := []byte("original content")
-		fs.CreateFile("/workspace/test.txt", originalContent, clock.Now(), 0644)
+		fs.CreateFile("/workspace/test.txt", originalContent, clock.Now(), 0o644)
 
 		ctx := &WorkspaceContext{
 			FS:               fs,
@@ -412,7 +412,7 @@ func TestEditFile(t *testing.T) {
 
 		// Modify file externally (simulate concurrent modification)
 		modifiedContent := []byte("modified externally")
-		fs.WriteFile("/workspace/test.txt", modifiedContent, 0644)
+		fs.CreateFile("/workspace/test.txt", modifiedContent, clock.Now(), 0o644)
 
 		// Try to edit - should fail with conflict due to revalidation
 		ops := []Operation{

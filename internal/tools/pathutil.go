@@ -137,7 +137,7 @@ func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
 		if parts[i] == "" || parts[i] == "." {
 			continue
 		}
-		
+
 		// Handle ".." by going up one directory level
 		if parts[i] == ".." {
 			// Go up one level

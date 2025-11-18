@@ -3,6 +3,7 @@ package tools
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // WriteFile creates a new file using injected dependencies
@@ -45,8 +46,8 @@ func WriteFile(ctx *WorkspaceContext, path string, content string, perm *os.File
 		filePerm = *perm
 	}
 
-	// Write the file
-	if err := ctx.FS.WriteFile(abs, contentBytes, filePerm); err != nil {
+	// Write the file atomically
+	if err := writeFileAtomic(ctx, abs, contentBytes, filePerm); err != nil {
 		return nil, fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -60,4 +61,69 @@ func WriteFile(ctx *WorkspaceContext, path string, content string, perm *os.File
 		BytesWritten: len(contentBytes),
 		FileMode:     uint32(filePerm),
 	}, nil
+}
+
+// writeFileAtomic writes content to a file atomically using temp file + rename pattern.
+// This ensures that if the process crashes mid-write, the original file remains intact.
+func writeFileAtomic(ctx *WorkspaceContext, path string, content []byte, perm os.FileMode) error {
+	// Get directory for temp file
+	dir := filepath.Dir(path)
+
+	// Create temporary file in same directory
+	tmpPath, tmpFile, err := ctx.FS.CreateTemp(dir, ".tmp-*")
+	if err != nil {
+		return err
+	}
+
+	// Track whether we need to clean up the temp file
+	// (set to false after successful rename)
+	needsCleanup := true
+
+	// Ensure cleanup on error
+	defer func() {
+		// Close file handle if still open
+		if tmpFile != nil {
+			// Ignore close errors in defer - we've already tried to close explicitly
+			// and this is best-effort cleanup. The file may already be closed or in a bad state.
+			_ = ctx.FS.CloseFile(tmpFile)
+		}
+		// Always try to remove temp file if rename didn't succeed
+		if needsCleanup {
+			// Ignore remove errors in defer - this is best-effort cleanup.
+			// The temp file may have already been removed or renamed.
+			_ = ctx.FS.Remove(tmpPath)
+		}
+	}()
+
+	// Write content to temp file
+	if _, err := ctx.FS.WriteToFile(tmpFile, content); err != nil {
+		return err
+	}
+
+	// Sync to ensure data is written to disk
+	if err := ctx.FS.SyncFile(tmpFile); err != nil {
+		return err
+	}
+
+	// Close file before rename (required on some systems)
+	if err := ctx.FS.CloseFile(tmpFile); err != nil {
+		// Set to nil to prevent double-close in defer
+		tmpFile = nil
+		// Still return error - cleanup will be attempted in defer
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+	tmpFile = nil // Prevent cleanup in defer
+
+	// Atomic rename - this is the critical operation that makes it atomic
+	if err := ctx.FS.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+	needsCleanup = false // Rename succeeded, no need to remove temp file
+
+	// Set permissions on the final file
+	if err := ctx.FS.Chmod(path, perm); err != nil {
+		return fmt.Errorf("failed to set file permissions: %w", err)
+	}
+
+	return nil
 }

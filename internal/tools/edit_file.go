@@ -97,8 +97,8 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 		return nil, ErrEditConflict
 	}
 
-	// Write the modified content
-	if err := ctx.FS.WriteFile(abs, newContentBytes, originalPerm); err != nil {
+	// Write the modified content atomically
+	if err := writeFileAtomic(ctx, abs, newContentBytes, originalPerm); err != nil {
 		return nil, fmt.Errorf("failed to write edited file: %w", err)
 	}
 

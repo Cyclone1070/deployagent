@@ -87,11 +87,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 	if limit == 0 {
 		readSize = remaining
 	} else {
-		if remaining < limit {
-			readSize = remaining
-		} else {
-			readSize = limit
-		}
+		readSize = min(remaining, limit)
 	}
 
 	content := make([]byte, readSize)
@@ -103,63 +99,40 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 	return content[:n], nil
 }
 
-func (r *OSFileSystem) WriteFile(path string, content []byte, perm os.FileMode) error {
-	return writeFileAtomic(path, content, perm)
+func (r *OSFileSystem) CreateTemp(dir, pattern string) (string, FileHandle, error) {
+	tmpFile, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		return "", nil, err
+	}
+	return tmpFile.Name(), tmpFile, nil
 }
 
-// writeFileAtomic writes content to a file atomically using temp file + rename pattern.
-// This ensures that if the process crashes mid-write, the original file remains intact.
-func writeFileAtomic(path string, content []byte, perm os.FileMode) error {
-	// Get directory for temp file
-	dir := filepath.Dir(path)
+func (r *OSFileSystem) WriteToFile(file FileHandle, data []byte) (int, error) {
+	return file.Write(data)
+}
 
-	// Create temporary file in same directory
-	tmpFile, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmpFile.Name()
+func (r *OSFileSystem) SyncFile(file FileHandle) error {
+	return file.Sync()
+}
 
-	// Ensure cleanup on error
-	defer func() {
-		if tmpFile != nil {
-			tmpFile.Close()
-			os.Remove(tmpPath)
-		}
-	}()
+func (r *OSFileSystem) CloseFile(file FileHandle) error {
+	return file.Close()
+}
 
-	// Write content to temp file
-	if _, err := tmpFile.Write(content); err != nil {
-		return err
-	}
+func (r *OSFileSystem) Rename(oldpath, newpath string) error {
+	return os.Rename(oldpath, newpath)
+}
 
-	// Sync to ensure data is written to disk
-	if err := tmpFile.Sync(); err != nil {
-		return err
-	}
+func (r *OSFileSystem) Chmod(name string, mode os.FileMode) error {
+	return os.Chmod(name, mode)
+}
 
-	// Close file before rename (required on some systems)
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
-	tmpFile = nil // Prevent cleanup in defer
-
-	// Atomic rename - this is the critical operation that makes it atomic
-	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
-		return err
-	}
-
-	// Set permissions on the final file
-	if err := os.Chmod(path, perm); err != nil {
-		return err
-	}
-
-	return nil
+func (r *OSFileSystem) Remove(name string) error {
+	return os.Remove(name)
 }
 
 func (r *OSFileSystem) EnsureDirs(path string) error {
-	return os.MkdirAll(path, 0755)
+	return os.MkdirAll(path, 0o755)
 }
 
 func (r *OSFileSystem) IsDir(path string) (bool, error) {
@@ -202,7 +175,7 @@ func (r *SystemBinaryDetector) IsBinary(path string) (bool, error) {
 		return false, err
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if buf[i] == 0 {
 			return true, nil
 		}
@@ -212,12 +185,9 @@ func (r *SystemBinaryDetector) IsBinary(path string) (bool, error) {
 }
 
 func (r *SystemBinaryDetector) IsBinaryContent(content []byte) bool {
-	sampleSize := BinaryDetectionSampleSize
-	if len(content) < sampleSize {
-		sampleSize = len(content)
-	}
+	sampleSize := min(len(content), BinaryDetectionSampleSize)
 
-	for i := 0; i < sampleSize; i++ {
+	for i := range sampleSize {
 		if content[i] == 0 {
 			return true
 		}
