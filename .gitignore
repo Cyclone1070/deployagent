@@ -3,6 +3,15 @@
 /node_modules
 /build
 
+# Go build artifacts
+*.test
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+
 # Logs
 logs
 *.log
