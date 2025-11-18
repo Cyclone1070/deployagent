@@ -93,11 +93,11 @@ type ChecksumStore interface {
 	Clear()
 }
 
-// RootCanonicalizer canonicalizes workspace root paths.
+// RootCanonicaliser canonicalises workspace root paths.
 // This interface allows dependency injection to avoid real filesystem operations in tests.
-type RootCanonicalizer interface {
-	// CanonicalizeRoot makes a path absolute, resolves symlinks, and validates it's a directory.
-	CanonicalizeRoot(root string) (string, error)
+type RootCanonicaliser interface {
+	// CanonicaliseRoot makes a path absolute, resolves symlinks, and validates it's a directory.
+	CanonicaliseRoot(root string) (string, error)
 }
 
 // FileHandle represents a file handle for writing operations.

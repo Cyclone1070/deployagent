@@ -382,13 +382,13 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 		}
 	})
 
-	t.Run("crash during WriteToFile - temp cleaned up", func(t *testing.T) {
+	t.Run("crash during Write - temp cleaned up", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
 		cache := NewMockChecksumStore()
 		clock := NewMockClock()
 
-		// Inject failure during WriteToFile
-		fs.SetOperationError("WriteToFile", fmt.Errorf("write failed"))
+		// Inject failure during Write
+		fs.SetOperationError("Write", fmt.Errorf("write failed"))
 
 		ctx := &WorkspaceContext{
 			FS:               fs,
@@ -418,13 +418,13 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 		}
 	})
 
-	t.Run("crash during SyncFile - temp cleaned up", func(t *testing.T) {
+	t.Run("crash during Sync - temp cleaned up", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
 		cache := NewMockChecksumStore()
 		clock := NewMockClock()
 
-		// Inject failure during SyncFile
-		fs.SetOperationError("SyncFile", fmt.Errorf("sync failed"))
+		// Inject failure during Sync
+		fs.SetOperationError("Sync", fmt.Errorf("sync failed"))
 
 		ctx := &WorkspaceContext{
 			FS:               fs,
@@ -454,13 +454,13 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 		}
 	})
 
-	t.Run("crash during CloseFile - temp cleaned up", func(t *testing.T) {
+	t.Run("crash during Close - temp cleaned up", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
 		cache := NewMockChecksumStore()
 		clock := NewMockClock()
 
-		// Inject failure during CloseFile
-		fs.SetOperationError("CloseFile", fmt.Errorf("close failed"))
+		// Inject failure during Close
+		fs.SetOperationError("Close", fmt.Errorf("close failed"))
 
 		ctx := &WorkspaceContext{
 			FS:               fs,

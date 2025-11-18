@@ -21,7 +21,7 @@ func TestMultiContextIsolation(t *testing.T) {
 		BinaryDetector:   NewMockBinaryDetector(),
 		ChecksumComputer: NewMockChecksumComputer(),
 		Clock:            clock,
-		ChecksumCache:            cache1,
+		ChecksumCache:    cache1,
 		MaxFileSize:      maxFileSize,
 		WorkspaceRoot:    "/workspace1",
 	}
@@ -31,7 +31,7 @@ func TestMultiContextIsolation(t *testing.T) {
 		BinaryDetector:   NewMockBinaryDetector(),
 		ChecksumComputer: NewMockChecksumComputer(),
 		Clock:            clock,
-		ChecksumCache:            cache2,
+		ChecksumCache:    cache2,
 		MaxFileSize:      maxFileSize,
 		WorkspaceRoot:    "/workspace2",
 	}
@@ -99,7 +99,7 @@ func TestMultiContextIsolation(t *testing.T) {
 
 func TestCustomFileSizeLimit(t *testing.T) {
 	workspaceRoot := "/workspace"
-	smallLimit := int64(100)  // 100 bytes
+	smallLimit := int64(100)              // 100 bytes
 	largeLimit := int64(10 * 1024 * 1024) // 10MB
 
 	t.Run("small limit enforced", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:   NewMockBinaryDetector(),
 			ChecksumComputer: NewMockChecksumComputer(),
 			Clock:            clock,
-			ChecksumCache:            cache,
+			ChecksumCache:    cache,
 			MaxFileSize:      smallLimit,
 			WorkspaceRoot:    workspaceRoot,
 		}
@@ -139,7 +139,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:   NewMockBinaryDetector(),
 			ChecksumComputer: NewMockChecksumComputer(),
 			Clock:            clock,
-			ChecksumCache:            cache,
+			ChecksumCache:    cache,
 			MaxFileSize:      largeLimit,
 			WorkspaceRoot:    workspaceRoot,
 		}
@@ -169,7 +169,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:   NewMockBinaryDetector(),
 			ChecksumComputer: NewMockChecksumComputer(),
 			Clock:            clock,
-			ChecksumCache:            cache1,
+			ChecksumCache:    cache1,
 			MaxFileSize:      smallLimit,
 			WorkspaceRoot:    workspaceRoot,
 		}
@@ -179,7 +179,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:   NewMockBinaryDetector(),
 			ChecksumComputer: NewMockChecksumComputer(),
 			Clock:            clock,
-			ChecksumCache:            cache2,
+			ChecksumCache:    cache2,
 			MaxFileSize:      largeLimit,
 			WorkspaceRoot:    workspaceRoot,
 		}
@@ -209,11 +209,11 @@ func TestNewWorkspaceContext(t *testing.T) {
 	t.Run("creates context with default max file size", func(t *testing.T) {
 		workspaceRoot := "/workspace"
 		canonicalRoot := "/workspace"
-		
-		canonicalizer := NewMockRootCanonicalizer()
-		canonicalizer.SetCanonical(workspaceRoot, canonicalRoot)
-		
-		ctx, err := NewWorkspaceContextWithDI(workspaceRoot, canonicalizer)
+
+		canonicaliser := NewMockRootCanonicaliser()
+		canonicaliser.SetCanonical(workspaceRoot, canonicalRoot)
+
+		ctx, err := NewWorkspaceContextWithDI(workspaceRoot, canonicaliser)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -253,11 +253,11 @@ func TestNewWorkspaceContext(t *testing.T) {
 	t.Run("rejects non-existent directory", func(t *testing.T) {
 		nonExistent := "/nonexistent/path"
 		expectedErr := fmt.Errorf("workspace root does not exist")
-		
-		canonicalizer := NewMockRootCanonicalizer()
-		canonicalizer.SetError(nonExistent, expectedErr)
-		
-		_, err := NewWorkspaceContextWithDI(nonExistent, canonicalizer)
+
+		canonicaliser := NewMockRootCanonicaliser()
+		canonicaliser.SetError(nonExistent, expectedErr)
+
+		_, err := NewWorkspaceContextWithDI(nonExistent, canonicaliser)
 		if err == nil {
 			t.Error("expected error for non-existent directory")
 		}
@@ -269,11 +269,11 @@ func TestNewWorkspaceContext(t *testing.T) {
 	t.Run("rejects file instead of directory", func(t *testing.T) {
 		testFile := "/workspace/testfile.txt"
 		expectedErr := fmt.Errorf("workspace root is not a directory: %s", testFile)
-		
-		canonicalizer := NewMockRootCanonicalizer()
-		canonicalizer.SetError(testFile, expectedErr)
-		
-		_, err := NewWorkspaceContextWithDI(testFile, canonicalizer)
+
+		canonicaliser := NewMockRootCanonicaliser()
+		canonicaliser.SetError(testFile, expectedErr)
+
+		_, err := NewWorkspaceContextWithDI(testFile, canonicaliser)
 		if err == nil {
 			t.Error("expected error for file instead of directory")
 		}
@@ -289,11 +289,11 @@ func TestNewWorkspaceContextWithOptions(t *testing.T) {
 		workspaceRoot := "/workspace"
 		canonicalRoot := "/workspace"
 		customMaxSize := int64(10 * 1024 * 1024) // 10MB
-		
-		canonicalizer := NewMockRootCanonicalizer()
-		canonicalizer.SetCanonical(workspaceRoot, canonicalRoot)
-		
-		ctx, err := NewWorkspaceContextWithOptionsDI(workspaceRoot, customMaxSize, canonicalizer)
+
+		canonicaliser := NewMockRootCanonicaliser()
+		canonicaliser.SetCanonical(workspaceRoot, canonicalRoot)
+
+		ctx, err := NewWorkspaceContextWithOptionsDI(workspaceRoot, customMaxSize, canonicaliser)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -333,11 +333,11 @@ func TestNewWorkspaceContextWithOptions(t *testing.T) {
 	t.Run("rejects invalid workspace root", func(t *testing.T) {
 		nonExistent := "/invalid/path"
 		expectedErr := fmt.Errorf("workspace root does not exist")
-		
-		canonicalizer := NewMockRootCanonicalizer()
-		canonicalizer.SetError(nonExistent, expectedErr)
-		
-		_, err := NewWorkspaceContextWithOptionsDI(nonExistent, DefaultMaxFileSize, canonicalizer)
+
+		canonicaliser := NewMockRootCanonicaliser()
+		canonicaliser.SetError(nonExistent, expectedErr)
+
+		_, err := NewWorkspaceContextWithOptionsDI(nonExistent, DefaultMaxFileSize, canonicaliser)
 		if err == nil {
 			t.Error("expected error for invalid workspace root")
 		}
@@ -346,4 +346,3 @@ func TestNewWorkspaceContextWithOptions(t *testing.T) {
 		}
 	})
 }
-

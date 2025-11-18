@@ -39,7 +39,7 @@ func (h *mockFileHandle) Write(data []byte) (int, error) {
 	h.fs.mu.Lock()
 	defer h.fs.mu.Unlock()
 
-	if err, ok := h.fs.opErrors["WriteToFile"]; ok {
+	if err, ok := h.fs.opErrors["Write"]; ok {
 		return 0, err
 	}
 
@@ -56,7 +56,7 @@ func (h *mockFileHandle) Sync() error {
 	h.fs.mu.Lock()
 	defer h.fs.mu.Unlock()
 
-	if err, ok := h.fs.opErrors["SyncFile"]; ok {
+	if err, ok := h.fs.opErrors["Sync"]; ok {
 		return err
 	}
 
@@ -73,7 +73,7 @@ func (h *mockFileHandle) Close() error {
 	h.fs.mu.Lock()
 	defer h.fs.mu.Unlock()
 
-	if err, ok := h.fs.opErrors["CloseFile"]; ok {
+	if err, ok := h.fs.opErrors["Close"]; ok {
 		return err
 	}
 
@@ -93,7 +93,7 @@ type MockFileSystem struct {
 	symlinks    map[string]string          // symlink path -> target path
 	dirs        map[string]bool            // path -> is directory
 	errors      map[string]error           // path -> error to return
-	opErrors    map[string]error           // operation -> error to return (e.g., "CreateTemp", "WriteToFile", etc.)
+	opErrors    map[string]error           // operation -> error to return (e.g., "CreateTemp", "Write", "Sync", "Close", "Rename", "Chmod", "Remove")
 	tempFiles   map[string]*mockFileHandle // temp path -> handle
 	maxFileSize int64
 }
@@ -120,7 +120,7 @@ func (f *MockFileSystem) SetError(path string, err error) {
 }
 
 // SetOperationError sets an error to return for a specific operation.
-// Operations: "CreateTemp", "WriteToFile", "SyncFile", "CloseFile", "Rename", "Chmod", "Remove"
+// Operations: "CreateTemp", "Write", "Sync", "Close", "Rename", "Chmod", "Remove"
 func (f *MockFileSystem) SetOperationError(operation string, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -612,36 +612,36 @@ func (f *MockChecksumStore) Clear() {
 	f.store = make(map[string]FileMetadata)
 }
 
-// MockRootCanonicalizer implements RootCanonicalizer for testing
-type MockRootCanonicalizer struct {
+// MockRootCanonicaliser implements RootCanonicaliser for testing
+type MockRootCanonicaliser struct {
 	mu           sync.RWMutex
 	canonicalMap map[string]string // input -> canonical output
 	errors       map[string]error  // input -> error
 }
 
-// NewMockRootCanonicalizer creates a new mock root canonicalizer
-func NewMockRootCanonicalizer() *MockRootCanonicalizer {
-	return &MockRootCanonicalizer{
+// NewMockRootCanonicaliser creates a new mock root canonicaliser
+func NewMockRootCanonicaliser() *MockRootCanonicaliser {
+	return &MockRootCanonicaliser{
 		canonicalMap: make(map[string]string),
 		errors:       make(map[string]error),
 	}
 }
 
 // SetCanonical sets the canonical path for an input path
-func (m *MockRootCanonicalizer) SetCanonical(input, canonical string) {
+func (m *MockRootCanonicaliser) SetCanonical(input, canonical string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.canonicalMap[input] = canonical
 }
 
 // SetError sets an error to return for a given input path
-func (m *MockRootCanonicalizer) SetError(input string, err error) {
+func (m *MockRootCanonicaliser) SetError(input string, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.errors[input] = err
 }
 
-func (m *MockRootCanonicalizer) CanonicalizeRoot(root string) (string, error) {
+func (m *MockRootCanonicaliser) CanonicaliseRoot(root string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
