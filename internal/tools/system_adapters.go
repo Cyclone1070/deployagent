@@ -107,18 +107,6 @@ func (r *OSFileSystem) CreateTemp(dir, pattern string) (string, FileHandle, erro
 	return tmpFile.Name(), tmpFile, nil
 }
 
-func (r *OSFileSystem) WriteToFile(file FileHandle, data []byte) (int, error) {
-	return file.Write(data)
-}
-
-func (r *OSFileSystem) SyncFile(file FileHandle) error {
-	return file.Sync()
-}
-
-func (r *OSFileSystem) CloseFile(file FileHandle) error {
-	return file.Close()
-}
-
 func (r *OSFileSystem) Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }

@@ -52,15 +52,6 @@ type FileSystem interface {
 	// Returns the path to the temp file and a file handle.
 	CreateTemp(dir, pattern string) (string, FileHandle, error)
 
-	// WriteToFile writes data to a file handle returned by CreateTemp.
-	WriteToFile(file FileHandle, data []byte) (int, error)
-
-	// SyncFile syncs a file handle to disk.
-	SyncFile(file FileHandle) error
-
-	// CloseFile closes a file handle.
-	CloseFile(file FileHandle) error
-
 	// Rename atomically renames oldpath to newpath.
 	Rename(oldpath, newpath string) error
 

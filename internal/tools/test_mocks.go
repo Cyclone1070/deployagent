@@ -371,18 +371,6 @@ func (f *MockFileSystem) CreateTemp(dir, pattern string) (string, FileHandle, er
 	return tempPath, handle, nil
 }
 
-func (f *MockFileSystem) WriteToFile(file FileHandle, data []byte) (int, error) {
-	return file.Write(data)
-}
-
-func (f *MockFileSystem) SyncFile(file FileHandle) error {
-	return file.Sync()
-}
-
-func (f *MockFileSystem) CloseFile(file FileHandle) error {
-	return file.Close()
-}
-
 func (f *MockFileSystem) Rename(oldpath, newpath string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

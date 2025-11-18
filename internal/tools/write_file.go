@@ -85,7 +85,7 @@ func writeFileAtomic(ctx *WorkspaceContext, path string, content []byte, perm os
 		if tmpFile != nil {
 			// Ignore close errors in defer - we've already tried to close explicitly
 			// and this is best-effort cleanup. The file may already be closed or in a bad state.
-			_ = ctx.FS.CloseFile(tmpFile)
+			_ = tmpFile.Close()
 		}
 		// Always try to remove temp file if rename didn't succeed
 		if needsCleanup {
@@ -96,17 +96,17 @@ func writeFileAtomic(ctx *WorkspaceContext, path string, content []byte, perm os
 	}()
 
 	// Write content to temp file
-	if _, err := ctx.FS.WriteToFile(tmpFile, content); err != nil {
+	if _, err := tmpFile.Write(content); err != nil {
 		return err
 	}
 
 	// Sync to ensure data is written to disk
-	if err := ctx.FS.SyncFile(tmpFile); err != nil {
+	if err := tmpFile.Sync(); err != nil {
 		return err
 	}
 
 	// Close file before rename (required on some systems)
-	if err := ctx.FS.CloseFile(tmpFile); err != nil {
+	if err := tmpFile.Close(); err != nil {
 		// Set to nil to prevent double-close in defer
 		tmpFile = nil
 		// Still return error - cleanup will be attempted in defer
