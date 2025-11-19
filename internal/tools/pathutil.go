@@ -18,8 +18,7 @@ func CanonicaliseRoot(root string) (string, error) {
 	// Resolve symlinks in the workspace root to get canonical path
 	resolved, err := filepath.EvalSymlinks(absRoot)
 	if err != nil {
-		// If symlink resolution fails, use the absolute path as-is
-		resolved = absRoot
+		return "", fmt.Errorf("failed to resolve workspace root symlinks: %w", err)
 	}
 
 	info, err := os.Stat(resolved)
@@ -104,6 +103,65 @@ func Resolve(ctx *WorkspaceContext, path string) (abs string, rel string, err er
 	return abs, rel, nil
 }
 
+// followSymlinkChain follows a symlink chain until it reaches a non-symlink.
+// Returns an error if the chain exceeds maxHops or contains a loop.
+// Returns the resolved path and whether the path exists (or error if lstat fails).
+func followSymlinkChain(ctx *WorkspaceContext, path string, workspaceRoot string, maxHops int) (resolved string, exists bool, err error) {
+	visited := make(map[string]struct{})
+	current := path
+
+	for hopCount := 0; hopCount <= maxHops; hopCount++ {
+		// Check for loops
+		if _, seen := visited[current]; seen {
+			return "", false, fmt.Errorf("symlink loop detected: %s", current)
+		}
+		visited[current] = struct{}{}
+
+		// Check if current path is a symlink
+		info, err := ctx.FS.Lstat(current)
+		if err != nil {
+			if err == os.ErrNotExist {
+				return current, false, nil
+			}
+			return "", false, fmt.Errorf("failed to lstat path: %w", err)
+		}
+
+		// If not a symlink, we're done
+		if info.Mode()&os.ModeSymlink == 0 {
+			// Validate path is within workspace
+			if !isWithinWorkspace(current, workspaceRoot) {
+				return "", false, ErrOutsideWorkspace
+			}
+			return current, true, nil
+		}
+
+		// Read the symlink target
+		linkTarget, err := ctx.FS.Readlink(current)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to read symlink: %w", err)
+		}
+
+		// Resolve symlink target to absolute path
+		var targetAbs string
+		if filepath.IsAbs(linkTarget) {
+			targetAbs = filepath.Clean(linkTarget)
+		} else {
+			// Relative symlink - resolve relative to symlink's directory
+			targetAbs = filepath.Clean(filepath.Join(filepath.Dir(current), linkTarget))
+		}
+
+		// Validate symlink target is within workspace (reject immediately if outside)
+		if !isWithinWorkspace(targetAbs, workspaceRoot) {
+			return "", false, ErrOutsideWorkspace
+		}
+
+		// Continue following the chain
+		current = targetAbs
+	}
+
+	return "", false, fmt.Errorf("symlink chain too long (max %d hops)", maxHops)
+}
+
 // resolveSymlink resolves symlinks by walking each path component.
 // This prevents symlink escape attacks even when the final file doesn't exist.
 // It handles missing intermediate directories gracefully to allow directory creation.
@@ -165,102 +223,53 @@ func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
 		}
 
 		// Follow symlink chain for this component
-		visited := make(map[string]struct{})
-		current := next
-		hopCount := 0
+		resolved, exists, err := followSymlinkChain(ctx, next, workspaceRootAbs, maxHops)
+		if err != nil {
+			return "", err
+		}
 
-		for {
-			// Check hop count limit (enforces max 64 hops)
-			if hopCount > maxHops {
-				return "", fmt.Errorf("symlink chain too long (max %d hops)", maxHops)
+		if !exists {
+			// Component doesn't exist - handle missing directories
+			// Special case: if current equals workspace root, it's okay
+			if resolved == workspaceRootAbs {
+				currentAbs = resolved
+				continue
 			}
-
-			// Check for loops
-			if _, seen := visited[current]; seen {
-				return "", fmt.Errorf("symlink loop detected: %s", current)
-			}
-			visited[current] = struct{}{}
-
-			// Check if current path is a symlink
-			info, err := ctx.FS.Lstat(current)
-			if err != nil {
-				// If component doesn't exist, handle missing directories
-				if err == os.ErrNotExist {
-					// Special case: if current equals workspace root, it's okay
-					if current == workspaceRootAbs {
-						currentAbs = current
-						break
+			// If we're not at the final component, this means a directory is missing
+			// Append remaining components and return (caller can create directories)
+			if i < len(parts)-1 {
+				// Append current and remaining components
+				remaining := parts[i:]
+				for j := range remaining {
+					if remaining[j] == "" || remaining[j] == "." {
+						continue
 					}
-					// If we're not at the final component, this means a directory is missing
-					// Append remaining components and return (caller can create directories)
-					if i < len(parts)-1 {
-						// Append current and remaining components
-						remaining := parts[i:]
-						for j := range remaining {
-							if remaining[j] == "" || remaining[j] == "." {
-								continue
-							}
-							switch currentAbs {
-							case "":
-								currentAbs = remaining[j]
-							case "/":
-								currentAbs = "/" + remaining[j]
-							default:
-								currentAbs = filepath.Join(currentAbs, remaining[j])
-							}
-						}
-						// Validate the complete path is within workspace
-						if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-							return "", ErrOutsideWorkspace
-						}
-						return currentAbs, nil
+					switch currentAbs {
+					case "":
+						currentAbs = remaining[j]
+					case "/":
+						currentAbs = "/" + remaining[j]
+					default:
+						currentAbs = filepath.Join(currentAbs, remaining[j])
 					}
-					// For final component, validate parent is within workspace (if we have one)
-					if currentAbs != "" && currentAbs != workspaceRootAbs {
-						if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-							return "", ErrOutsideWorkspace
-						}
-					}
-					currentAbs = current
-					break
 				}
-				return "", fmt.Errorf("failed to lstat path: %w", err)
-			}
-
-			// If not a symlink, we're done with this component
-			if info.Mode()&os.ModeSymlink == 0 {
-				// Validate path is within workspace
-				if !isWithinWorkspace(current, workspaceRootAbs) {
+				// Validate the complete path is within workspace
+				if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
 					return "", ErrOutsideWorkspace
 				}
-				currentAbs = current
-				break
+				return currentAbs, nil
 			}
-
-			// Read the symlink target
-			linkTarget, err := ctx.FS.Readlink(current)
-			if err != nil {
-				return "", fmt.Errorf("failed to read symlink: %w", err)
+			// For final component, validate parent is within workspace (if we have one)
+			if currentAbs != "" && currentAbs != workspaceRootAbs {
+				if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
+					return "", ErrOutsideWorkspace
+				}
 			}
-
-			// Resolve symlink target to absolute path
-			var targetAbs string
-			if filepath.IsAbs(linkTarget) {
-				targetAbs = filepath.Clean(linkTarget)
-			} else {
-				// Relative symlink - resolve relative to symlink's directory
-				targetAbs = filepath.Clean(filepath.Join(filepath.Dir(current), linkTarget))
-			}
-
-			// Validate symlink target is within workspace (reject immediately if outside)
-			if !isWithinWorkspace(targetAbs, workspaceRootAbs) {
-				return "", ErrOutsideWorkspace
-			}
-
-			// Continue following the chain
-			current = targetAbs
-			hopCount++
+			currentAbs = resolved
+			continue
 		}
+
+		currentAbs = resolved
 
 		// Validate current path is within workspace after each step
 		if !isWithinWorkspace(currentAbs, workspaceRootAbs) {

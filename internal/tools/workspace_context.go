@@ -32,26 +32,3 @@ func NewWorkspaceContextWithOptions(workspaceRoot string, maxFileSize int64) (*W
 		WorkspaceRoot:   canonicalRoot,
 	}, nil
 }
-
-// NewWorkspaceContextWithDI creates a workspace context with dependency-injected root canonicaliser.
-// This version is designed for testing with mocks and follows DI principles.
-func NewWorkspaceContextWithDI(workspaceRoot string, canonicaliser RootCanonicaliser) (*WorkspaceContext, error) {
-	return NewWorkspaceContextWithOptionsDI(workspaceRoot, DefaultMaxFileSize, canonicaliser)
-}
-
-// NewWorkspaceContextWithOptionsDI creates a workspace context with custom max file size and dependency-injected root canonicaliser.
-// This version is designed for testing with mocks and follows DI principles.
-func NewWorkspaceContextWithOptionsDI(workspaceRoot string, maxFileSize int64, canonicaliser RootCanonicaliser) (*WorkspaceContext, error) {
-	canonicalRoot, err := canonicaliser.CanonicaliseRoot(workspaceRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	return &WorkspaceContext{
-		FS:              NewOSFileSystem(maxFileSize),
-		BinaryDetector:  &SystemBinaryDetector{},
-		ChecksumManager: NewChecksumManager(),
-		MaxFileSize:     maxFileSize,
-		WorkspaceRoot:   canonicalRoot,
-	}, nil
-}

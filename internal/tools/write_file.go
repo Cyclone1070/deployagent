@@ -43,7 +43,11 @@ func WriteFile(ctx *WorkspaceContext, path string, content string, perm *os.File
 	// Determine permissions
 	filePerm := os.FileMode(0644)
 	if perm != nil {
-		filePerm = *perm
+		// Only allow standard permission bits (owner/group/other rwx)
+		if *perm&^os.FileMode(0777) != 0 {
+			return nil, fmt.Errorf("invalid file permissions: only standard permission bits (0-0777) allowed, got %o", *perm)
+		}
+		filePerm = *perm & 0777
 	}
 
 	// Write the file atomically
@@ -83,14 +87,15 @@ func writeFileAtomic(ctx *WorkspaceContext, path string, content []byte, perm os
 	defer func() {
 		// Close file handle if still open
 		if tmpFile != nil {
-			// Ignore close errors in defer - we've already tried to close explicitly
-			// and this is best-effort cleanup. The file may already be closed or in a bad state.
+			// Best-effort close. File may already be closed or in bad state.
+			// Any close errors here don't affect the write operation's success.
 			_ = tmpFile.Close()
 		}
 		// Always try to remove temp file if rename didn't succeed
 		if needsCleanup {
-			// Ignore remove errors in defer - this is best-effort cleanup.
-			// The temp file may have already been removed or renamed.
+			// Best-effort cleanup. Temp file is in workspace directory with .tmp- prefix.
+			// If removal fails, OS will eventually clean it up. This won't cause
+			// security issues since temp files are within workspace boundaries.
 			_ = ctx.FS.Remove(tmpPath)
 		}
 	}()

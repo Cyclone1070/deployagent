@@ -5,13 +5,6 @@ import (
 	"os"
 )
 
-const (
-	// DefaultMaxFileSize is the default maximum file size (5 MB)
-	DefaultMaxFileSize = 5 * 1024 * 1024
-	// BinaryDetectionSampleSize is how many bytes to sample for binary detection
-	BinaryDetectionSampleSize = 4096
-)
-
 // OSFileSystem implements FileSystem using the local OS primitives.
 // It enforces file size limits based on the MaxFileSize field.
 type OSFileSystem struct {
@@ -135,39 +128,3 @@ func (r *OSFileSystem) UserHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
-// SystemBinaryDetector implements BinaryDetector using local heuristics
-type SystemBinaryDetector struct{}
-
-func (r *SystemBinaryDetector) IsBinary(path string) (bool, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer file.Close()
-
-	buf := make([]byte, BinaryDetectionSampleSize)
-	n, err := file.Read(buf)
-	if err != nil && err != io.EOF {
-		return false, err
-	}
-
-	for i := range n {
-		if buf[i] == 0 {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (r *SystemBinaryDetector) IsBinaryContent(content []byte) bool {
-	sampleSize := min(len(content), BinaryDetectionSampleSize)
-
-	for i := range sampleSize {
-		if content[i] == 0 {
-			return true
-		}
-	}
-
-	return false
-}

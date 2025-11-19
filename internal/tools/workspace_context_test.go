@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"fmt"
+	"os"
 	"testing"
 )
 
@@ -10,10 +10,10 @@ func TestMultiContextIsolation(t *testing.T) {
 
 	// Create two separate contexts with different workspace roots
 	fs1 := NewMockFileSystem(maxFileSize)
-	checksumManager1 := NewMockChecksumManager()
+	checksumManager1 := NewChecksumManager()
 
 	fs2 := NewMockFileSystem(maxFileSize)
-	checksumManager2 := NewMockChecksumManager()
+	checksumManager2 := NewChecksumManager()
 
 	ctx1 := &WorkspaceContext{
 		FS:              fs1,
@@ -99,7 +99,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 
 	t.Run("small limit enforced", func(t *testing.T) {
 		fs := NewMockFileSystem(smallLimit)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 
 		ctx := &WorkspaceContext{
 			FS:              fs,
@@ -123,7 +123,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 
 	t.Run("large limit allows bigger files", func(t *testing.T) {
 		fs := NewMockFileSystem(largeLimit)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 
 		ctx := &WorkspaceContext{
 			FS:              fs,
@@ -147,10 +147,10 @@ func TestCustomFileSizeLimit(t *testing.T) {
 
 	t.Run("different limits in different contexts", func(t *testing.T) {
 		fs1 := NewMockFileSystem(smallLimit)
-		checksumManager1 := NewMockChecksumManager()
+		checksumManager1 := NewChecksumManager()
 
 		fs2 := NewMockFileSystem(largeLimit)
-		checksumManager2 := NewMockChecksumManager()
+		checksumManager2 := NewChecksumManager()
 
 		ctx1 := &WorkspaceContext{
 			FS:              fs1,
@@ -189,15 +189,11 @@ func TestCustomFileSizeLimit(t *testing.T) {
 }
 
 func TestNewWorkspaceContext(t *testing.T) {
-	// Pure DI unit test - uses mocks instead of real filesystem
 	t.Run("creates context with default max file size", func(t *testing.T) {
-		workspaceRoot := "/workspace"
-		canonicalRoot := "/workspace"
+		// Use a temporary directory for testing
+		tmpDir := t.TempDir()
 
-		canonicaliser := NewMockRootCanonicaliser()
-		canonicaliser.SetCanonical(workspaceRoot, canonicalRoot)
-
-		ctx, err := NewWorkspaceContextWithDI(workspaceRoot, canonicaliser)
+		ctx, err := NewWorkspaceContext(tmpDir)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -206,9 +202,9 @@ func TestNewWorkspaceContext(t *testing.T) {
 			t.Fatal("expected non-nil context")
 		}
 
-		// Verify workspace root is canonical (from DI mock)
-		if ctx.WorkspaceRoot != canonicalRoot {
-			t.Errorf("expected workspace root %q, got %q", canonicalRoot, ctx.WorkspaceRoot)
+		// Verify workspace root is set
+		if ctx.WorkspaceRoot == "" {
+			t.Error("expected non-empty workspace root")
 		}
 
 		// Verify default max file size
@@ -229,49 +225,34 @@ func TestNewWorkspaceContext(t *testing.T) {
 	})
 
 	t.Run("rejects non-existent directory", func(t *testing.T) {
-		nonExistent := "/nonexistent/path"
-		expectedErr := fmt.Errorf("workspace root does not exist")
+		nonExistent := "/nonexistent/path/that/does/not/exist"
 
-		canonicaliser := NewMockRootCanonicaliser()
-		canonicaliser.SetError(nonExistent, expectedErr)
-
-		_, err := NewWorkspaceContextWithDI(nonExistent, canonicaliser)
+		_, err := NewWorkspaceContext(nonExistent)
 		if err == nil {
 			t.Error("expected error for non-existent directory")
-		}
-		if err != expectedErr {
-			t.Errorf("expected error %v, got %v", expectedErr, err)
 		}
 	})
 
 	t.Run("rejects file instead of directory", func(t *testing.T) {
-		testFile := "/workspace/testfile.txt"
-		expectedErr := fmt.Errorf("workspace root is not a directory: %s", testFile)
+		tmpFile := t.TempDir() + "/testfile.txt"
+		// Create a file
+		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
 
-		canonicaliser := NewMockRootCanonicaliser()
-		canonicaliser.SetError(testFile, expectedErr)
-
-		_, err := NewWorkspaceContextWithDI(testFile, canonicaliser)
+		_, err := NewWorkspaceContext(tmpFile)
 		if err == nil {
 			t.Error("expected error for file instead of directory")
-		}
-		if err != expectedErr {
-			t.Errorf("expected error %v, got %v", expectedErr, err)
 		}
 	})
 }
 
 func TestNewWorkspaceContextWithOptions(t *testing.T) {
-	// Pure DI unit test - uses mocks instead of real filesystem
 	t.Run("creates context with custom max file size", func(t *testing.T) {
-		workspaceRoot := "/workspace"
-		canonicalRoot := "/workspace"
+		tmpDir := t.TempDir()
 		customMaxSize := int64(10 * 1024 * 1024) // 10MB
 
-		canonicaliser := NewMockRootCanonicaliser()
-		canonicaliser.SetCanonical(workspaceRoot, canonicalRoot)
-
-		ctx, err := NewWorkspaceContextWithOptionsDI(workspaceRoot, customMaxSize, canonicaliser)
+		ctx, err := NewWorkspaceContextWithOptions(tmpDir, customMaxSize)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -285,9 +266,9 @@ func TestNewWorkspaceContextWithOptions(t *testing.T) {
 			t.Errorf("expected max file size %d, got %d", customMaxSize, ctx.MaxFileSize)
 		}
 
-		// Verify workspace root is canonical (from DI mock)
-		if ctx.WorkspaceRoot != canonicalRoot {
-			t.Errorf("expected workspace root %q, got %q", canonicalRoot, ctx.WorkspaceRoot)
+		// Verify workspace root is set
+		if ctx.WorkspaceRoot == "" {
+			t.Error("expected non-empty workspace root")
 		}
 
 		// Verify all dependencies are set
@@ -303,18 +284,11 @@ func TestNewWorkspaceContextWithOptions(t *testing.T) {
 	})
 
 	t.Run("rejects invalid workspace root", func(t *testing.T) {
-		nonExistent := "/invalid/path"
-		expectedErr := fmt.Errorf("workspace root does not exist")
+		nonExistent := "/invalid/path/that/does/not/exist"
 
-		canonicaliser := NewMockRootCanonicaliser()
-		canonicaliser.SetError(nonExistent, expectedErr)
-
-		_, err := NewWorkspaceContextWithOptionsDI(nonExistent, DefaultMaxFileSize, canonicaliser)
+		_, err := NewWorkspaceContextWithOptions(nonExistent, DefaultMaxFileSize)
 		if err == nil {
 			t.Error("expected error for invalid workspace root")
-		}
-		if err != expectedErr {
-			t.Errorf("expected error %v, got %v", expectedErr, err)
 		}
 	})
 }

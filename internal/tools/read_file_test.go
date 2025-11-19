@@ -10,7 +10,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("full read caches checksum", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
@@ -43,7 +43,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("partial read skips cache update", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
@@ -75,7 +75,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("binary detection rejection", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		detector := NewMockBinaryDetector()
 
 		content := []byte("test content")
@@ -98,7 +98,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("size limit enforcement", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		// Create file larger than limit
 		largeContent := make([]byte, maxFileSize+1)
 		fs.CreateFile("/workspace/large.txt", largeContent, 0644)
@@ -119,7 +119,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("negative offset", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
@@ -140,7 +140,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("negative limit", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
@@ -161,7 +161,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("offset beyond EOF", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		content := []byte("test")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
@@ -185,7 +185,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("directory rejection", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		fs.CreateDir("/workspace/subdir")
 
 		ctx := &WorkspaceContext{
@@ -204,7 +204,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("file not found", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		ctx := &WorkspaceContext{
 			FS:              fs,
 			BinaryDetector:  NewMockBinaryDetector(),
@@ -221,7 +221,7 @@ func TestReadFile(t *testing.T) {
 
 	t.Run("limit truncation", func(t *testing.T) {
 		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewMockChecksumManager()
+		checksumManager := NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 

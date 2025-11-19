@@ -75,13 +75,6 @@ type ChecksumManager interface {
 	Clear()
 }
 
-// RootCanonicaliser canonicalises workspace root paths.
-// This interface allows dependency injection to avoid real filesystem operations in tests.
-type RootCanonicaliser interface {
-	// CanonicaliseRoot makes a path absolute, resolves symlinks, and validates it's a directory.
-	CanonicaliseRoot(root string) (string, error)
-}
-
 // FileHandle represents a file handle for writing operations.
 // This contains low level methods for writing, syncing, and closing files.
 // Both *os.File and mock implementations satisfy this interface.

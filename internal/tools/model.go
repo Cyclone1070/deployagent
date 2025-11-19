@@ -4,6 +4,13 @@ import (
 	"errors"
 )
 
+const (
+	// DefaultMaxFileSize is the default maximum file size (5 MB)
+	DefaultMaxFileSize = 5 * 1024 * 1024
+	// BinaryDetectionSampleSize is how many bytes to sample for binary detection
+	BinaryDetectionSampleSize = 4096
+)
+
 // Operation represents a single edit operation for EditFile.
 // Before must be a non-empty literal snippet that exists in the file.
 // ExpectedReplacements must match the exact number of occurrences of Before in the file.
