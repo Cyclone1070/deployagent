@@ -112,12 +112,6 @@ func EditFile(ctx *models.WorkspaceContext, path string, operations []models.Ope
 		return nil, fmt.Errorf("failed to write edited file: %w", err)
 	}
 
-	// Get updated file info
-	newInfo, err := ctx.FS.Stat(abs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat edited file: %w", err)
-	}
-
 	// Compute new checksum and update cache
 	newChecksum := ctx.ChecksumManager.Compute(newContentBytes)
 	ctx.ChecksumManager.Update(abs, newChecksum)
@@ -126,6 +120,6 @@ func EditFile(ctx *models.WorkspaceContext, path string, operations []models.Ope
 		AbsolutePath:      abs,
 		RelativePath:      rel,
 		OperationsApplied: operationsApplied,
-		FileSize:          newInfo.Size(),
+		FileSize:          int64(len(newContentBytes)),
 	}, nil
 }
