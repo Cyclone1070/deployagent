@@ -3,29 +3,32 @@ package tools
 import (
 	"os"
 	"testing"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
+	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
 func TestMultiContextIsolation(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	// Create two separate contexts with different workspace roots
-	fs1 := NewMockFileSystem(maxFileSize)
-	checksumManager1 := NewChecksumManager()
+	fs1 := services.NewMockFileSystem(maxFileSize)
+	checksumManager1 := services.NewChecksumManager()
 
-	fs2 := NewMockFileSystem(maxFileSize)
-	checksumManager2 := NewChecksumManager()
+	fs2 := services.NewMockFileSystem(maxFileSize)
+	checksumManager2 := services.NewChecksumManager()
 
-	ctx1 := &WorkspaceContext{
+	ctx1 := &models.WorkspaceContext{
 		FS:              fs1,
-		BinaryDetector:  NewMockBinaryDetector(),
+		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager1,
 		MaxFileSize:      maxFileSize,
 		WorkspaceRoot:    "/workspace1",
 	}
 
-	ctx2 := &WorkspaceContext{
+	ctx2 := &models.WorkspaceContext{
 		FS:              fs2,
-		BinaryDetector:  NewMockBinaryDetector(),
+		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager2,
 		MaxFileSize:      maxFileSize,
 		WorkspaceRoot:    "/workspace2",
@@ -98,12 +101,12 @@ func TestCustomFileSizeLimit(t *testing.T) {
 	largeLimit := int64(10 * 1024 * 1024) // 10MB
 
 	t.Run("small limit enforced", func(t *testing.T) {
-		fs := NewMockFileSystem(smallLimit)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(smallLimit)
+		checksumManager := services.NewChecksumManager()
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      smallLimit,
 			WorkspaceRoot:    workspaceRoot,
@@ -116,18 +119,18 @@ func TestCustomFileSizeLimit(t *testing.T) {
 		}
 
 		_, err := WriteFile(ctx, "large.txt", string(largeContent), nil)
-		if err != ErrTooLarge {
+		if err != models.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge for content exceeding limit, got %v", err)
 		}
 	})
 
 	t.Run("large limit allows bigger files", func(t *testing.T) {
-		fs := NewMockFileSystem(largeLimit)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(largeLimit)
+		checksumManager := services.NewChecksumManager()
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      largeLimit,
 			WorkspaceRoot:    workspaceRoot,
@@ -146,23 +149,23 @@ func TestCustomFileSizeLimit(t *testing.T) {
 	})
 
 	t.Run("different limits in different contexts", func(t *testing.T) {
-		fs1 := NewMockFileSystem(smallLimit)
-		checksumManager1 := NewChecksumManager()
+		fs1 := services.NewMockFileSystem(smallLimit)
+		checksumManager1 := services.NewChecksumManager()
 
-		fs2 := NewMockFileSystem(largeLimit)
-		checksumManager2 := NewChecksumManager()
+		fs2 := services.NewMockFileSystem(largeLimit)
+		checksumManager2 := services.NewChecksumManager()
 
-		ctx1 := &WorkspaceContext{
+		ctx1 := &models.WorkspaceContext{
 			FS:              fs1,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager1,
 			MaxFileSize:      smallLimit,
 			WorkspaceRoot:    workspaceRoot,
 		}
 
-		ctx2 := &WorkspaceContext{
+		ctx2 := &models.WorkspaceContext{
 			FS:              fs2,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager2,
 			MaxFileSize:      largeLimit,
 			WorkspaceRoot:    workspaceRoot,
@@ -176,7 +179,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 
 		// Should fail in ctx1
 		_, err := WriteFile(ctx1, "file.txt", string(content), nil)
-		if err != ErrTooLarge {
+		if err != models.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge in ctx1, got %v", err)
 		}
 
@@ -208,8 +211,8 @@ func TestNewWorkspaceContext(t *testing.T) {
 		}
 
 		// Verify default max file size
-		if ctx.MaxFileSize != DefaultMaxFileSize {
-			t.Errorf("expected default max file size %d, got %d", DefaultMaxFileSize, ctx.MaxFileSize)
+		if ctx.MaxFileSize != models.DefaultMaxFileSize {
+			t.Errorf("expected default max file size %d, got %d", models.DefaultMaxFileSize, ctx.MaxFileSize)
 		}
 
 		// Verify all dependencies are set
@@ -286,7 +289,7 @@ func TestNewWorkspaceContextWithOptions(t *testing.T) {
 	t.Run("rejects invalid workspace root", func(t *testing.T) {
 		nonExistent := "/invalid/path/that/does/not/exist"
 
-		_, err := NewWorkspaceContextWithOptions(nonExistent, DefaultMaxFileSize)
+		_, err := NewWorkspaceContextWithOptions(nonExistent, models.DefaultMaxFileSize)
 		if err == nil {
 			t.Error("expected error for invalid workspace root")
 		}

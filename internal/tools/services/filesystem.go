@@ -1,8 +1,10 @@
-package tools
+package services
 
 import (
 	"io"
 	"os"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
 // OSFileSystem implements FileSystem using the local OS primitives.
@@ -18,11 +20,11 @@ func NewOSFileSystem(maxFileSize int64) *OSFileSystem {
 	}
 }
 
-func (r *OSFileSystem) Stat(path string) (FileInfo, error) {
+func (r *OSFileSystem) Stat(path string) (models.FileInfo, error) {
 	return os.Stat(path)
 }
 
-func (r *OSFileSystem) Lstat(path string) (FileInfo, error) {
+func (r *OSFileSystem) Lstat(path string) (models.FileInfo, error) {
 	return os.Lstat(path)
 }
 
@@ -42,7 +44,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 
 	// Check size limit
 	if fileSize > r.MaxFileSize {
-		return nil, ErrTooLarge
+		return nil, models.ErrTooLarge
 	}
 
 	// If both offset and limit are 0, read entire file
@@ -56,7 +58,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 
 	// Validate offset
 	if offset < 0 {
-		return nil, ErrInvalidOffset
+		return nil, models.ErrInvalidOffset
 	}
 
 	if offset >= fileSize {
@@ -88,7 +90,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 	return content[:n], nil
 }
 
-func (r *OSFileSystem) CreateTemp(dir, pattern string) (string, FileHandle, error) {
+func (r *OSFileSystem) CreateTemp(dir, pattern string) (string, models.FileHandle, error) {
 	tmpFile, err := os.CreateTemp(dir, pattern)
 	if err != nil {
 		return "", nil, err

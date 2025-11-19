@@ -1,4 +1,4 @@
-package tools
+package models
 
 import (
 	"os"

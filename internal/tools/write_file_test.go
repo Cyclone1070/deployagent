@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
+	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
 func TestWriteFile(t *testing.T) {
@@ -11,11 +14,11 @@ func TestWriteFile(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	t.Run("create new file succeeds and updates cache", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -51,50 +54,50 @@ func TestWriteFile(t *testing.T) {
 	})
 
 	t.Run("existing file rejection", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		fs.CreateFile("/workspace/existing.txt", []byte("existing"), 0o644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
 		}
 
 		_, err := WriteFile(ctx, "existing.txt", "new content", nil)
-		if err != ErrFileExists {
+		if err != models.ErrFileExists {
 			t.Errorf("expected ErrFileExists, got %v", err)
 		}
 	})
 
 	t.Run("symlink escape prevention", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create symlink pointing outside workspace
 		fs.CreateSymlink("/workspace/escape", "/outside/target.txt")
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
 		}
 
 		_, err := WriteFile(ctx, "escape", "content", nil)
-		if err != ErrOutsideWorkspace {
+		if err != models.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace for symlink escape, got %v", err)
 		}
 	})
 
 	t.Run("large content rejection", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -107,17 +110,17 @@ func TestWriteFile(t *testing.T) {
 		}
 
 		_, err := WriteFile(ctx, "large.txt", string(largeContent), nil)
-		if err != ErrTooLarge {
+		if err != models.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})
 
 	t.Run("binary content rejection", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -126,17 +129,17 @@ func TestWriteFile(t *testing.T) {
 		// Content with NUL byte
 		binaryContent := []byte{0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F}
 		_, err := WriteFile(ctx, "binary.bin", string(binaryContent), nil)
-		if err != ErrBinaryFile {
+		if err != models.ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
 	t.Run("custom permissions", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -163,11 +166,11 @@ func TestWriteFile(t *testing.T) {
 	})
 
 	t.Run("nested directory creation", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -189,15 +192,15 @@ func TestWriteFile(t *testing.T) {
 	})
 
 	t.Run("symlink inside workspace allowed", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create symlink pointing inside workspace
 		fs.CreateSymlink("/workspace/link", "/workspace/target.txt")
 		fs.CreateFile("/workspace/target.txt", []byte("target"), 0o644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -209,22 +212,22 @@ func TestWriteFile(t *testing.T) {
 		// This should succeed because we're creating a new file at the symlink path
 		if err != nil {
 			// If it fails, it's because the symlink exists, which is expected
-			if err != ErrFileExists {
+			if err != models.ErrFileExists {
 				t.Errorf("unexpected error: %v", err)
 			}
 		}
 	})
 
 	t.Run("symlink directory escape prevention", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create symlink directory pointing outside workspace
 		fs.CreateSymlink("/workspace/link", "/outside")
 		fs.CreateDir("/outside")
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -232,22 +235,22 @@ func TestWriteFile(t *testing.T) {
 
 		// Try to write a file through the symlink directory - should fail
 		_, err := WriteFile(ctx, "link/escape.txt", "content", nil)
-		if err != ErrOutsideWorkspace {
+		if err != models.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace for symlink directory escape, got %v", err)
 		}
 	})
 
 	t.Run("write through symlink chain inside workspace", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create symlink chain: link1 -> link2 -> target_dir
 		fs.CreateSymlink("/workspace/link1", "/workspace/link2")
 		fs.CreateSymlink("/workspace/link2", "/workspace/target_dir")
 		fs.CreateDir("/workspace/target_dir")
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -275,16 +278,16 @@ func TestWriteFile(t *testing.T) {
 	})
 
 	t.Run("write through symlink chain escaping workspace", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create chain: link1 -> link2 -> /tmp/outside
 		fs.CreateSymlink("/workspace/link1", "/workspace/link2")
 		fs.CreateSymlink("/workspace/link2", "/tmp/outside")
 		fs.CreateDir("/tmp/outside")
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -292,7 +295,7 @@ func TestWriteFile(t *testing.T) {
 
 		// Try to write through escaping chain - should fail
 		_, err := WriteFile(ctx, "link1/file.txt", "content", nil)
-		if err != ErrOutsideWorkspace {
+		if err != models.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
 		}
 	})
@@ -303,14 +306,14 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	t.Run("crash during CreateTemp - no side effects", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Inject failure during CreateTemp
 		fs.SetOperationError("CreateTemp", fmt.Errorf("disk full"))
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -335,14 +338,14 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	})
 
 	t.Run("crash during Write - temp cleaned up", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Inject failure during Write
 		fs.SetOperationError("Write", fmt.Errorf("write failed"))
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -367,14 +370,14 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	})
 
 	t.Run("crash during Sync - temp cleaned up", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Inject failure during Sync
 		fs.SetOperationError("Sync", fmt.Errorf("sync failed"))
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -399,14 +402,14 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	})
 
 	t.Run("crash during Close - temp cleaned up", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Inject failure during Close
 		fs.SetOperationError("Close", fmt.Errorf("close failed"))
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -431,24 +434,24 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	})
 
 	t.Run("crash during Rename - temp cleaned up, original intact", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create an existing file
 		fs.CreateFile("/workspace/test.txt", []byte("original"), 0o644)
 
 		// Inject failure during Rename
 		fs.SetOperationError("Rename", fmt.Errorf("rename failed"))
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
 		}
 
 		// Resolve path to get absolute path
-		abs, _, err := Resolve(ctx, "test.txt")
+		abs, _, err := services.Resolve(ctx, "test.txt")
 		if err != nil {
 			t.Fatalf("failed to resolve path: %v", err)
 		}
@@ -477,14 +480,14 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	})
 
 	t.Run("crash during Chmod - file exists but wrong permissions handled", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Inject failure during Chmod
 		fs.SetOperationError("Chmod", fmt.Errorf("chmod failed"))
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -505,11 +508,11 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 	})
 
 	t.Run("successful atomic write", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,

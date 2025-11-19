@@ -1,4 +1,4 @@
-package tools
+package services
 
 import (
 	"fmt"
@@ -6,9 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// mockFileInfo implements FileInfo
+// mockFileInfo implements models.FileInfo
 type mockFileInfo struct {
 	name  string
 	size  int64
@@ -29,7 +31,7 @@ type mockFileHandle struct {
 	closed  bool
 }
 
-// Write implements FileHandle.Write
+// Write implements models.FileHandle.Write
 func (h *mockFileHandle) Write(data []byte) (int, error) {
 	h.fs.mu.Lock()
 	defer h.fs.mu.Unlock()
@@ -46,7 +48,7 @@ func (h *mockFileHandle) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-// Sync implements FileHandle.Sync
+// Sync implements models.FileHandle.Sync
 func (h *mockFileHandle) Sync() error {
 	h.fs.mu.Lock()
 	defer h.fs.mu.Unlock()
@@ -63,7 +65,7 @@ func (h *mockFileHandle) Sync() error {
 	return nil
 }
 
-// Close implements FileHandle.Close
+// Close implements models.FileHandle.Close
 func (h *mockFileHandle) Close() error {
 	h.fs.mu.Lock()
 	defer h.fs.mu.Unlock()
@@ -80,7 +82,7 @@ func (h *mockFileHandle) Close() error {
 	return nil
 }
 
-// MockFileSystem implements FileSystem with in-memory storage
+// MockFileSystem implements models.FileSystem with in-memory storage
 type MockFileSystem struct {
 	mu          sync.RWMutex
 	files       map[string][]byte          // path -> content
@@ -162,7 +164,7 @@ func (f *MockFileSystem) CreateSymlink(symlinkPath, targetPath string) {
 	}
 }
 
-func (f *MockFileSystem) Stat(path string) (FileInfo, error) {
+func (f *MockFileSystem) Stat(path string) (models.FileInfo, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -177,7 +179,7 @@ func (f *MockFileSystem) Stat(path string) (FileInfo, error) {
 	return nil, os.ErrNotExist
 }
 
-func (f *MockFileSystem) Lstat(path string) (FileInfo, error) {
+func (f *MockFileSystem) Lstat(path string) (models.FileInfo, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -216,7 +218,7 @@ func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte
 	fileSize := int64(len(content))
 
 	if fileSize > f.maxFileSize {
-		return nil, ErrTooLarge
+		return nil, models.ErrTooLarge
 	}
 
 	if offset == 0 && limit == 0 {
@@ -224,7 +226,7 @@ func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte
 	}
 
 	if offset < 0 {
-		return nil, ErrInvalidOffset
+		return nil, models.ErrInvalidOffset
 	}
 
 	if offset >= fileSize {
@@ -323,7 +325,7 @@ func (f *MockFileSystem) UserHomeDir() (string, error) {
 	return "/home/user", nil
 }
 
-func (f *MockFileSystem) CreateTemp(dir, pattern string) (string, FileHandle, error) {
+func (f *MockFileSystem) CreateTemp(dir, pattern string) (string, models.FileHandle, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -439,7 +441,7 @@ func (f *MockFileSystem) GetTempFiles() []string {
 	return paths
 }
 
-// MockBinaryDetector implements BinaryDetector with configurable behaviour
+// MockBinaryDetector implements models.BinaryDetector with configurable behaviour
 type MockBinaryDetector struct {
 	binaryPaths   map[string]bool
 	binaryContent map[string]bool // content hash -> is binary
@@ -467,7 +469,7 @@ func (f *MockBinaryDetector) IsBinary(path string) (bool, error) {
 }
 
 func (f *MockBinaryDetector) IsBinaryContent(content []byte) bool {
-	sampleSize := min(len(content), BinaryDetectionSampleSize)
+	sampleSize := min(len(content), models.BinaryDetectionSampleSize)
 
 	for i := range sampleSize {
 		if content[i] == 0 {

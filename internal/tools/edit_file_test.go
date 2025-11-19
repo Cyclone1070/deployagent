@@ -8,6 +8,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
+	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
 func TestEditFile(t *testing.T) {
@@ -15,15 +18,15 @@ func TestEditFile(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	t.Run("conflict detection when cache checksum differs", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		originalContent := []byte("original content")
 		fs.CreateFile("/workspace/test.txt", originalContent, 0o644)
 
 		// Read file to populate cache
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -39,7 +42,7 @@ func TestEditFile(t *testing.T) {
 		fs.CreateFile("/workspace/test.txt", modifiedContent, 0o644)
 
 		// Try to edit - should fail with conflict
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "original content",
 				After:                "new content",
@@ -48,20 +51,20 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = EditFile(ctx, "test.txt", ops)
-		if err != ErrEditConflict {
+		if err != models.ErrEditConflict {
 			t.Errorf("expected ErrEditConflict, got %v", err)
 		}
 	})
 
 	t.Run("multiple operations", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		content := []byte("line1\nline2\nline3")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -73,7 +76,7 @@ func TestEditFile(t *testing.T) {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "line1",
 				After:                "modified1",
@@ -108,14 +111,14 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("snippet not found", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -126,7 +129,7 @@ func TestEditFile(t *testing.T) {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "nonexistent",
 				After:                "replacement",
@@ -135,20 +138,20 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = EditFile(ctx, "test.txt", ops)
-		if err != ErrSnippetNotFound {
+		if err != models.ErrSnippetNotFound {
 			t.Errorf("expected ErrSnippetNotFound, got %v", err)
 		}
 	})
 
 	t.Run("snippet ambiguous", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		content := []byte("test test test")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -159,7 +162,7 @@ func TestEditFile(t *testing.T) {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "test",
 				After:                "replaced",
@@ -168,21 +171,21 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = EditFile(ctx, "test.txt", ops)
-		if err != ErrSnippetAmbiguous {
+		if err != models.ErrSnippetAmbiguous {
 			t.Errorf("expected ErrSnippetAmbiguous, got %v", err)
 		}
 	})
 
 	t.Run("binary file rejection", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		detector := NewMockBinaryDetector()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		detector := services.NewMockBinaryDetector()
 
 		content := []byte("test content")
 		fs.CreateFile("/workspace/binary.bin", content, 0644)
 		detector.SetBinaryPath("/workspace/binary.bin", true)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
 			BinaryDetector:   detector,
 			ChecksumManager: checksumManager,
@@ -190,7 +193,7 @@ func TestEditFile(t *testing.T) {
 			WorkspaceRoot:    workspaceRoot,
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "test",
 				After:                "replaced",
@@ -199,21 +202,21 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err := EditFile(ctx, "binary.bin", ops)
-		if err != ErrBinaryFile {
+		if err != models.ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
 	t.Run("permission preservation", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		originalPerm := os.FileMode(0755)
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, originalPerm)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -224,7 +227,7 @@ func TestEditFile(t *testing.T) {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "test",
 				After:                "modified",
@@ -249,14 +252,14 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("empty Before string", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -267,7 +270,7 @@ func TestEditFile(t *testing.T) {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "",
 				After:                "replacement",
@@ -282,17 +285,17 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("file not found", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
-		ctx := &WorkspaceContext{
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
+		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  NewMockBinaryDetector(),
+			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "test",
 				After:                "replacement",
@@ -301,14 +304,14 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err := EditFile(ctx, "nonexistent.txt", ops)
-		if err != ErrFileMissing {
+		if err != models.ErrFileMissing {
 			t.Errorf("expected ErrFileMissing, got %v", err)
 		}
 	})
 
 	t.Run("large content after edit", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create file with unique marker just under limit
 		prefix := []byte("UNIQUE_MARKER_12345")
 		middle := make([]byte, int(maxFileSize)-100-len(prefix))
@@ -318,9 +321,9 @@ func TestEditFile(t *testing.T) {
 		content := append(prefix, middle...)
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -337,7 +340,7 @@ func TestEditFile(t *testing.T) {
 			largeReplacement[i] = 'B'
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               string(prefix),
 				After:                string(largeReplacement),
@@ -346,20 +349,20 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = EditFile(ctx, "test.txt", ops)
-		if err != ErrTooLarge {
+		if err != models.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})
 
 	t.Run("race condition detection - file modified between read and write", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		originalContent := []byte("original content")
 		fs.CreateFile("/workspace/test.txt", originalContent, 0o644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -376,7 +379,7 @@ func TestEditFile(t *testing.T) {
 		fs.CreateFile("/workspace/test.txt", modifiedContent, 0o644)
 
 		// Try to edit - should fail with conflict due to revalidation
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "original content",
 				After:                "new content",
@@ -385,23 +388,23 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = EditFile(ctx, "test.txt", ops)
-		if err != ErrEditConflict {
+		if err != models.ErrEditConflict {
 			t.Errorf("expected ErrEditConflict due to race condition, got %v", err)
 		}
 	})
 
 	t.Run("edit through symlink chain inside workspace", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create symlink chain: link1 -> link2 -> target.txt
 		fs.CreateSymlink("/workspace/link1", "/workspace/link2")
 		fs.CreateSymlink("/workspace/link2", "/workspace/target.txt")
 		content := []byte("original content")
 		fs.CreateFile("/workspace/target.txt", content, 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
@@ -413,7 +416,7 @@ func TestEditFile(t *testing.T) {
 			t.Fatalf("failed to read file through symlink chain: %v", err)
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "original content",
 				After:                "modified content",
@@ -442,23 +445,23 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("edit through symlink chain escaping workspace", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
-		checksumManager := NewChecksumManager()
+		fs := services.NewMockFileSystem(maxFileSize)
+		checksumManager := services.NewChecksumManager()
 		// Create chain: link1 -> link2 -> /tmp/outside/file.txt
 		fs.CreateSymlink("/workspace/link1", "/workspace/link2")
 		fs.CreateSymlink("/workspace/link2", "/tmp/outside/file.txt")
 		fs.CreateDir("/tmp/outside")
 		fs.CreateFile("/tmp/outside/file.txt", []byte("content"), 0644)
 
-		ctx := &WorkspaceContext{
+		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   NewMockBinaryDetector(),
+			BinaryDetector:   services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			MaxFileSize:      maxFileSize,
 			WorkspaceRoot:    workspaceRoot,
 		}
 
-		ops := []Operation{
+		ops := []models.Operation{
 			{
 				Before:               "content",
 				After:                "modified",
@@ -468,7 +471,7 @@ func TestEditFile(t *testing.T) {
 
 		// Try to edit through escaping chain - should fail
 		_, err := EditFile(ctx, "link1", ops)
-		if err != ErrOutsideWorkspace {
+		if err != models.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
 		}
 	})

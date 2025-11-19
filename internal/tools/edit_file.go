@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
+	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
 // EditFile applies edit operations using injected dependencies.
@@ -16,9 +19,9 @@ import (
 // Another process could modify the file in this window (typically <1ms).
 // For guaranteed conflict-free edits in multi-process environments, external
 // file locking would be required.
-func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*EditFileResponse, error) {
+func EditFile(ctx *models.WorkspaceContext, path string, operations []models.Operation) (*models.EditFileResponse, error) {
 	// Resolve path
-	abs, rel, err := Resolve(ctx, path)
+	abs, rel, err := services.Resolve(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +30,7 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 	info, err := ctx.FS.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrFileMissing
+			return nil, models.ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat file: %w", err)
 	}
@@ -38,7 +41,7 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 		return nil, fmt.Errorf("failed to check if file is binary: %w", err)
 	}
 	if isBinary {
-		return nil, ErrBinaryFile
+		return nil, models.ErrBinaryFile
 	}
 
 	// Read full file
@@ -55,7 +58,7 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 	// Check for conflicts with cached version
 	priorChecksum, ok := ctx.ChecksumManager.Get(abs)
 	if ok && priorChecksum != currentChecksum {
-		return nil, ErrEditConflict
+		return nil, models.ErrEditConflict
 	}
 
 	// Preserve original permissions
@@ -75,11 +78,11 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 		count := strings.Count(content, op.Before)
 
 		if count == 0 {
-			return nil, ErrSnippetNotFound
+			return nil, models.ErrSnippetNotFound
 		}
 
 		if count != op.ExpectedReplacements {
-			return nil, ErrSnippetAmbiguous
+			return nil, models.ErrSnippetAmbiguous
 		}
 
 		content = strings.Replace(content, op.Before, op.After, op.ExpectedReplacements)
@@ -90,7 +93,7 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 
 	// Check size limit
 	if int64(len(newContentBytes)) > ctx.MaxFileSize {
-		return nil, ErrTooLarge
+		return nil, models.ErrTooLarge
 	}
 
 	// Only revalidate if we had a cached checksum to check against
@@ -104,7 +107,7 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 		}
 		revalidationChecksum := ctx.ChecksumManager.Compute(revalidationBytes)
 		if revalidationChecksum != currentChecksum {
-			return nil, ErrEditConflict
+			return nil, models.ErrEditConflict
 		}
 	}
 
@@ -123,7 +126,7 @@ func EditFile(ctx *WorkspaceContext, path string, operations []Operation) (*Edit
 	newChecksum := ctx.ChecksumManager.Compute(newContentBytes)
 	ctx.ChecksumManager.Update(abs, newChecksum)
 
-	return &EditFileResponse{
+	return &models.EditFileResponse{
 		AbsolutePath:      abs,
 		RelativePath:      rel,
 		OperationsApplied: operationsApplied,

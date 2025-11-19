@@ -1,8 +1,10 @@
-package tools
+package services
 
 import (
 	"io"
 	"os"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
 // SystemBinaryDetector implements BinaryDetector using local heuristics
@@ -15,7 +17,7 @@ func (r *SystemBinaryDetector) IsBinary(path string) (bool, error) {
 	}
 	defer file.Close()
 
-	buf := make([]byte, BinaryDetectionSampleSize)
+	buf := make([]byte, models.BinaryDetectionSampleSize)
 	n, err := file.Read(buf)
 	if err != nil && err != io.EOF {
 		return false, err
@@ -46,7 +48,7 @@ func (r *SystemBinaryDetector) IsBinaryContent(content []byte) bool {
 	}
 
 	// Check for null bytes in first 4KB for files without BOM
-	sampleSize := min(len(content), BinaryDetectionSampleSize)
+	sampleSize := min(len(content), models.BinaryDetectionSampleSize)
 	for i := range sampleSize {
 		if content[i] == 0 {
 			return true

@@ -1,12 +1,14 @@
-package tools
+package services
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sync"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// checksumManagerImpl is the concrete implementation of ChecksumManager.
+// checksumManagerImpl is the concrete implementation of models.ChecksumManager.
 // It is thread-safe and can be used concurrently.
 type checksumManagerImpl struct {
 	mu    sync.RWMutex
@@ -14,7 +16,7 @@ type checksumManagerImpl struct {
 }
 
 // NewChecksumManager creates a new thread-safe checksum manager instance.
-func NewChecksumManager() ChecksumManager {
+func NewChecksumManager() models.ChecksumManager {
 	return &checksumManagerImpl{
 		store: make(map[string]string),
 	}

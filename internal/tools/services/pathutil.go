@@ -1,10 +1,12 @@
-package tools
+package services
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
 // CanonicaliseRoot canonicalises a workspace root path by making it absolute
@@ -35,7 +37,7 @@ func CanonicaliseRoot(root string) (string, error) {
 // It handles symlink resolution component-by-component, path traversal prevention,
 // and validates that the resolved path stays within the workspace boundary.
 // This prevents symlink escape attacks even when the final file doesn't exist.
-func Resolve(ctx *WorkspaceContext, path string) (abs string, rel string, err error) {
+func Resolve(ctx *models.WorkspaceContext, path string) (abs string, rel string, err error) {
 	if ctx.WorkspaceRoot == "" {
 		return "", "", fmt.Errorf("workspace root not set")
 	}
@@ -82,7 +84,7 @@ func Resolve(ctx *WorkspaceContext, path string) (abs string, rel string, err er
 		} else if strings.HasPrefix(abs, workspaceRootWithSep) {
 			rel = abs[len(workspaceRootWithSep):]
 		} else {
-			return "", "", ErrOutsideWorkspace
+			return "", "", models.ErrOutsideWorkspace
 		}
 	}
 
@@ -90,7 +92,7 @@ func Resolve(ctx *WorkspaceContext, path string) (abs string, rel string, err er
 	relSegments := strings.SplitSeq(filepath.ToSlash(rel), "/")
 	for segment := range relSegments {
 		if segment == ".." {
-			return "", "", ErrOutsideWorkspace
+			return "", "", models.ErrOutsideWorkspace
 		}
 	}
 
@@ -105,7 +107,7 @@ func Resolve(ctx *WorkspaceContext, path string) (abs string, rel string, err er
 
 // EnsureParentDirs creates parent directories for a given path if they don't exist.
 // It validates that all parent directories remain within the workspace boundary.
-func EnsureParentDirs(ctx *WorkspaceContext, path string) error {
+func EnsureParentDirs(ctx *models.WorkspaceContext, path string) error {
 	abs, _, err := Resolve(ctx, path)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path for parent directories: %w", err)
@@ -130,7 +132,7 @@ func EnsureParentDirs(ctx *WorkspaceContext, path string) error {
 }
 
 // IsDirectory checks if a resolved path points to a directory.
-func IsDirectory(ctx *WorkspaceContext, path string) (bool, error) {
+func IsDirectory(ctx *models.WorkspaceContext, path string) (bool, error) {
 	abs, _, err := Resolve(ctx, path)
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve path: %w", err)
@@ -148,7 +150,7 @@ func IsDirectory(ctx *WorkspaceContext, path string) (bool, error) {
 // This prevents symlink escape attacks even when the final file doesn't exist.
 // It handles missing intermediate directories gracefully to allow directory creation.
 // It follows symlink chains and validates that every hop stays within the workspace boundary.
-func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
+func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
 	workspaceRootAbs := filepath.Clean(ctx.WorkspaceRoot)
 	const maxHops = 64
 
@@ -183,12 +185,12 @@ func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
 			// Go up one level
 			if currentAbs == "" || currentAbs == "/" {
 				// Can't go up from root
-				return "", ErrOutsideWorkspace
+				return "", models.ErrOutsideWorkspace
 			}
 			currentAbs = filepath.Dir(currentAbs)
 			// Validate we're still within workspace after going up
 			if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-				return "", ErrOutsideWorkspace
+				return "", models.ErrOutsideWorkspace
 			}
 			continue
 		}
@@ -215,14 +217,14 @@ func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
 				currentAbs = appendRemainingComponents(currentAbs, parts, i)
 				// Validate the complete path is within workspace
 				if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-					return "", ErrOutsideWorkspace
+					return "", models.ErrOutsideWorkspace
 				}
 				return currentAbs, nil
 			}
 			// For final component, validate parent is within workspace (if we have one)
 			if currentAbs != "" && currentAbs != workspaceRootAbs {
 				if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-					return "", ErrOutsideWorkspace
+					return "", models.ErrOutsideWorkspace
 				}
 			}
 			currentAbs = resolved
@@ -233,13 +235,13 @@ func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
 
 		// Validate current path is within workspace after each step
 		if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-			return "", ErrOutsideWorkspace
+			return "", models.ErrOutsideWorkspace
 		}
 	}
 
 	// Final validation that resolved path is within workspace
 	if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-		return "", ErrOutsideWorkspace
+		return "", models.ErrOutsideWorkspace
 	}
 
 	return currentAbs, nil
@@ -248,7 +250,7 @@ func resolveSymlink(ctx *WorkspaceContext, path string) (string, error) {
 // followSymlinkChain follows a symlink chain until it reaches a non-symlink.
 // Returns an error if the chain exceeds maxHops or contains a loop.
 // Returns the resolved path and whether the path exists (or error if lstat fails).
-func followSymlinkChain(ctx *WorkspaceContext, path string, workspaceRoot string, maxHops int) (resolved string, exists bool, err error) {
+func followSymlinkChain(ctx *models.WorkspaceContext, path string, workspaceRoot string, maxHops int) (resolved string, exists bool, err error) {
 	visited := make(map[string]struct{})
 	current := path
 
@@ -272,7 +274,7 @@ func followSymlinkChain(ctx *WorkspaceContext, path string, workspaceRoot string
 		if info.Mode()&os.ModeSymlink == 0 {
 			// Validate path is within workspace
 			if !isWithinWorkspace(current, workspaceRoot) {
-				return "", false, ErrOutsideWorkspace
+				return "", false, models.ErrOutsideWorkspace
 			}
 			return current, true, nil
 		}
@@ -294,7 +296,7 @@ func followSymlinkChain(ctx *WorkspaceContext, path string, workspaceRoot string
 
 		// Validate symlink target is within workspace (reject immediately if outside)
 		if !isWithinWorkspace(targetAbs, workspaceRoot) {
-			return "", false, ErrOutsideWorkspace
+			return "", false, models.ErrOutsideWorkspace
 		}
 
 		// Continue following the chain

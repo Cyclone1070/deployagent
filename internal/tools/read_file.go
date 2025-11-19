@@ -2,18 +2,21 @@ package tools
 
 import (
 	"fmt"
+
+	"github.com/Cyclone1070/deployforme/internal/tools/models"
+	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
 // ReadFile reads a file using injected dependencies
-func ReadFile(ctx *WorkspaceContext, path string, offset *int64, limit *int64) (*ReadFileResponse, error) {
+func ReadFile(ctx *models.WorkspaceContext, path string, offset *int64, limit *int64) (*models.ReadFileResponse, error) {
 	// Resolve path
-	abs, rel, err := Resolve(ctx, path)
+	abs, rel, err := services.Resolve(ctx, path)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check if it's a directory
-	isDir, err := IsDirectory(ctx, path)
+	isDir, err := services.IsDirectory(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +32,7 @@ func ReadFile(ctx *WorkspaceContext, path string, offset *int64, limit *int64) (
 
 	// Enforce size limit
 	if info.Size() > ctx.MaxFileSize {
-		return nil, ErrTooLarge
+		return nil, models.ErrTooLarge
 	}
 
 	// Check for binary
@@ -38,7 +41,7 @@ func ReadFile(ctx *WorkspaceContext, path string, offset *int64, limit *int64) (
 		return nil, fmt.Errorf("failed to check if file is binary: %w", err)
 	}
 	if isBinary {
-		return nil, ErrBinaryFile
+		return nil, models.ErrBinaryFile
 	}
 
 	// Derive offset and limit
@@ -46,13 +49,13 @@ func ReadFile(ctx *WorkspaceContext, path string, offset *int64, limit *int64) (
 	if offset != nil {
 		actualOffset = *offset
 		if actualOffset < 0 {
-			return nil, ErrInvalidOffset
+			return nil, models.ErrInvalidOffset
 		}
 	}
 	if limit != nil {
 		actualLimit = *limit
 		if actualLimit < 0 {
-			return nil, ErrInvalidLimit
+			return nil, models.ErrInvalidLimit
 		}
 	}
 
@@ -73,7 +76,7 @@ func ReadFile(ctx *WorkspaceContext, path string, offset *int64, limit *int64) (
 		ctx.ChecksumManager.Update(abs, checksum)
 	}
 
-	return &ReadFileResponse{
+	return &models.ReadFileResponse{
 		AbsolutePath: abs,
 		RelativePath: rel,
 		Size:         info.Size(),
