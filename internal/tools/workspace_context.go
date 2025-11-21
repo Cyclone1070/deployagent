@@ -25,6 +25,6 @@ func NewWorkspaceContextWithOptions(workspaceRoot string, maxFileSize int64) (*m
 		ChecksumManager: services.NewChecksumManager(),
 		MaxFileSize:     maxFileSize,
 		WorkspaceRoot:   canonicalRoot,
+		// CommandPolicy and DockerConfig are zero-valued by default
 	}, nil
 }
-

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"os"
 )
 
@@ -87,4 +88,28 @@ type FileHandle interface {
 	Write([]byte) (int, error)
 	Sync() error
 	Close() error
+}
+
+// CommandRunner executes a command and returns stdout/stderr combined.
+type CommandRunner interface {
+	Run(ctx context.Context, command []string) ([]byte, error)
+}
+
+// Process represents a running process that can be waited on and killed.
+type Process interface {
+	Wait() error
+	Kill() error
+	Signal(sig os.Signal) error
+}
+
+// ProcessOptions contains options for starting a process.
+type ProcessOptions struct {
+	Dir    string
+	Env    []string
+	UsePTY bool
+}
+
+// ProcessFactory starts a new process.
+type ProcessFactory interface {
+	Start(ctx context.Context, command []string, opts ProcessOptions) (Process, interface{}, interface{}, error)
 }

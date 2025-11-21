@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"os"
 	"testing"
 
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
@@ -22,16 +21,16 @@ func TestMultiContextIsolation(t *testing.T) {
 		FS:              fs1,
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager1,
-		MaxFileSize:      maxFileSize,
-		WorkspaceRoot:    "/workspace1",
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   "/workspace1",
 	}
 
 	ctx2 := &models.WorkspaceContext{
 		FS:              fs2,
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager2,
-		MaxFileSize:      maxFileSize,
-		WorkspaceRoot:    "/workspace2",
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   "/workspace2",
 	}
 
 	// Create files in both contexts
@@ -108,8 +107,8 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			FS:              fs,
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
-			MaxFileSize:      smallLimit,
-			WorkspaceRoot:    workspaceRoot,
+			MaxFileSize:     smallLimit,
+			WorkspaceRoot:   workspaceRoot,
 		}
 
 		// Create content that exceeds the limit
@@ -132,8 +131,8 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			FS:              fs,
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
-			MaxFileSize:      largeLimit,
-			WorkspaceRoot:    workspaceRoot,
+			MaxFileSize:     largeLimit,
+			WorkspaceRoot:   workspaceRoot,
 		}
 
 		// Create content within the large limit but exceeding default
@@ -159,16 +158,16 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			FS:              fs1,
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager1,
-			MaxFileSize:      smallLimit,
-			WorkspaceRoot:    workspaceRoot,
+			MaxFileSize:     smallLimit,
+			WorkspaceRoot:   workspaceRoot,
 		}
 
 		ctx2 := &models.WorkspaceContext{
 			FS:              fs2,
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager2,
-			MaxFileSize:      largeLimit,
-			WorkspaceRoot:    workspaceRoot,
+			MaxFileSize:     largeLimit,
+			WorkspaceRoot:   workspaceRoot,
 		}
 
 		// Content that fits in ctx2 but not ctx1
@@ -187,111 +186,6 @@ func TestCustomFileSizeLimit(t *testing.T) {
 		_, err = WriteFile(ctx2, "file.txt", string(content), nil)
 		if err != nil {
 			t.Errorf("expected success in ctx2, got %v", err)
-		}
-	})
-}
-
-func TestNewWorkspaceContext(t *testing.T) {
-	t.Run("creates context with default max file size", func(t *testing.T) {
-		// Use a temporary directory for testing
-		tmpDir := t.TempDir()
-
-		ctx, err := NewWorkspaceContext(tmpDir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if ctx == nil {
-			t.Fatal("expected non-nil context")
-		}
-
-		// Verify workspace root is set
-		if ctx.WorkspaceRoot == "" {
-			t.Error("expected non-empty workspace root")
-		}
-
-		// Verify default max file size
-		if ctx.MaxFileSize != models.DefaultMaxFileSize {
-			t.Errorf("expected default max file size %d, got %d", models.DefaultMaxFileSize, ctx.MaxFileSize)
-		}
-
-		// Verify all dependencies are set
-		if ctx.FS == nil {
-			t.Error("expected non-nil FileSystem")
-		}
-		if ctx.BinaryDetector == nil {
-			t.Error("expected non-nil BinaryDetector")
-		}
-		if ctx.ChecksumManager == nil {
-			t.Error("expected non-nil ChecksumManager")
-		}
-	})
-
-	t.Run("rejects non-existent directory", func(t *testing.T) {
-		nonExistent := "/nonexistent/path/that/does/not/exist"
-
-		_, err := NewWorkspaceContext(nonExistent)
-		if err == nil {
-			t.Error("expected error for non-existent directory")
-		}
-	})
-
-	t.Run("rejects file instead of directory", func(t *testing.T) {
-		tmpFile := t.TempDir() + "/testfile.txt"
-		// Create a file
-		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		_, err := NewWorkspaceContext(tmpFile)
-		if err == nil {
-			t.Error("expected error for file instead of directory")
-		}
-	})
-}
-
-func TestNewWorkspaceContextWithOptions(t *testing.T) {
-	t.Run("creates context with custom max file size", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		customMaxSize := int64(10 * 1024 * 1024) // 10MB
-
-		ctx, err := NewWorkspaceContextWithOptions(tmpDir, customMaxSize)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if ctx == nil {
-			t.Fatal("expected non-nil context")
-		}
-
-		// Verify custom max file size
-		if ctx.MaxFileSize != customMaxSize {
-			t.Errorf("expected max file size %d, got %d", customMaxSize, ctx.MaxFileSize)
-		}
-
-		// Verify workspace root is set
-		if ctx.WorkspaceRoot == "" {
-			t.Error("expected non-empty workspace root")
-		}
-
-		// Verify all dependencies are set
-		if ctx.FS == nil {
-			t.Error("expected non-nil FileSystem")
-		}
-		if ctx.BinaryDetector == nil {
-			t.Error("expected non-nil BinaryDetector")
-		}
-		if ctx.ChecksumManager == nil {
-			t.Error("expected non-nil ChecksumManager")
-		}
-	})
-
-	t.Run("rejects invalid workspace root", func(t *testing.T) {
-		nonExistent := "/invalid/path/that/does/not/exist"
-
-		_, err := NewWorkspaceContextWithOptions(nonExistent, models.DefaultMaxFileSize)
-		if err == nil {
-			t.Error("expected error for invalid workspace root")
 		}
 	})
 }

@@ -7,6 +7,10 @@ type WorkspaceContext struct {
 	BinaryDetector   BinaryDetector
 	ChecksumManager  ChecksumManager
 	MaxFileSize      int64
-	WorkspaceRoot    string // canonical, symlink-resolved workspace root
+	WorkspaceRoot    string           // canonical, symlink-resolved workspace root
 	GitignoreService GitignoreService // optional, can be nil
+
+	// Shell Configuration
+	CommandPolicy CommandPolicy
+	DockerConfig  DockerConfig
 }

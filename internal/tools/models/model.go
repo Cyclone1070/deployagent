@@ -67,16 +67,56 @@ type ListDirectoryResponse struct {
 
 // Sentinel errors for consistent error handling
 var (
-	ErrOutsideWorkspace = errors.New("path is outside workspace root")
-	ErrFileExists       = errors.New("file already exists, use EditFile instead")
-	ErrBinaryFile       = errors.New("binary files are not supported")
-	ErrEditConflict     = errors.New("file was modified since last read, please re-read first")
-	ErrSnippetNotFound  = errors.New("snippet not found in file")
-	ErrSnippetAmbiguous = errors.New("snippet occurrence count does not match expected")
-	ErrTooLarge         = errors.New("file or content exceeds size limit")
+	ErrOutsideWorkspace        = errors.New("path is outside workspace root")
+	ErrFileExists              = errors.New("file already exists, use EditFile instead")
+	ErrBinaryFile              = errors.New("binary files are not supported")
+	ErrEditConflict            = errors.New("file was modified since last read, please re-read first")
+	ErrSnippetNotFound         = errors.New("snippet not found in file")
+	ErrSnippetAmbiguous        = errors.New("snippet occurrence count does not match expected")
+	ErrTooLarge                = errors.New("file or content exceeds size limit")
 	ErrFileMissing             = errors.New("file does not exist")
-	ErrInvalidOffset            = errors.New("offset must be >= 0")
-	ErrInvalidLimit             = errors.New("limit must be >= 0")
-	ErrInvalidPaginationOffset  = errors.New("offset must be >= 0")
-	ErrInvalidPaginationLimit   = errors.New("limit must be between 1 and MaxListDirectoryLimit")
+	ErrInvalidOffset           = errors.New("offset must be >= 0")
+	ErrInvalidLimit            = errors.New("limit must be >= 0")
+	ErrInvalidPaginationOffset = errors.New("offset must be >= 0")
+	ErrInvalidPaginationLimit  = errors.New("limit must be between 1 and MaxListDirectoryLimit")
+
+	// Shell Sentinel Errors
+	ErrShellTimeout                    = errors.New("shell command timed out")
+	ErrShellRejected                   = errors.New("shell command rejected by policy")
+	ErrShellWorkingDirOutsideWorkspace = errors.New("working directory is outside workspace")
+	ErrShellApprovalRequired           = errors.New("shell command requires approval")
 )
+
+// ShellRequest represents a request to execute a command on the local machine.
+type ShellRequest struct {
+	Command        []string
+	WorkingDir     string
+	TimeoutSeconds int
+	Env            map[string]string
+	UsePTY         bool
+}
+
+// ShellResponse represents the result of a local command execution.
+type ShellResponse struct {
+	Stdout         string
+	Stderr         string
+	ExitCode       int
+	Truncated      bool
+	DurationMs     int64
+	WorkingDir     string
+	Notes          []string
+	BackgroundPIDs []int
+}
+
+// CommandPolicy defines allowed and denied commands.
+type CommandPolicy struct {
+	Allow        []string
+	Ask          []string
+	SessionAllow map[string]bool // command roots approved for this session
+}
+
+// DockerConfig contains configuration for Docker readiness checks.
+type DockerConfig struct {
+	CheckCommand []string // e.g., ["docker", "info"]
+	StartCommand []string // e.g., ["docker", "desktop", "start"]
+}
