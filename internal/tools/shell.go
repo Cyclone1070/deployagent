@@ -108,15 +108,9 @@ func (t *ShellTool) Run(ctx context.Context, wCtx *models.WorkspaceContext, req 
 		// Or `Process` interface should have `ExitCode() int`?
 		// That would be better.
 
-		// For now, let's just return the error if it's not ExitError.
-		// If it is ExitError, we set ExitCode.
-		// But we can't import `os/exec` to check `ExitError` if we want to be pure?
-		// We can import it, it's stdlib.
-		// But `MockProcess` won't return `exec.ExitError`.
-
-		// Let's just return error for now.
-		resp.ExitCode = 1 // Default failure
-		return resp, nil  // We return nil error because the command ran, it just failed.
+		// Use the helper to extract the specific exit code (e.g. 127, 2, etc.)
+		resp.ExitCode = services.GetExitCode(execErr)
+		return resp, nil // We return nil error because the command ran, it just failed.
 	}
 
 	resp.ExitCode = 0

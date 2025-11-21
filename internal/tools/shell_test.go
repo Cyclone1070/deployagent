@@ -538,3 +538,37 @@ func TestShellTool_Run_ContextCancellation(t *testing.T) {
 		t.Error("Expected non-zero exit code for cancelled context")
 	}
 }
+
+func TestShellTool_Run_SpecificExitCode(t *testing.T) {
+	mockFS := services.NewMockFileSystem(models.DefaultMaxFileSize)
+	mockFS.CreateDir("/workspace")
+
+	wCtx := &models.WorkspaceContext{
+		WorkspaceRoot: "/workspace",
+		FS:            mockFS,
+		CommandPolicy: models.CommandPolicy{Allow: []string{"exit42"}},
+	}
+
+	factory := &MockProcessFactory{
+		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+			proc := &MockProcess{
+				WaitFunc: func() error {
+					// Return a specific exit code using the mock error type
+					return &services.MockExitError{Code: 42}
+				},
+			}
+			return proc, strings.NewReader(""), strings.NewReader(""), nil
+		},
+	}
+
+	tool := &ShellTool{ProcessFactory: factory}
+	req := models.ShellRequest{Command: []string{"exit42"}}
+
+	resp, err := tool.Run(context.Background(), wCtx, req)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if resp.ExitCode != 42 {
+		t.Errorf("ExitCode = %d, want 42", resp.ExitCode)
+	}
+}
