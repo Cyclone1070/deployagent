@@ -65,3 +65,23 @@ func CollectProcessOutput(stdout, stderr io.Reader, maxBytes int) (string, strin
 	truncated := stdoutCollector.Truncated || stderrCollector.Truncated
 	return stdoutCollector.String(), stderrCollector.String(), truncated, nil
 }
+
+// GetExitCode extracts the exit code from an error.
+// Returns 0 if err is nil, or the exit code if it's an ExitError.
+// Returns -1 for unknown error types.
+func GetExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+
+	// Check for exec.ExitError (real processes)
+	type exitCoder interface {
+		ExitCode() int
+	}
+	if ec, ok := err.(exitCoder); ok {
+		return ec.ExitCode()
+	}
+
+	// Unknown error type
+	return -1
+}

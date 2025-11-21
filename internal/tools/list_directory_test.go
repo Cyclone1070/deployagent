@@ -30,7 +30,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -81,7 +81,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "src", 0, 1000)
+		resp, err := ListDirectory(ctx, "src", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -117,7 +117,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "empty", 0, 1000)
+		resp, err := ListDirectory(ctx, "empty", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -140,7 +140,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		_, err := ListDirectory(ctx, "file.txt", 0, 1000)
+		_, err := ListDirectory(ctx, "file.txt", -1, 0, 1000)
 		if err == nil {
 			t.Fatal("expected error when listing a file, got nil")
 		}
@@ -164,7 +164,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		_, err := ListDirectory(ctx, "../outside", 0, 1000)
+		_, err := ListDirectory(ctx, "../outside", -1, 0, 1000)
 		if err != models.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 		}
@@ -182,7 +182,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		_, err := ListDirectory(ctx, "nonexistent", 0, 1000)
+		_, err := ListDirectory(ctx, "nonexistent", -1, 0, 1000)
 		if err == nil {
 			t.Fatal("expected error for nonexistent directory, got nil")
 		}
@@ -207,7 +207,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		_, err := ListDirectory(ctx, "testdir", 0, 1000)
+		_, err := ListDirectory(ctx, "testdir", -1, 0, 1000)
 		if err == nil {
 			t.Fatal("expected error from filesystem, got nil")
 		}
@@ -230,7 +230,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "src", 0, 1000)
+		resp, err := ListDirectory(ctx, "src", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -254,7 +254,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "/workspace/src", 0, 1000)
+		resp, err := ListDirectory(ctx, "/workspace/src", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -277,7 +277,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, ".", 0, 1000)
+		resp, err := ListDirectory(ctx, ".", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -301,7 +301,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -330,10 +330,6 @@ func TestListDirectory(t *testing.T) {
 			t.Error("file.txt should not be marked as directory")
 		}
 
-		if fileEntry.Size != 11 {
-			t.Errorf("expected file size 11, got %d", fileEntry.Size)
-		}
-
 		if fileEntry.RelativePath != "file.txt" {
 			t.Errorf("expected RelativePath 'file.txt', got %q", fileEntry.RelativePath)
 		}
@@ -341,10 +337,6 @@ func TestListDirectory(t *testing.T) {
 		// Verify directory entry
 		if !dirEntry.IsDir {
 			t.Error("subdir should be marked as directory")
-		}
-
-		if dirEntry.Size != 0 {
-			t.Errorf("expected directory size 0, got %d", dirEntry.Size)
 		}
 
 		if dirEntry.RelativePath != "subdir" {
@@ -368,7 +360,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -410,7 +402,7 @@ func TestListDirectory(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "src/app", 0, 1000)
+		resp, err := ListDirectory(ctx, "src/app", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -450,7 +442,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		// First page: offset=0, limit=50
-		resp1, err := ListDirectory(ctx, "", 0, 50)
+		resp1, err := ListDirectory(ctx, "", -1, 0, 50)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -468,7 +460,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		// Second page: offset=50, limit=50
-		resp2, err := ListDirectory(ctx, "", 50, 50)
+		resp2, err := ListDirectory(ctx, "", -1, 50, 50)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -483,7 +475,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		// Third page: offset=100, limit=50 (should have 50 entries, no truncation)
-		resp3, err := ListDirectory(ctx, "", 100, 50)
+		resp3, err := ListDirectory(ctx, "", -1, 100, 50)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -526,21 +518,21 @@ func TestListDirectory_InvalidPagination(t *testing.T) {
 	}
 
 	t.Run("negative offset", func(t *testing.T) {
-		_, err := ListDirectory(ctx, "", -1, 1000)
+		_, err := ListDirectory(ctx, "", -1, -1, 1000)
 		if err != models.ErrInvalidPaginationOffset {
 			t.Errorf("expected ErrInvalidPaginationOffset, got %v", err)
 		}
 	})
 
 	t.Run("zero limit", func(t *testing.T) {
-		_, err := ListDirectory(ctx, "", 0, 0)
+		_, err := ListDirectory(ctx, "", -1, 0, 0)
 		if err != models.ErrInvalidPaginationLimit {
 			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
 		}
 	})
 
 	t.Run("limit exceeds maximum", func(t *testing.T) {
-		_, err := ListDirectory(ctx, "", 0, 11000)
+		_, err := ListDirectory(ctx, "", -1, 0, 11000)
 		if err != models.ErrInvalidPaginationLimit {
 			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
 		}
@@ -566,7 +558,7 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -610,7 +602,7 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -672,7 +664,7 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 			GitignoreService: gitignoreService,
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -726,7 +718,7 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 			GitignoreService: nil, // No gitignore service
 		}
 
-		resp, err := ListDirectory(ctx, "", 0, 1000)
+		resp, err := ListDirectory(ctx, "", -1, 0, 1000)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -780,7 +772,7 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 		pageCount := 0
 
 		for {
-			resp, err := ListDirectory(ctx, "", offset, limit)
+			resp, err := ListDirectory(ctx, "", -1, offset, limit)
 			if err != nil {
 				t.Fatalf("unexpected error at offset %d: %v", offset, err)
 			}
@@ -836,7 +828,7 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 			WorkspaceRoot:   workspaceRoot,
 		}
 
-		resp, err := ListDirectory(ctx, "", 100, 10)
+		resp, err := ListDirectory(ctx, "", -1, 100, 10)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -851,4 +843,209 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 			t.Error("expected Truncated=false when offset is beyond end")
 		}
 	})
+}
+
+func TestListDirectory_Recursive(t *testing.T) {
+	workspaceRoot := "/workspace"
+	maxFileSize := int64(1024 * 1024)
+
+	fs := services.NewMockFileSystem(maxFileSize)
+	fs.CreateDir("/workspace")
+	fs.CreateDir("/workspace/dir1")
+	fs.CreateDir("/workspace/dir1/subdir1")
+	fs.CreateFile("/workspace/dir1/subdir1/file1.txt", []byte("content"), 0o644)
+	fs.CreateFile("/workspace/dir1/file2.txt", []byte("content"), 0o644)
+	fs.CreateFile("/workspace/file3.txt", []byte("content"), 0o644)
+
+	ctx := &models.WorkspaceContext{
+		FS:              fs,
+		BinaryDetector:  services.NewMockBinaryDetector(),
+		ChecksumManager: services.NewChecksumManager(),
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   workspaceRoot,
+	}
+
+	resp, err := ListDirectory(ctx, "", -1, 0, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should include all files and directories recursively
+	if len(resp.Entries) != 5 {
+		t.Fatalf("expected 5 entries (2 dirs + 3 files), got %d", len(resp.Entries))
+	}
+
+	// Verify all paths are present
+	expectedPaths := map[string]bool{
+		"dir1":                   true,
+		"dir1/subdir1":           true,
+		"dir1/subdir1/file1.txt": true,
+		"dir1/file2.txt":         true,
+		"file3.txt":              true,
+	}
+
+	for _, entry := range resp.Entries {
+		if !expectedPaths[entry.RelativePath] {
+			t.Errorf("unexpected entry: %s", entry.RelativePath)
+		}
+		delete(expectedPaths, entry.RelativePath)
+	}
+
+	if len(expectedPaths) > 0 {
+		t.Errorf("missing entries: %v", expectedPaths)
+	}
+}
+
+func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
+	workspaceRoot := "/workspace"
+	maxFileSize := int64(1024 * 1024)
+
+	fs := services.NewMockFileSystem(maxFileSize)
+	fs.CreateDir("/workspace")
+	fs.CreateDir("/workspace/level1")
+	fs.CreateDir("/workspace/level1/level2")
+	fs.CreateDir("/workspace/level1/level2/level3")
+	fs.CreateFile("/workspace/level1/file1.txt", []byte("content"), 0o644)
+	fs.CreateFile("/workspace/level1/level2/file2.txt", []byte("content"), 0o644)
+	fs.CreateFile("/workspace/level1/level2/level3/file3.txt", []byte("content"), 0o644)
+
+	ctx := &models.WorkspaceContext{
+		FS:              fs,
+		BinaryDetector:  services.NewMockBinaryDetector(),
+		ChecksumManager: services.NewChecksumManager(),
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   workspaceRoot,
+	}
+
+	// Depth limit of 2 should go 2 levels deep from root
+	resp, err := ListDirectory(ctx, "", 2, 0, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should include: level1, level1/level2, level1/file1.txt, level1/level2/file2.txt, level1/level2/level3
+	// Should NOT include: level1/level2/level3/file3.txt (that's at depth 3)
+	if len(resp.Entries) != 5 {
+		t.Fatalf("expected 5 entries (depth 2), got %d", len(resp.Entries))
+	}
+
+	// Verify level3 file is not included
+	for _, entry := range resp.Entries {
+		if entry.RelativePath == "level1/level2/level3/file3.txt" {
+			t.Errorf("depth limit violated: found %s", entry.RelativePath)
+		}
+	}
+}
+
+func TestListDirectory_SymlinkLoop(t *testing.T) {
+	workspaceRoot := "/workspace"
+	maxFileSize := int64(1024 * 1024)
+
+	fs := services.NewMockFileSystem(maxFileSize)
+	fs.CreateDir("/workspace")
+	fs.CreateDir("/workspace/dir1")
+	fs.CreateDir("/workspace/dir2")
+
+	// Create symlink loop: dir1/link -> dir2, dir2/link -> dir1
+	fs.CreateSymlink("/workspace/dir1/link", "/workspace/dir2")
+	fs.CreateSymlink("/workspace/dir2/link", "/workspace/dir1")
+
+	ctx := &models.WorkspaceContext{
+		FS:              fs,
+		BinaryDetector:  services.NewMockBinaryDetector(),
+		ChecksumManager: services.NewChecksumManager(),
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   workspaceRoot,
+	}
+
+	// Should detect loop and not hang
+	resp, err := ListDirectory(ctx, "", -1, 0, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should include dir1, dir2, and the symlinks, but not recurse infinitely
+	if len(resp.Entries) > 10 {
+		t.Errorf("possible infinite recursion: got %d entries", len(resp.Entries))
+	}
+}
+
+func TestListDirectory_RecursivePagination(t *testing.T) {
+	workspaceRoot := "/workspace"
+	maxFileSize := int64(1024 * 1024)
+
+	fs := services.NewMockFileSystem(maxFileSize)
+	fs.CreateDir("/workspace")
+
+	// Create 20 files across multiple directories
+	for i := 0; i < 10; i++ {
+		fs.CreateFile(fmt.Sprintf("/workspace/file%d.txt", i), []byte("content"), 0o644)
+	}
+	fs.CreateDir("/workspace/subdir")
+	for i := 0; i < 10; i++ {
+		fs.CreateFile(fmt.Sprintf("/workspace/subdir/file%d.txt", i), []byte("content"), 0o644)
+	}
+
+	ctx := &models.WorkspaceContext{
+		FS:              fs,
+		BinaryDetector:  services.NewMockBinaryDetector(),
+		ChecksumManager: services.NewChecksumManager(),
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   workspaceRoot,
+	}
+
+	// Request offset=5, limit=5
+	resp, err := ListDirectory(ctx, "", -1, 5, 5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(resp.Entries) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(resp.Entries))
+	}
+
+	if resp.TotalCount != 21 {
+		t.Errorf("expected TotalCount 21 (1 dir + 20 files), got %d", resp.TotalCount)
+	}
+
+	if !resp.Truncated {
+		t.Error("expected Truncated=true")
+	}
+}
+
+func TestListDirectory_NonRecursive(t *testing.T) {
+	workspaceRoot := "/workspace"
+	maxFileSize := int64(1024 * 1024)
+
+	fs := services.NewMockFileSystem(maxFileSize)
+	fs.CreateDir("/workspace")
+	fs.CreateDir("/workspace/dir1")
+	fs.CreateDir("/workspace/dir1/subdir1")
+	fs.CreateFile("/workspace/dir1/subdir1/file1.txt", []byte("content"), 0o644)
+	fs.CreateFile("/workspace/file2.txt", []byte("content"), 0o644)
+
+	ctx := &models.WorkspaceContext{
+		FS:              fs,
+		BinaryDetector:  services.NewMockBinaryDetector(),
+		ChecksumManager: services.NewChecksumManager(),
+		MaxFileSize:     maxFileSize,
+		WorkspaceRoot:   workspaceRoot,
+	}
+
+	// Depth 0 means only list immediate children (non-recursive)
+	resp, err := ListDirectory(ctx, "", 0, 0, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should only include dir1 and file2.txt (not subdirectories)
+	if len(resp.Entries) != 2 {
+		t.Fatalf("expected 2 entries (non-recursive), got %d", len(resp.Entries))
+	}
+
+	for _, entry := range resp.Entries {
+		if entry.RelativePath == "dir1/subdir1" || entry.RelativePath == "dir1/subdir1/file1.txt" {
+			t.Errorf("non-recursive mode should not include nested entries: %s", entry.RelativePath)
+		}
+	}
 }

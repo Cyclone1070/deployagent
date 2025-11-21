@@ -54,7 +54,6 @@ type EditFileResponse struct {
 type DirectoryEntry struct {
 	RelativePath string
 	IsDir        bool
-	Size         int64
 }
 
 // ListDirectoryResponse contains the result of a ListDirectory operation
@@ -65,6 +64,31 @@ type ListDirectoryResponse struct {
 	Limit         int
 	TotalCount    int  // Total entries before pagination
 	Truncated     bool // True if more entries exist beyond offset+limit
+}
+
+// FindFileResponse contains the result of a FindFile operation
+type FindFileResponse struct {
+	Matches    []string // List of relative paths matching the pattern
+	Offset     int
+	Limit      int
+	TotalCount int  // Total matches found (may be capped for performance)
+	Truncated  bool // True if more matches exist
+}
+
+// SearchContentMatch represents a single match in a file
+type SearchContentMatch struct {
+	File        string // Relative path to the file
+	LineNumber  int    // 1-based line number
+	LineContent string // Content of the matching line
+}
+
+// SearchContentResponse contains the result of a SearchContent operation
+type SearchContentResponse struct {
+	Matches    []SearchContentMatch
+	Offset     int
+	Limit      int
+	TotalCount int  // Total matches found
+	Truncated  bool // True if more matches exist
 }
 
 // Sentinel errors for consistent error handling

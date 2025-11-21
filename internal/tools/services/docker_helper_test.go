@@ -8,18 +8,6 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// MockCommandRunner for testing
-type MockCommandRunner struct {
-	RunFunc func(ctx context.Context, cmd []string) ([]byte, error)
-}
-
-func (m *MockCommandRunner) Run(ctx context.Context, cmd []string) ([]byte, error) {
-	if m.RunFunc != nil {
-		return m.RunFunc(ctx, cmd)
-	}
-	return nil, nil
-}
-
 func TestEnsureDockerReady(t *testing.T) {
 	config := models.DockerConfig{
 		CheckCommand: []string{"docker", "info"},

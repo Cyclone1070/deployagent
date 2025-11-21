@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -507,4 +508,29 @@ func (f *MockBinaryDetector) IsBinaryContent(content []byte) bool {
 	}
 
 	return false
+}
+
+// MockCommandRunner implements models.CommandRunner for testing
+type MockCommandRunner struct {
+	RunFunc func(ctx context.Context, cmd []string) ([]byte, error)
+}
+
+func (m *MockCommandRunner) Run(ctx context.Context, cmd []string) ([]byte, error) {
+	if m.RunFunc != nil {
+		return m.RunFunc(ctx, cmd)
+	}
+	return nil, nil
+}
+
+// MockExitError simulates an exit error with a specific exit code
+type MockExitError struct {
+	Code int
+}
+
+func (e *MockExitError) Error() string {
+	return fmt.Sprintf("exit status %d", e.Code)
+}
+
+func (e *MockExitError) ExitCode() int {
+	return e.Code
 }
