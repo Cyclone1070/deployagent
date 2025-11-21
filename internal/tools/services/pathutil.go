@@ -193,7 +193,7 @@ func followSymlinkChain(ctx *models.WorkspaceContext, path string, workspaceRoot
 		// Check if current path is a symlink
 		info, err := ctx.FS.Lstat(current)
 		if err != nil {
-			if err == os.ErrNotExist {
+			if os.IsNotExist(err) {
 				return current, false, nil
 			}
 			return "", false, fmt.Errorf("failed to lstat path: %w", err)

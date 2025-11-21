@@ -176,7 +176,7 @@ func (f *MockFileSystem) Stat(path string) (models.FileInfo, error) {
 		return info, nil
 	}
 
-	return nil, os.ErrNotExist
+	return nil, &os.PathError{Op: "stat", Path: path, Err: os.ErrNotExist}
 }
 
 func (f *MockFileSystem) Lstat(path string) (models.FileInfo, error) {
@@ -199,7 +199,7 @@ func (f *MockFileSystem) Lstat(path string) (models.FileInfo, error) {
 		return info, nil
 	}
 
-	return nil, os.ErrNotExist
+	return nil, &os.PathError{Op: "lstat", Path: path, Err: os.ErrNotExist}
 }
 
 func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, error) {
@@ -212,7 +212,7 @@ func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte
 
 	content, ok := f.files[path]
 	if !ok {
-		return nil, os.ErrNotExist
+		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
 	}
 
 	fileSize := int64(len(content))
@@ -370,7 +370,7 @@ func (f *MockFileSystem) Rename(oldpath, newpath string) error {
 		return nil
 	}
 
-	return os.ErrNotExist
+	return &os.PathError{Op: "rename", Path: oldpath, Err: os.ErrNotExist}
 }
 
 func (f *MockFileSystem) Chmod(name string, mode os.FileMode) error {
@@ -386,7 +386,7 @@ func (f *MockFileSystem) Chmod(name string, mode os.FileMode) error {
 		return nil
 	}
 
-	return os.ErrNotExist
+	return &os.PathError{Op: "chmod", Path: name, Err: os.ErrNotExist}
 }
 
 func (f *MockFileSystem) Remove(name string) error {
@@ -411,7 +411,7 @@ func (f *MockFileSystem) Remove(name string) error {
 		return nil
 	}
 
-	return os.ErrNotExist
+	return &os.PathError{Op: "remove", Path: name, Err: os.ErrNotExist}
 }
 
 func (f *MockFileSystem) ListDir(path string) ([]models.FileInfo, error) {
@@ -431,7 +431,7 @@ func (f *MockFileSystem) ListDir(path string) ([]models.FileInfo, error) {
 	// Verify path exists and is a directory
 	info, ok := f.fileInfos[path]
 	if !ok {
-		return nil, os.ErrNotExist
+		return nil, &os.PathError{Op: "readdir", Path: path, Err: os.ErrNotExist}
 	}
 
 	if !info.IsDir() {
@@ -508,4 +508,3 @@ func (f *MockBinaryDetector) IsBinaryContent(content []byte) bool {
 
 	return false
 }
-
