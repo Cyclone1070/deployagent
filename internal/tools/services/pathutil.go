@@ -51,90 +51,71 @@ func Resolve(ctx *models.WorkspaceContext, path string) (abs string, rel string,
 		path = filepath.Join(home, path[2:])
 	}
 
-	// Clean the path
-	cleaned := filepath.Clean(path)
-
-	// If absolute, check it's within workspace
-	if filepath.IsAbs(cleaned) {
-		abs = cleaned
+	// Get absolute path of the input to ensure we can calculate relation to root
+	var absInput string
+	if filepath.IsAbs(path) {
+		absInput = filepath.Clean(path)
 	} else {
-		// Relative path - join with workspace root
-		abs = filepath.Join(ctx.WorkspaceRoot, cleaned)
+		absInput = filepath.Join(ctx.WorkspaceRoot, path)
 	}
 
-	// Clean the absolute path
-	abs = filepath.Clean(abs)
+	workspaceRootAbs := filepath.Clean(ctx.WorkspaceRoot)
 
-	// Resolve symlinks component-by-component to prevent escape attacks
-	resolved, err := resolveSymlink(ctx, abs)
+	// Calculate initial relative path to see if it's lexically within root
+	// We use filepath.Rel which handles cleaning
+	relPath, err := filepath.Rel(workspaceRootAbs, absInput)
+	if err != nil {
+		return "", "", models.ErrOutsideWorkspace
+	}
+
+	// Check for path traversal attempts in the relative path
+	if strings.HasPrefix(relPath, "..") {
+		return "", "", models.ErrOutsideWorkspace
+	}
+
+	// If the path is just the root, we're done
+	if relPath == "." {
+		return workspaceRootAbs, "", nil
+	}
+
+	// Resolve symlinks component-by-component using the relative path
+	// This ensures we only validate components *inside* the workspace
+	resolvedAbs, err := resolveRelativePath(ctx, relPath)
 	if err != nil {
 		return "", "", err
 	}
-	abs = resolved
 
-	// WorkspaceRoot is already absolute and symlink-resolved
-	workspaceRootAbs := filepath.Clean(ctx.WorkspaceRoot)
-
-	// Calculate relative path
-	rel, err = filepath.Rel(workspaceRootAbs, abs)
+	// Calculate final relative path from the resolved absolute path
+	finalRel, err := filepath.Rel(workspaceRootAbs, resolvedAbs)
 	if err != nil {
-		workspaceRootWithSep := workspaceRootAbs + string(filepath.Separator)
-		if abs == workspaceRootAbs {
-			rel = "."
-		} else if strings.HasPrefix(abs, workspaceRootWithSep) {
-			rel = abs[len(workspaceRootWithSep):]
-		} else {
-			return "", "", models.ErrOutsideWorkspace
-		}
-	}
-
-	// Segment-by-segment traversal validation
-	relSegments := strings.SplitSeq(filepath.ToSlash(rel), "/")
-	for segment := range relSegments {
-		if segment == ".." {
-			return "", "", models.ErrOutsideWorkspace
-		}
+		return "", "", models.ErrOutsideWorkspace
 	}
 
 	// Normalise to use forward slashes for relative path
-	rel = filepath.ToSlash(rel)
-	if rel == "." {
-		rel = ""
+	finalRel = filepath.ToSlash(finalRel)
+	if finalRel == "." {
+		finalRel = ""
 	}
 
-	return abs, rel, nil
+	return resolvedAbs, finalRel, nil
 }
 
-// resolveSymlink resolves symlinks by walking each path component.
-// This prevents symlink escape attacks even when the final file doesn't exist.
-// It handles missing intermediate directories gracefully to allow directory creation.
-// It follows symlink chains and validates that every hop stays within the workspace boundary.
-func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
+// resolveRelativePath resolves a relative path (relative to workspace root) component-by-component.
+// It assumes the input relPath is lexically within the workspace (does not start with ..).
+func resolveRelativePath(ctx *models.WorkspaceContext, relPath string) (string, error) {
 	workspaceRootAbs := filepath.Clean(ctx.WorkspaceRoot)
 	const maxHops = 64
 
 	// Split path into components for component-wise traversal
-	parts := strings.Split(filepath.ToSlash(path), "/")
+	parts := strings.Split(filepath.ToSlash(relPath), "/")
 	if len(parts) == 0 {
-		return path, nil
+		return workspaceRootAbs, nil
 	}
 
-	// Handle absolute paths (first component is empty on Unix)
-	var currentAbs string
-	startIdx := 0
-	if filepath.IsAbs(path) {
-		if len(parts) > 0 && parts[0] == "" {
-			currentAbs = "/"
-			startIdx = 1
-		} else {
-			currentAbs = path
-		}
-	} else {
-		currentAbs = path
-	}
+	currentAbs := workspaceRootAbs
 
 	// Walk each component, resolving symlinks as we go
-	for i := startIdx; i < len(parts); i++ {
+	for i := 0; i < len(parts); i++ {
 		if parts[i] == "" || parts[i] == "." {
 			continue
 		}
@@ -142,7 +123,7 @@ func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
 		// Handle ".." by going up one directory level
 		if parts[i] == ".." {
 			// Go up one level
-			if currentAbs == "" || currentAbs == "/" {
+			if currentAbs == workspaceRootAbs {
 				// Can't go up from root
 				return "", models.ErrOutsideWorkspace
 			}
@@ -155,7 +136,7 @@ func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
 		}
 
 		// Build the next path component
-		next := buildNextPathComponent(currentAbs, parts[i])
+		next := filepath.Join(currentAbs, parts[i])
 
 		// Follow symlink chain for this component
 		resolved, exists, err := followSymlinkChain(ctx, next, workspaceRootAbs, maxHops)
@@ -165,11 +146,6 @@ func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
 
 		if !exists {
 			// Component doesn't exist - handle missing directories
-			// Special case: if current equals workspace root, it's okay
-			if resolved == workspaceRootAbs {
-				currentAbs = resolved
-				continue
-			}
 			// If we're not at the final component, this means a directory is missing
 			// Append remaining components and return (caller can create directories)
 			if i < len(parts)-1 {
@@ -180,11 +156,10 @@ func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
 				}
 				return currentAbs, nil
 			}
-			// For final component, validate parent is within workspace (if we have one)
-			if currentAbs != "" && currentAbs != workspaceRootAbs {
-				if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-					return "", models.ErrOutsideWorkspace
-				}
+			// For final component, validate parent is within workspace
+			// (currentAbs is the parent here)
+			if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
+				return "", models.ErrOutsideWorkspace
 			}
 			currentAbs = resolved
 			continue
@@ -196,11 +171,6 @@ func resolveSymlink(ctx *models.WorkspaceContext, path string) (string, error) {
 		if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
 			return "", models.ErrOutsideWorkspace
 		}
-	}
-
-	// Final validation that resolved path is within workspace
-	if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-		return "", models.ErrOutsideWorkspace
 	}
 
 	return currentAbs, nil

@@ -180,7 +180,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("direct path with .. component (bypassing Clean)", func(t *testing.T) {
-		// This test directly calls resolveSymlink with a path containing ..
+		// This test directly calls resolveRelativePath with a path containing ..
 		// to verify the .. handling logic works correctly
 		fs := NewMockFileSystem(maxFileSize)
 		ctx := &models.WorkspaceContext{
@@ -191,9 +191,10 @@ func TestResolve(t *testing.T) {
 		fs.CreateDir("/workspace/nested")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0644)
 
-		// Directly test resolveSymlink with .. (bypassing Resolve's Clean)
+		// Directly test resolveRelativePath with .. (bypassing Resolve's Clean)
 		// This simulates what happens when a symlink target contains ..
-		resolved, err := resolveSymlink(ctx, "/workspace/nested/../file.txt")
+		// We pass a relative path "nested/../file.txt"
+		resolved, err := resolveRelativePath(ctx, "nested/../file.txt")
 		if err != nil {
 			t.Fatalf("unexpected error for .. within workspace: %v", err)
 		}
