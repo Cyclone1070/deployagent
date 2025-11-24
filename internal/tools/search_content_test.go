@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -84,13 +85,7 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 	_, _ = SearchContent(ctx, "pattern", "", false, 0, 100)
 
 	// Verify -i flag is present
-	foundFlag := false
-	for _, arg := range capturedCmd {
-		if arg == "-i" {
-			foundFlag = true
-			break
-		}
-	}
+	foundFlag := slices.Contains(capturedCmd, "-i")
 
 	if !foundFlag {
 		t.Errorf("expected -i flag for case-insensitive search, got cmd: %v", capturedCmd)
@@ -236,13 +231,7 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 	_, _ = SearchContent(ctx, query, "", true, 0, 100)
 
 	// Verify query is passed as literal argument
-	found := false
-	for _, arg := range capturedCmd {
-		if arg == query {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(capturedCmd, query)
 
 	if !found {
 		t.Errorf("expected query to be passed as literal argument, got cmd: %v", capturedCmd)
@@ -295,7 +284,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 
 	// Simulate 10 matches
 	var rgOutput string
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		rgOutput += fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"line %d"},"line_number":%d}}
 `, i, i+1)
 	}

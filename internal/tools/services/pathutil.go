@@ -115,7 +115,7 @@ func resolveRelativePath(ctx *models.WorkspaceContext, relPath string) (string, 
 	currentAbs := workspaceRootAbs
 
 	// Walk each component, resolving symlinks as we go
-	for i := 0; i < len(parts); i++ {
+	for i := range parts {
 		if parts[i] == "" || parts[i] == "." {
 			continue
 		}

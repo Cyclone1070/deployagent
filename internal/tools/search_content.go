@@ -140,10 +140,7 @@ func SearchContent(ctx *models.WorkspaceContext, query string, searchPath string
 
 	// 9. Apply pagination
 	totalCount := len(matches)
-	start := offset
-	if start > totalCount {
-		start = totalCount
-	}
+	start := min(offset, totalCount)
 	end := start + limit
 	truncated := end < totalCount
 	if end > totalCount {

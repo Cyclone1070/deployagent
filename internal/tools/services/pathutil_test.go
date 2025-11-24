@@ -562,7 +562,7 @@ func TestResolveSymlinkChains(t *testing.T) {
 		fs.CreateFile("/workspace/target.txt", []byte("target"), 0644)
 
 		// Create the chain: link0 -> link1 -> link2 -> ... -> link64 -> target.txt
-		for i := 0; i < chainLength; i++ {
+		for i := range chainLength {
 			var target string
 			if i == chainLength-1 {
 				// Last link points to target
@@ -603,7 +603,7 @@ func TestResolveSymlinkChains(t *testing.T) {
 		fs.CreateFile("/workspace/target.txt", []byte("target"), 0644)
 
 		// Create the chain: link0 -> link1 -> link2 -> ... -> link63 -> target.txt
-		for i := 0; i < chainLength; i++ {
+		for i := range chainLength {
 			var target string
 			if i == chainLength-1 {
 				// Last link points to target

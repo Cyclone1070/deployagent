@@ -271,7 +271,7 @@ func handleShell(ctx *models.WorkspaceContext, args []string) {
 	// Parse environment variables
 	env := make(map[string]string)
 	if *envStr != "" {
-		for _, pair := range strings.Split(*envStr, ",") {
+		for pair := range strings.SplitSeq(*envStr, ",") {
 			parts := strings.SplitN(pair, "=", 2)
 			if len(parts) == 2 {
 				env[parts[0]] = parts[1]
