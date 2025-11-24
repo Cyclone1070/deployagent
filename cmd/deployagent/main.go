@@ -82,6 +82,10 @@ func main() {
 		handleSearch(ctx, os.Args[2:])
 	case "find":
 		handleFindFile(ctx, os.Args[2:])
+	case "todoread":
+		handleTodoRead(ctx, os.Args[2:])
+	case "todowrite":
+		handleTodoWrite(ctx, os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", command)
 		printUsage()
@@ -101,6 +105,8 @@ Commands:
   shell <cmd> [args...]                     Execute a shell command
   search <query> <path> [caseSensitive] [offset] [limit]    Search file contents
   find <pattern> <path> [maxDepth] [offset] [limit]        Find files by pattern
+  todoread                                   Read all todos
+  todowrite <todos_json>                    Write todos from JSON array
 
 Examples:
   deployagent read README.md
@@ -111,6 +117,8 @@ Examples:
   deployagent shell echo hello
   deployagent search "func main" . false 0 10
   deployagent find "*.go" . 2 0 50
+  deployagent todoread
+  deployagent todowrite '[{"description":"Task 1","status":"pending"}]'
 `)
 }
 
@@ -419,6 +427,43 @@ func handleFindFile(ctx *models.WorkspaceContext, args []string) {
 	}
 
 	resp, err := tools.FindFile(ctx, pattern, searchPath, maxDepth, false, offset, limit)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	output, _ := json.MarshalIndent(resp, "", "  ")
+	fmt.Println(string(output))
+}
+
+// handleTodoRead handles the 'todoread' command to read all todos.
+func handleTodoRead(ctx *models.WorkspaceContext, args []string) {
+	resp, err := tools.ReadTodos(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	output, _ := json.MarshalIndent(resp, "", "  ")
+	fmt.Println(string(output))
+}
+
+// handleTodoWrite handles the 'todowrite' command to write todos from JSON.
+func handleTodoWrite(ctx *models.WorkspaceContext, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "todowrite: todos JSON required\n")
+		os.Exit(1)
+	}
+
+	todosJSON := args[0]
+
+	var todos []models.Todo
+	if err := json.Unmarshal([]byte(todosJSON), &todos); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid todos JSON: %v\n", err)
+		os.Exit(1)
+	}
+
+	resp, err := tools.WriteTodos(ctx, todos)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
