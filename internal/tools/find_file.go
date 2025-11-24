@@ -49,8 +49,8 @@ func FindFile(ctx *models.WorkspaceContext, pattern string, searchPath string, m
 	}
 
 	// 5. Build fd command
-	// fd -p -g "pattern" searchPath --max-depth N [--no-ignore]
-	cmd := []string{"fd", "-p", "-g", pattern}
+	// fd -g "pattern" searchPath --max-depth N [--no-ignore]
+	cmd := []string{"fd", "-g", pattern}
 	if maxDepth > 0 {
 		cmd = append(cmd, "--max-depth", fmt.Sprintf("%d", maxDepth))
 	}
