@@ -9,8 +9,8 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// CanonicaliseRoot canonicalises a workspace root path by making it absolute
-// and resolving symlinks. Returns an error if the path doesn't exist or isn't a directory.
+// CanonicaliseRoot canonicalises a workspace root path by making it absolute and resolving symlinks.
+// Returns an error if the path doesn't exist or isn't a directory.
 func CanonicaliseRoot(root string) (string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -34,9 +34,9 @@ func CanonicaliseRoot(root string) (string, error) {
 }
 
 // Resolve normalises a path and ensures it's within the workspace root.
-// It handles symlink resolution component-by-component, path traversal prevention,
+// It handles symlink resolution component-by-component, prevents path traversal attacks,
 // and validates that the resolved path stays within the workspace boundary.
-// This prevents symlink escape attacks even when the final file doesn't exist.
+// Returns the absolute path, relative path, and any error.
 func Resolve(ctx *models.WorkspaceContext, path string) (abs string, rel string, err error) {
 	if ctx.WorkspaceRoot == "" {
 		return "", "", fmt.Errorf("workspace root not set")
@@ -100,8 +100,9 @@ func Resolve(ctx *models.WorkspaceContext, path string) (abs string, rel string,
 	return resolvedAbs, finalRel, nil
 }
 
-// resolveRelativePath resolves a relative path (relative to workspace root) component-by-component.
+// resolveRelativePath resolves a relative path component-by-component with symlink resolution.
 // It assumes the input relPath is lexically within the workspace (does not start with ..).
+// Returns the resolved absolute path or an error if the path escapes the workspace.
 func resolveRelativePath(ctx *models.WorkspaceContext, relPath string) (string, error) {
 	workspaceRootAbs := filepath.Clean(ctx.WorkspaceRoot)
 	const maxHops = 64
@@ -176,9 +177,9 @@ func resolveRelativePath(ctx *models.WorkspaceContext, relPath string) (string, 
 	return currentAbs, nil
 }
 
-// followSymlinkChain follows a symlink chain until it reaches a non-symlink.
-// Returns an error if the chain exceeds maxHops or contains a loop.
-// Returns the resolved path and whether the path exists (or error if lstat fails).
+// followSymlinkChain follows a symlink chain until it reaches a non-symlink or detects a loop.
+// Returns the resolved path, whether the path exists, and any error.
+// Returns an error if the chain exceeds maxHops or escapes the workspace.
 func followSymlinkChain(ctx *models.WorkspaceContext, path string, workspaceRoot string, maxHops int) (resolved string, exists bool, err error) {
 	visited := make(map[string]struct{})
 	current := path
@@ -235,7 +236,7 @@ func followSymlinkChain(ctx *models.WorkspaceContext, path string, workspaceRoot
 	return "", false, fmt.Errorf("symlink chain too long (max %d hops)", maxHops)
 }
 
-// buildNextPathComponent builds the next path component by joining current path with a part.
+// buildNextPathComponent joins a path component to the current path, handling edge cases.
 func buildNextPathComponent(current, part string) string {
 	switch current {
 	case "":
@@ -259,7 +260,8 @@ func appendRemainingComponents(current string, parts []string, start int) string
 	return current
 }
 
-// isWithinWorkspace checks if a path is within the workspace root.
+// isWithinWorkspace checks if a path is within the workspace root boundary.
+// Returns true if the path is the workspace root or a subdirectory/file within it.
 func isWithinWorkspace(path, workspaceRoot string) bool {
 	workspaceRootAbs := filepath.Clean(workspaceRoot)
 	pathAbs := filepath.Clean(path)

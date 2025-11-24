@@ -6,7 +6,8 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// Collector captures command output with size limits and binary safety.
+// Collector captures command output with size limits and binary content detection.
+// It implements io.Writer and can be used to collect stdout/stderr from processes.
 type Collector struct {
 	Buffer    bytes.Buffer
 	MaxBytes  int
@@ -17,14 +18,15 @@ type Collector struct {
 	bytesChecked int
 }
 
-// NewCollector creates a new output collector.
+// NewCollector creates a new output collector with the specified maximum byte limit.
 func NewCollector(maxBytes int) *Collector {
 	return &Collector{
 		MaxBytes: maxBytes,
 	}
 }
 
-// Write implements io.Writer.
+// Write implements io.Writer for collecting process output.
+// It detects binary content and enforces size limits, truncating if necessary.
 func (c *Collector) Write(p []byte) (n int, err error) {
 	if c.IsBinary {
 		return len(p), nil // Discard rest if binary
@@ -68,32 +70,21 @@ func (c *Collector) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// String returns the collected string, handling UTF-8 boundaries and stripping ANSI codes (simplified).
+// String returns the collected output as a string.
+// Returns "[Binary Content]" if binary data was detected.
 func (c *Collector) String() string {
 	if c.IsBinary {
 		return "[Binary Content]"
 	}
-
-	// Handle UTF-8 validity (bytes.Buffer might end in partial rune)
-	// We'll just return valid string.
-	// For ANSI stripping, we can use a regex or simple replacement.
-	// For now, let's just return the string as is, or maybe a simple strip if required.
-	// The plan mentioned "stripping ANSI codes if possible".
-	// Let's do a simple strip of common escape sequences if we want to be fancy,
-	// but for now raw output is safer than bad stripping.
-	// Let's stick to raw string but ensure valid UTF-8 at the end?
-	// bytes.Buffer.String() just converts bytes to string.
-
-	// If the last rune is invalid (partial), we might want to trim it?
-	// But standard string conversion replaces invalid bytes with replacement char.
-	// That's acceptable.
-
 	return c.Buffer.String()
 }
 
-// SystemBinaryDetector implements BinaryDetector using local heuristics
+// SystemBinaryDetector implements BinaryDetector using null byte detection.
+// It checks for null bytes in the first 4KB of content, with special handling for UTF BOMs.
 type SystemBinaryDetector struct{}
 
+// IsBinaryContent checks if content bytes contain binary data by looking for null bytes.
+// It handles UTF-16 and UTF-32 BOMs specially to avoid false positives.
 func (r *SystemBinaryDetector) IsBinaryContent(content []byte) bool {
 	// Check for common text file BOMs (UTF-16, UTF-32)
 	if len(content) >= 2 {

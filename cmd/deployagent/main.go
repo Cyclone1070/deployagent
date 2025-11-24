@@ -1,3 +1,5 @@
+// Package main provides a command-line interface for the deployagent tool.
+// It supports file operations (read, write, edit, list) and shell command execution.
 package main
 
 import (
@@ -82,6 +84,7 @@ func main() {
 	}
 }
 
+// printUsage prints the command-line usage information to stderr.
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage: deployagent <command> [args...]
 
@@ -102,6 +105,8 @@ Examples:
 `)
 }
 
+// handleRead handles the 'read' command to read file contents.
+// Supports optional offset and limit parameters for partial file reads.
 func handleRead(ctx *models.WorkspaceContext, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "read: path required\n")
@@ -139,6 +144,8 @@ func handleRead(ctx *models.WorkspaceContext, args []string) {
 	fmt.Println(string(output))
 }
 
+// handleWrite handles the 'write' command to create new files.
+// Supports optional file permission parameter (octal format).
 func handleWrite(ctx *models.WorkspaceContext, args []string) {
 	if len(args) < 2 {
 		fmt.Fprintf(os.Stderr, "write: path and content required\n")
@@ -169,6 +176,8 @@ func handleWrite(ctx *models.WorkspaceContext, args []string) {
 	fmt.Println(string(output))
 }
 
+// handleEdit handles the 'edit' command to apply edit operations to existing files.
+// Operations must be provided as a JSON array.
 func handleEdit(ctx *models.WorkspaceContext, args []string) {
 	if len(args) < 2 {
 		fmt.Fprintf(os.Stderr, "edit: path and operations JSON required\n")
@@ -194,6 +203,8 @@ func handleEdit(ctx *models.WorkspaceContext, args []string) {
 	fmt.Println(string(output))
 }
 
+// handleList handles the 'list' command to list directory contents.
+// Supports optional offset and limit parameters for pagination.
 func handleList(ctx *models.WorkspaceContext, args []string) {
 	path := "."
 	offset := 0
@@ -231,6 +242,8 @@ func handleList(ctx *models.WorkspaceContext, args []string) {
 	fmt.Println(string(output))
 }
 
+// handleShell handles the 'shell' command to execute shell commands.
+// Supports flags for working directory, timeout, and environment variables.
 func handleShell(ctx *models.WorkspaceContext, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "shell: command required\n")

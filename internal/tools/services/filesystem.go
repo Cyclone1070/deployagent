@@ -7,27 +7,32 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// OSFileSystem implements FileSystem using the local OS primitives.
+// OSFileSystem implements FileSystem using the local OS filesystem primitives.
 // It enforces file size limits based on the MaxFileSize field.
 type OSFileSystem struct {
 	MaxFileSize int64
 }
 
-// NewOSFileSystem creates a new OSFileSystem with the specified max file size.
+// NewOSFileSystem creates a new OSFileSystem with the specified maximum file size limit.
 func NewOSFileSystem(maxFileSize int64) *OSFileSystem {
 	return &OSFileSystem{
 		MaxFileSize: maxFileSize,
 	}
 }
 
+// Stat returns file info for a path (follows symlinks).
 func (r *OSFileSystem) Stat(path string) (models.FileInfo, error) {
 	return os.Stat(path)
 }
 
+// Lstat returns file info for a path without following symlinks.
 func (r *OSFileSystem) Lstat(path string) (models.FileInfo, error) {
 	return os.Lstat(path)
 }
 
+// ReadFileRange reads a range of bytes from a file.
+// If offset and limit are both 0, reads the entire file.
+// Enforces the MaxFileSize limit.
 func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -90,6 +95,8 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 	return content[:n], nil
 }
 
+// CreateTemp creates a temporary file in the specified directory with the given pattern.
+// Returns the path to the temp file and a file handle.
 func (r *OSFileSystem) CreateTemp(dir, pattern string) (string, models.FileHandle, error) {
 	tmpFile, err := os.CreateTemp(dir, pattern)
 	if err != nil {
@@ -98,30 +105,38 @@ func (r *OSFileSystem) CreateTemp(dir, pattern string) (string, models.FileHandl
 	return tmpFile.Name(), tmpFile, nil
 }
 
+// Rename atomically renames oldpath to newpath.
 func (r *OSFileSystem) Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
+// Chmod changes the mode of the named file.
 func (r *OSFileSystem) Chmod(name string, mode os.FileMode) error {
 	return os.Chmod(name, mode)
 }
 
+// Remove removes the named file or directory.
 func (r *OSFileSystem) Remove(name string) error {
 	return os.Remove(name)
 }
 
+// EnsureDirs creates parent directories recursively if they don't exist.
 func (r *OSFileSystem) EnsureDirs(path string) error {
 	return os.MkdirAll(path, 0o755)
 }
 
+// Readlink reads the target of a symlink.
 func (r *OSFileSystem) Readlink(path string) (string, error) {
 	return os.Readlink(path)
 }
 
+// UserHomeDir returns the current user's home directory.
 func (r *OSFileSystem) UserHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
+// ListDir lists the contents of a directory.
+// Returns a slice of FileInfo for each entry in the directory.
 func (r *OSFileSystem) ListDir(path string) ([]models.FileInfo, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {

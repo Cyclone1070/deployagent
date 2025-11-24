@@ -9,15 +9,17 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// OSProcess implements models.Process for real OS processes.
+// OSProcess wraps an os/exec.Cmd to implement the models.Process interface.
 type OSProcess struct {
 	Cmd *exec.Cmd
 }
 
+// Wait waits for the process to complete and returns any error.
 func (p *OSProcess) Wait() error {
 	return p.Cmd.Wait()
 }
 
+// Kill forcefully terminates the process.
 func (p *OSProcess) Kill() error {
 	if p.Cmd.Process != nil {
 		return p.Cmd.Process.Kill()
@@ -25,6 +27,7 @@ func (p *OSProcess) Kill() error {
 	return nil
 }
 
+// Signal sends a signal to the process.
 func (p *OSProcess) Signal(sig os.Signal) error {
 	if p.Cmd.Process != nil {
 		return p.Cmd.Process.Signal(sig)
@@ -32,11 +35,11 @@ func (p *OSProcess) Signal(sig os.Signal) error {
 	return nil
 }
 
-// OSCommandExecutor implements models.CommandExecutor using os/exec.
+// OSCommandExecutor implements models.CommandExecutor using os/exec for real system commands.
 type OSCommandExecutor struct{}
 
-// Run executes a command and returns the combined output.
-// This is a convenience method that uses Start internally.
+// Run executes a command and returns the combined output (stdout + stderr).
+// This is a convenience method for simple command execution.
 func (f *OSCommandExecutor) Run(ctx context.Context, command []string) ([]byte, error) {
 	if len(command) == 0 {
 		return nil, os.ErrInvalid
@@ -49,7 +52,8 @@ func (f *OSCommandExecutor) Run(ctx context.Context, command []string) ([]byte, 
 	return cmd.CombinedOutput()
 }
 
-// Start starts a process and returns control immediately.
+// Start starts a process and returns control immediately for streaming output or process management.
+// Returns the process handle and separate readers for stdout and stderr.
 func (f *OSCommandExecutor) Start(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 	if len(command) == 0 {
 		return nil, nil, nil, os.ErrInvalid

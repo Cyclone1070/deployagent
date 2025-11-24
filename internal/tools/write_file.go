@@ -9,7 +9,10 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
-// WriteFile creates a new file using injected dependencies
+// WriteFile creates a new file in the workspace with the specified content and permissions.
+// It validates the path is within workspace boundaries, checks for binary content,
+// enforces size limits, and writes atomically using a temp file + rename pattern.
+// Returns an error if the file already exists, is binary, too large, or outside the workspace.
 func WriteFile(ctx *models.WorkspaceContext, path string, content string, perm *os.FileMode) (*models.WriteFileResponse, error) {
 	// Resolve path
 	abs, rel, err := services.Resolve(ctx, path)
@@ -26,7 +29,6 @@ func WriteFile(ctx *models.WorkspaceContext, path string, content string, perm *
 		return nil, fmt.Errorf("failed to check if file exists: %w", err)
 	}
 
-	// Ensure parent directories exist using already-resolved path
 	parentDir := filepath.Dir(abs)
 	if err := ctx.FS.EnsureDirs(parentDir); err != nil {
 		return nil, fmt.Errorf("failed to create parent directories: %w", err)
@@ -34,19 +36,15 @@ func WriteFile(ctx *models.WorkspaceContext, path string, content string, perm *
 
 	contentBytes := []byte(content)
 
-	// Check for binary content
 	if ctx.BinaryDetector.IsBinaryContent(contentBytes) {
 		return nil, models.ErrBinaryFile
 	}
 
-	// Enforce size limit
 	if int64(len(contentBytes)) > ctx.MaxFileSize {
 		return nil, models.ErrTooLarge
 	}
 
-	// Default permissions
 	filePerm := os.FileMode(0644)
-	// Determine custom permissions if provided
 	if perm != nil {
 		// Only allow standard permission bits (owner/group/other rwx)
 		if *perm&^os.FileMode(0777) != 0 {
@@ -74,63 +72,47 @@ func WriteFile(ctx *models.WorkspaceContext, path string, content string, perm *
 
 // writeFileAtomic writes content to a file atomically using temp file + rename pattern.
 // This ensures that if the process crashes mid-write, the original file remains intact.
+// The temp file is created in the same directory as the target to ensure atomic rename.
 func writeFileAtomic(ctx *models.WorkspaceContext, path string, content []byte, perm os.FileMode) error {
-	// Get directory for temp file
 	dir := filepath.Dir(path)
 
-	// Create temporary file in same directory
 	tmpPath, tmpFile, err := ctx.FS.CreateTemp(dir, ".tmp-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 
-	// Track whether we need to clean up the temp file
-	// (set to false after successful rename)
 	needsCleanup := true
 
-	// Ensure cleanup on error
 	defer func() {
-		// Close file handle if still open
 		if tmpFile != nil {
-			// Best-effort close. File may already be closed or in bad state.
-			// Any close errors here don't affect the write operation's success.
 			_ = tmpFile.Close()
 		}
-		// Always try to remove temp file if rename didn't succeed
 		if needsCleanup {
-			// Best-effort cleanup. Temp file is in workspace directory with .tmp- prefix.
-			// If removal fails, OS will eventually clean it up. This won't cause
-			// security issues since temp files are within workspace boundaries.
 			_ = ctx.FS.Remove(tmpPath)
 		}
 	}()
 
-	// Write content to temp file
 	if _, err := tmpFile.Write(content); err != nil {
 		return fmt.Errorf("failed to write to temp file: %w", err)
 	}
 
-	// Sync to ensure data is written to disk
 	if err := tmpFile.Sync(); err != nil {
 		return fmt.Errorf("failed to sync temp file: %w", err)
 	}
 
 	// Close file before rename (required on some systems)
 	if err := tmpFile.Close(); err != nil {
-		// Set to nil to prevent double-close in defer
 		tmpFile = nil
-		// Still return error - cleanup will be attempted in defer
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
-	tmpFile = nil // Prevent cleanup in defer
+	tmpFile = nil
 
-	// Atomic rename - this is the critical operation that makes it atomic
+	// Atomic rename is the critical operation that ensures consistency
 	if err := ctx.FS.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
-	needsCleanup = false // Rename succeeded, no need to remove temp file
+	needsCleanup = false
 
-	// Set permissions on the final file
 	if err := ctx.FS.Chmod(path, perm); err != nil {
 		return fmt.Errorf("failed to set file permissions: %w", err)
 	}

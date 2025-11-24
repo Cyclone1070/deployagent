@@ -10,8 +10,9 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// ExecuteWithTimeout runs a process with a timeout.
-// It assumes the process has already been started.
+// ExecuteWithTimeout runs a process with a timeout, handling graceful shutdown.
+// It waits for the process to complete, or kills it if the timeout is reached or context is cancelled.
+// Returns ErrShellTimeout if the timeout is reached.
 func ExecuteWithTimeout(ctx context.Context, timeout time.Duration, proc models.Process) error {
 	done := make(chan error, 1)
 	go func() {
@@ -42,7 +43,8 @@ func ExecuteWithTimeout(ctx context.Context, timeout time.Duration, proc models.
 }
 
 // CollectProcessOutput reads stdout and stderr concurrently and returns them as strings.
-// It enforces a maximum size limit for the collected output.
+// It enforces a maximum size limit for the collected output and detects binary content.
+// Returns the stdout string, stderr string, whether output was truncated, and any error.
 func CollectProcessOutput(stdout, stderr io.Reader, maxBytes int) (string, string, bool, error) {
 	stdoutCollector := NewCollector(maxBytes)
 	stderrCollector := NewCollector(maxBytes)
@@ -66,9 +68,8 @@ func CollectProcessOutput(stdout, stderr io.Reader, maxBytes int) (string, strin
 	return stdoutCollector.String(), stderrCollector.String(), truncated, nil
 }
 
-// GetExitCode extracts the exit code from an error.
-// Returns 0 if err is nil, or the exit code if it's an ExitError.
-// Returns -1 for unknown error types.
+// GetExitCode extracts the exit code from an error returned by a process.
+// Returns 0 if err is nil, the exit code if it's an ExitError, or -1 for unknown error types.
 func GetExitCode(err error) int {
 	if err == nil {
 		return 0

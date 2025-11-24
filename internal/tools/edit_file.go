@@ -9,16 +9,12 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
-// EditFile applies edit operations using injected dependencies.
-// It detects concurrent modifications by comparing file checksums before and after
-// reading the file. To minimize race conditions, the file is revalidated immediately
-// before writing.
+// EditFile applies edit operations to an existing file in the workspace.
+// It detects concurrent modifications by comparing file checksums and validates
+// operations before applying them. The file is written atomically.
 //
-// CONCURRENCY LIMITATION: There is a narrow TOCTOU (Time-of-Check-Time-of-Use)
-// window between the final checksum validation and the atomic write operation.
-// Another process could modify the file in this window (typically <1ms).
-// For guaranteed conflict-free edits in multi-process environments, external
-// file locking would be required.
+// Note: There is a narrow race condition window between checksum validation and write.
+// For guaranteed conflict-free edits, external file locking would be required.
 func EditFile(ctx *models.WorkspaceContext, path string, operations []models.Operation) (*models.EditFileResponse, error) {
 	// Resolve path
 	abs, rel, err := services.Resolve(ctx, path)
@@ -95,8 +91,6 @@ func EditFile(ctx *models.WorkspaceContext, path string, operations []models.Ope
 	// Only revalidate if we had a cached checksum to check against
 	// This optimizes the common case where files are edited without being read first
 	if ok {
-		// Revalidate file hasn't changed before writing (race condition prevention)
-		// Re-read the file to ensure it hasn't been modified by another process
 		revalidationBytes, err := ctx.FS.ReadFileRange(abs, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("failed to revalidate file before write: %w", err)

@@ -11,12 +11,13 @@ import (
 
 // gitignoreService implements models.GitignoreService
 
+// gitignoreService implements models.GitignoreService using go-git's gitignore matcher.
 type gitignoreService struct {
 	matcher gitignore.Matcher
 }
 
-// NewGitignoreService creates a new gitignore service by loading .gitignore from workspace root
-// Returns a service that never ignores if .gitignore doesn't exist (no error)
+// NewGitignoreService creates a new gitignore service by loading .gitignore from workspace root.
+// Returns a service that never ignores if .gitignore doesn't exist (no error).
 func NewGitignoreService(workspaceRoot string, fs models.FileSystem) (models.GitignoreService, error) {
 	gitignorePath := filepath.Join(workspaceRoot, ".gitignore")
 
@@ -50,7 +51,8 @@ func NewGitignoreService(workspaceRoot string, fs models.FileSystem) (models.Git
 	return &gitignoreService{matcher: matcher}, nil
 }
 
-// ShouldIgnore checks if a relative path matches gitignore patterns
+// ShouldIgnore checks if a relative path matches any gitignore patterns.
+// Returns false if no .gitignore was loaded.
 func (g *gitignoreService) ShouldIgnore(relativePath string) bool {
 	if g.matcher == nil {
 		return false
@@ -61,7 +63,8 @@ func (g *gitignoreService) ShouldIgnore(relativePath string) bool {
 	return g.matcher.Match(segments, false)
 }
 
-// splitPath splits a path into segments for gitignore matching
+// splitPath splits a path into segments for gitignore matching.
+// It normalizes path separators and filters out empty and "." segments.
 func splitPath(path string) []string {
 	if path == "" {
 		return []string{}
@@ -82,7 +85,7 @@ func splitPath(path string) []string {
 	return segments
 }
 
-// splitLines splits content into lines, handling both \n and \r\n
+// splitLines splits content into lines, handling both \n and \r\n line endings.
 func splitLines(content string) []string {
 	var lines []string
 	start := 0

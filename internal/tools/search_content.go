@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	maxSearchContentResults = 10000 // Hard limit to prevent resource exhaustion
-	maxLineLength           = 10000 // Truncate very long lines
+	// maxSearchContentResults is the hard limit for search results to prevent resource exhaustion.
+	maxSearchContentResults = 10000
+	// maxLineLength is the maximum length of a line before truncation.
+	maxLineLength = 10000
 )
 
 // SearchContent searches for content matching a regex pattern within files.

@@ -10,7 +10,8 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 )
 
-// IsDockerCommand checks if the command is a docker command.
+// IsDockerCommand checks if the command is a docker command by examining the base name.
+// It handles both simple commands ("docker") and full paths ("/usr/bin/docker").
 func IsDockerCommand(command []string) bool {
 	if len(command) == 0 {
 		return false
@@ -19,33 +20,21 @@ func IsDockerCommand(command []string) bool {
 	return filepath.Base(command[0]) == "docker"
 }
 
-// IsDockerComposeUpDetached checks if the command is 'docker compose up -d'.
+// IsDockerComposeUpDetached checks if the command is 'docker compose up' with detached mode (-d or --detach).
+// It parses the command arguments to find the compose, up, and detach flags in order.
 func IsDockerComposeUpDetached(command []string) bool {
 	if !IsDockerCommand(command) {
 		return false
 	}
 
-	// Need at least "docker", "compose", "up"
 	if len(command) < 3 {
 		return false
 	}
-
-	// We need to find "compose" and "up" as subcommands, and "-d" or "--detach" as a flag for "up".
-	// Note: "compose" is a subcommand of "docker". "up" is a subcommand of "compose".
-	// Flags can appear:
-	// 1. After "docker" (global flags)
-	// 2. After "compose" (compose flags)
-	// 3. After "up" (up flags)
-	//
-	// We are looking for the presence of "compose" then "up" then "-d"/"--detach".
-	// However, flags for "compose" can be anywhere between "compose" and "up".
-	// And flags for "up" can be anywhere after "up".
 
 	foundCompose := false
 	foundUp := false
 	foundDetach := false
 
-	// Skip the first element (docker)
 	for _, arg := range command[1:] {
 		if !foundCompose {
 			if arg == "compose" {
@@ -54,7 +43,6 @@ func IsDockerComposeUpDetached(command []string) bool {
 			continue
 		}
 
-		// We found compose, now looking for up
 		if !foundUp {
 			if arg == "up" {
 				foundUp = true
@@ -62,10 +50,9 @@ func IsDockerComposeUpDetached(command []string) bool {
 			continue
 		}
 
-		// We found up, now looking for detach
 		if arg == "-d" || arg == "--detach" {
 			foundDetach = true
-			break // We found everything we need
+			break
 		}
 	}
 
@@ -73,20 +60,16 @@ func IsDockerComposeUpDetached(command []string) bool {
 }
 
 // EnsureDockerReady checks if Docker is running and attempts to start it if not.
+// It retries the check up to 10 times with 1-second intervals after starting Docker.
 func EnsureDockerReady(ctx context.Context, runner models.CommandExecutor, config models.DockerConfig) error {
-	// 1. Check if Docker is running
 	if _, err := runner.Run(ctx, config.CheckCommand); err == nil {
 		return nil
 	}
 
-	// 2. Attempt to start Docker
 	if _, err := runner.Run(ctx, config.StartCommand); err != nil {
 		return err
 	}
 
-	// 3. Wait for Docker to be ready
-	// Retry up to 10 times with 1s delay (simplified for now)
-	// In a real app, we might want this configurable or use a backoff.
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -102,10 +85,11 @@ func EnsureDockerReady(ctx context.Context, runner models.CommandExecutor, confi
 	}
 
 	_, err := runner.Run(ctx, config.CheckCommand)
-	return err // Return the last error
+	return err
 }
 
-// CollectComposeContainers collects container IDs from a docker compose project.
+// CollectComposeContainers collects container IDs from a docker compose project in the specified directory.
+// It uses 'docker compose ps -q' to get the list of container IDs.
 func CollectComposeContainers(ctx context.Context, runner models.CommandExecutor, dir string) ([]string, error) {
 	cmd := []string{"docker", "compose", "--project-directory", dir, "ps", "-q"}
 	output, err := runner.Run(ctx, cmd)
@@ -124,6 +108,7 @@ func CollectComposeContainers(ctx context.Context, runner models.CommandExecutor
 }
 
 // FormatContainerStartedNote returns a human-readable note about started containers.
+// It formats the message based on the number of containers started.
 func FormatContainerStartedNote(ids []string) string {
 	if len(ids) == 0 {
 		return ""

@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	maxFindFileResults = 10000 // Hard limit to prevent resource exhaustion
+	// maxFindFileResults is the hard limit for find results to prevent resource exhaustion.
+	maxFindFileResults = 10000
 )
 
 // FindFile searches for files matching a glob pattern within the workspace.

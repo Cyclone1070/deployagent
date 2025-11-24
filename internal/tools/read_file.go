@@ -7,7 +7,10 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/tools/services"
 )
 
-// ReadFile reads a file using injected dependencies
+// ReadFile reads a file from the workspace with optional offset and limit for partial reads.
+// It validates the path is within workspace boundaries, checks for binary content,
+// enforces size limits, and caches checksums for full file reads.
+// Returns an error if the file is binary, too large, or outside the workspace.
 func ReadFile(ctx *models.WorkspaceContext, path string, offset *int64, limit *int64) (*models.ReadFileResponse, error) {
 	// Resolve path
 	abs, rel, err := services.Resolve(ctx, path)

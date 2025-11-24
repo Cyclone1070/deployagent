@@ -8,7 +8,8 @@ import (
 )
 
 // GetCommandRoot extracts the root command (basename) from a command slice.
-// e.g., ["/usr/bin/docker", "run"] -> "docker"
+// It handles full paths by extracting just the command name.
+// Example: ["/usr/bin/docker", "run"] returns "docker".
 func GetCommandRoot(command []string) string {
 	if len(command) == 0 {
 		return ""
@@ -18,6 +19,8 @@ func GetCommandRoot(command []string) string {
 }
 
 // EvaluatePolicy checks if a command is allowed by the given policy.
+// It checks session-allowed commands first, then the allow list, then the ask list.
+// Returns ErrShellApprovalRequired if the command needs approval, or ErrShellRejected if denied.
 func EvaluatePolicy(policy models.CommandPolicy, command []string) error {
 	root := GetCommandRoot(command)
 	if root == "" {
