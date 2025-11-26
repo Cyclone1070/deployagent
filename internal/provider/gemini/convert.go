@@ -73,7 +73,7 @@ func messageToGeminiContent(msg models.Message) *genai.Content {
 			parts = append(parts, &genai.Part{
 				FunctionResponse: &genai.FunctionResponse{
 					Name: result.Name,
-					Response: map[string]interface{}{
+					Response: map[string]any{
 						"content": responseContent,
 					},
 				},

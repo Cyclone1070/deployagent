@@ -16,7 +16,7 @@ type Message struct {
 type ToolCall struct {
 	ID   string
 	Name string
-	Args map[string]interface{}
+	Args map[string]any
 }
 
 // ToolResult represents the result of a tool execution.

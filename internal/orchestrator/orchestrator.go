@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/Cyclone1070/deployforme/internal/orchestrator/adapter"
@@ -48,10 +47,20 @@ func (o *Orchestrator) Run(ctx context.Context, goal string) error {
 		},
 	}
 
+	// Pre-loop context check
+	if err := o.checkAndTruncateHistory(ctx); err != nil {
+		return fmt.Errorf("initial context check failed: %w", err)
+	}
+
 	for range maxTurns {
 		// Check context
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+
+		// Context management: check token count and truncate if needed
+		if err := o.checkAndTruncateHistory(ctx); err != nil {
+			return fmt.Errorf("context management failed: %w", err)
 		}
 
 		// Update UI status
@@ -70,61 +79,15 @@ func (o *Orchestrator) Run(ctx context.Context, goal string) error {
 		// Handle response based on type
 		switch response.Content.Type {
 		case provider.ResponseTypeToolCall:
-			// Native tool call from provider
-			if len(response.Content.ToolCalls) == 0 {
-				o.history = append(o.history, models.Message{
-					Role:    "system",
-					Content: "Error: empty tool call list",
-				})
-				continue
+			if err := o.handleToolCallResponse(ctx, response); err != nil {
+				return err
 			}
-
-			// Add model message with tool calls to history
-			o.history = append(o.history, models.Message{
-				Role:      "model",
-				ToolCalls: response.Content.ToolCalls,
-			})
-
-			// Execute ALL tool calls
-			toolResults := make([]models.ToolResult, 0, len(response.Content.ToolCalls))
-			for _, toolCall := range response.Content.ToolCalls {
-				result := o.executeToolCall(ctx, toolCall)
-				toolResults = append(toolResults, result)
-			}
-
-			// Add function message with all results to history
-			o.history = append(o.history, models.Message{
-				Role:        "function",
-				ToolResults: toolResults,
-			})
-
 		case provider.ResponseTypeText:
-			// Text response: display to user and wait for input
-			o.ui.WriteMessage(response.Content.Text)
-			o.history = append(o.history, models.Message{
-				Role:    "assistant",
-				Content: response.Content.Text,
-			})
-
-			// Wait for user input
-			userInput, err := o.ui.ReadInput(ctx, "You: ")
-			if err != nil {
-				return fmt.Errorf("failed to read user input: %w", err)
+			if err := o.handleTextResponse(ctx, response); err != nil {
+				return err
 			}
-
-			o.history = append(o.history, models.Message{
-				Role:    "user",
-				Content: userInput,
-			})
-
 		case provider.ResponseTypeRefusal:
-			// Model refused to generate (safety block, policy violation)
-			o.ui.WriteStatus("blocked", "Model refused to generate")
-			o.history = append(o.history, models.Message{
-				Role:    "system",
-				Content: fmt.Sprintf("Model refused: %s", response.Content.RefusalReason),
-			})
-
+			o.handleRefusalResponse(response)
 		default:
 			o.history = append(o.history, models.Message{
 				Role:    "system",
@@ -159,20 +122,9 @@ func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.Tool
 		}
 	}
 
-	// Convert args to JSON string
-	argsJSON, err := json.Marshal(toolCall.Args)
-	if err != nil {
-		return models.ToolResult{
-			ID:      toolCall.ID,
-			Name:    toolCall.Name,
-			Content: "",
-			Error:   fmt.Sprintf("error marshaling args: %v", err),
-		}
-	}
-
-	// Execute tool
+	// Execute tool with args map directly
 	o.ui.WriteStatus("executing", fmt.Sprintf("Running %s...", toolCall.Name))
-	result, err := tool.Execute(ctx, string(argsJSON))
+	result, err := tool.Execute(ctx, toolCall.Args)
 	if err != nil {
 		return models.ToolResult{
 			ID:      toolCall.ID,
@@ -188,4 +140,127 @@ func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.Tool
 		Content: result,
 		Error:   "",
 	}
+}
+
+// checkAndTruncateHistory checks token count and truncates history if needed,
+// respecting message pair boundaries (model+function, user+assistant)
+func (o *Orchestrator) checkAndTruncateHistory(ctx context.Context) error {
+	tokens, err := o.provider.CountTokens(ctx, o.history)
+	if err != nil {
+		return fmt.Errorf("failed to count tokens: %w", err)
+	}
+
+	contextWindow := o.provider.GetContextWindow()
+	safetyMargin := 1000 // Reserve tokens for response
+
+	if tokens <= contextWindow-safetyMargin {
+		return nil // No truncation needed
+	}
+
+	// Truncate history while respecting message pairs
+	// Strategy: Keep first message (goal) + most recent messages
+	// Remove messages in pairs to maintain conversation structure
+	for tokens > contextWindow-safetyMargin && len(o.history) > 2 {
+		// Find the next pair to remove (starting from index 1)
+		// We need to identify if messages form pairs:
+		// - "model" + "function" (tool call + result)
+		// - "user" + "assistant" (user input + text response)
+
+		if len(o.history) < 3 {
+			break // Can't remove more without losing the goal
+		}
+
+		// Check if messages at index 1 and 2 form a pair
+		msg1 := o.history[1]
+		msg2 := o.history[2]
+
+		isPair := false
+		if msg1.Role == "model" && msg2.Role == "function" {
+			isPair = true
+		} else if msg1.Role == "user" && msg2.Role == "assistant" {
+			isPair = true
+		}
+
+		if isPair && len(o.history) > 3 {
+			// Remove the pair
+			o.history = append(o.history[:1], o.history[3:]...)
+		} else {
+			// Remove single message (fallback)
+			o.history = append(o.history[:1], o.history[2:]...)
+		}
+
+		// Recount tokens
+		tokens, err = o.provider.CountTokens(ctx, o.history)
+		if err != nil {
+			// If counting fails, stop truncating to avoid infinite loop
+			return fmt.Errorf("failed to recount tokens during truncation: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// handleToolCallResponse processes a tool call response from the provider
+func (o *Orchestrator) handleToolCallResponse(ctx context.Context, response *provider.GenerateResponse) error {
+	// Validate tool calls
+	if len(response.Content.ToolCalls) == 0 {
+		o.history = append(o.history, models.Message{
+			Role:    "system",
+			Content: "Error: empty tool call list",
+		})
+		return nil
+	}
+
+	// Add model message with tool calls to history
+	o.history = append(o.history, models.Message{
+		Role:      "model",
+		ToolCalls: response.Content.ToolCalls,
+	})
+
+	// Execute ALL tool calls
+	toolResults := make([]models.ToolResult, 0, len(response.Content.ToolCalls))
+	for _, toolCall := range response.Content.ToolCalls {
+		result := o.executeToolCall(ctx, toolCall)
+		toolResults = append(toolResults, result)
+	}
+
+	// Add function message with all results to history
+	o.history = append(o.history, models.Message{
+		Role:        "function",
+		ToolResults: toolResults,
+	})
+
+	return nil
+}
+
+// handleTextResponse processes a text response from the provider
+func (o *Orchestrator) handleTextResponse(ctx context.Context, response *provider.GenerateResponse) error {
+	// Display text to user
+	o.ui.WriteMessage(response.Content.Text)
+	o.history = append(o.history, models.Message{
+		Role:    "assistant",
+		Content: response.Content.Text,
+	})
+
+	// Wait for user input
+	userInput, err := o.ui.ReadInput(ctx, "You: ")
+	if err != nil {
+		return fmt.Errorf("failed to read user input: %w", err)
+	}
+
+	o.history = append(o.history, models.Message{
+		Role:    "user",
+		Content: userInput,
+	})
+
+	return nil
+}
+
+// handleRefusalResponse processes a refusal response from the provider
+func (o *Orchestrator) handleRefusalResponse(response *provider.GenerateResponse) {
+	o.ui.WriteStatus("blocked", "Model refused to generate")
+	o.history = append(o.history, models.Message{
+		Role:    "system",
+		Content: fmt.Sprintf("Model refused: %s", response.Content.RefusalReason),
+	})
 }
