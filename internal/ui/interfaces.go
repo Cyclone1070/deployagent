@@ -38,6 +38,9 @@ type UserInterface interface {
 	// WriteModelList sends a list of available models to the UI
 	WriteModelList(models []string)
 
+	// SetModel updates the current model name displayed in the UI
+	SetModel(model string)
+
 	// Commands returns a channel for UI-initiated commands (e.g., /models)
 	Commands() <-chan UICommand
 }

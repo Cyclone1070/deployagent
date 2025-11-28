@@ -28,6 +28,7 @@ type BubbleTeaModel struct {
 	statusChan    <-chan statusMsg
 	messageChan   <-chan string
 	modelListChan <-chan []string
+	setModelChan  <-chan string
 
 	// UI -> Orchestrator
 	commandChan chan<- UICommand
@@ -57,6 +58,7 @@ func newBubbleTeaModel(
 	statusChan <-chan statusMsg,
 	messageChan <-chan string,
 	modelListChan <-chan []string,
+	setModelChan <-chan string,
 	commandChan chan<- UICommand,
 	readyChan chan<- struct{},
 	renderer services.MarkdownRenderer,
@@ -86,6 +88,7 @@ func newBubbleTeaModel(
 		statusChan:    statusChan,
 		messageChan:   messageChan,
 		modelListChan: modelListChan,
+		setModelChan:  setModelChan,
 		commandChan:   commandChan,
 		readyChan:     readyChan,
 	}
@@ -98,6 +101,7 @@ type permRequestMsg permRequest
 type statusUpdateMsg statusMsg
 type messageReceivedMsg string
 type modelListReceivedMsg []string
+type setModelMsg string
 
 // Init initializes the model
 func (m BubbleTeaModel) Init() tea.Cmd {
@@ -115,6 +119,7 @@ func (m BubbleTeaModel) Init() tea.Cmd {
 		listenForStatus(m.statusChan),
 		listenForMessages(m.messageChan),
 		listenForModelList(m.modelListChan),
+		listenForSetModel(m.setModelChan),
 	)
 }
 
@@ -124,7 +129,12 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return m.handleKeyPress(msg)
+		var handled bool
+		var cmd tea.Cmd
+		m, cmd, handled = m.handleKeyPress(msg)
+		if handled {
+			return m, cmd
+		}
 
 	case tea.WindowSizeMsg:
 		m.state.Width = msg.Width
@@ -173,6 +183,10 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.ShowModelList = true
 		m.state.ModelListIndex = 0
 		return m, listenForModelList(m.modelListChan)
+
+	case setModelMsg:
+		m.state.CurrentModel = string(msg)
+		return m, listenForSetModel(m.setModelChan)
 	}
 
 	// Update input
@@ -184,7 +198,7 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKeyPress handles keyboard input
-func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (BubbleTeaModel, tea.Cmd, bool) {
 	// Handle model popup navigation
 	if m.state.ShowModelList {
 		switch msg.String() {
@@ -210,7 +224,7 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.state.ShowModelList = false
 		}
-		return m, nil
+		return m, nil, true
 	}
 
 	// Handle permission prompts
@@ -226,13 +240,13 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.permResp <- DecisionAllowAlways
 			m.state.PendingPermission = nil
 		}
-		return m, nil
+		return m, nil, true
 	}
 
 	// Handle normal input
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m, tea.Quit, true
 
 	case "enter":
 		if m.state.CanSubmit && m.state.Input.Value() != "" {
@@ -240,7 +254,8 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			// Check for commands
 			if strings.HasPrefix(input, "/") {
-				return m.handleCommand(input)
+				newM, cmd := m.handleCommand(input)
+				return newM, cmd, true
 			}
 
 			// Send user message
@@ -254,14 +269,15 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.inputResp <- input
 			m.state.Input.SetValue("")
 			m.state.CanSubmit = false
+			return m, nil, true
 		}
 	}
 
-	return m, nil
+	return m, nil, false
 }
 
 // handleCommand handles slash commands
-func (m BubbleTeaModel) handleCommand(input string) (tea.Model, tea.Cmd) {
+func (m BubbleTeaModel) handleCommand(input string) (BubbleTeaModel, tea.Cmd) {
 	parts := strings.Fields(input)
 	if len(parts) == 0 {
 		return m, nil
@@ -320,6 +336,12 @@ func listenForMessages(ch <-chan string) tea.Cmd {
 func listenForModelList(ch <-chan []string) tea.Cmd {
 	return func() tea.Msg {
 		return modelListReceivedMsg(<-ch)
+	}
+}
+
+func listenForSetModel(ch <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		return setModelMsg(<-ch)
 	}
 }
 

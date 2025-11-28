@@ -19,6 +19,7 @@ func createTestModel() BubbleTeaModel {
 		channels.StatusChan,
 		channels.MessageChan,
 		channels.ModelListChan,
+		channels.SetModelChan,
 		channels.CommandChan,
 		channels.ReadyChan,
 		&MockMarkdownRenderer{},
@@ -127,4 +128,119 @@ func TestTick_DotAnimation(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, model.state.DotCount) // Cycles back to 0
+}
+
+func TestUpdate_TextInput(t *testing.T) {
+	model := createTestModel()
+	model.state.Input.SetValue("")
+	model.state.CanSubmit = true
+
+	// Simulate typing "abc"
+	runes := []rune{'a', 'b', 'c'}
+	for _, r := range runes {
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}}
+		newModel, _ := model.Update(msg)
+		model = newModel.(BubbleTeaModel)
+	}
+
+	assert.Equal(t, "abc", model.state.Input.Value())
+}
+
+func TestUpdate_CtrlC_Quits(t *testing.T) {
+	model := createTestModel()
+
+	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	_, cmd := model.Update(msg)
+
+	assert.NotNil(t, cmd)
+}
+
+func TestUpdate_PopupNavigation_Up(t *testing.T) {
+	model := createTestModel()
+	model.state.ShowModelList = true
+	model.state.ModelList = []string{"a", "b", "c"}
+	model.state.ModelListIndex = 1
+
+	msg := tea.KeyMsg{Type: tea.KeyUp}
+	newModel, _ := model.Update(msg)
+	m := newModel.(BubbleTeaModel)
+
+	assert.Equal(t, 0, m.state.ModelListIndex)
+}
+
+func TestUpdate_PopupNavigation_Esc(t *testing.T) {
+	model := createTestModel()
+	model.state.ShowModelList = true
+
+	msg := tea.KeyMsg{Type: tea.KeyEsc}
+	newModel, _ := model.Update(msg)
+	m := newModel.(BubbleTeaModel)
+
+	assert.False(t, m.state.ShowModelList)
+}
+
+func TestUpdate_PopupNavigation_Enter(t *testing.T) {
+	model := createTestModel()
+	model.state.ShowModelList = true
+	model.state.ModelList = []string{"model-a"}
+	model.state.ModelListIndex = 0
+
+	cmdChan := make(chan UICommand, 1)
+	model.commandChan = cmdChan
+
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	newModel, _ := model.Update(msg)
+	m := newModel.(BubbleTeaModel)
+
+	assert.False(t, m.state.ShowModelList)
+
+	select {
+	case cmd := <-cmdChan:
+		assert.Equal(t, "switch_model", cmd.Type)
+		assert.Equal(t, "model-a", cmd.Args["model"])
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for command")
+	}
+}
+
+func TestUpdate_Permission_Deny(t *testing.T) {
+	model := createTestModel()
+	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
+
+	permChan := make(chan PermissionDecision, 1)
+	model.permResp = permChan
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+	newModel, _ := model.Update(msg)
+	m := newModel.(BubbleTeaModel)
+
+	assert.Nil(t, m.state.PendingPermission)
+
+	select {
+	case decision := <-permChan:
+		assert.Equal(t, DecisionDeny, decision)
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for decision")
+	}
+}
+
+func TestUpdate_Permission_AllowAlways(t *testing.T) {
+	model := createTestModel()
+	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
+
+	permChan := make(chan PermissionDecision, 1)
+	model.permResp = permChan
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	newModel, _ := model.Update(msg)
+	m := newModel.(BubbleTeaModel)
+
+	assert.Nil(t, m.state.PendingPermission)
+
+	select {
+	case decision := <-permChan:
+		assert.Equal(t, DecisionAllowAlways, decision)
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for decision")
+	}
 }

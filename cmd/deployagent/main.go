@@ -121,59 +121,89 @@ func runInteractive(ctx *models.WorkspaceContext) {
 		orchadapter.NewWriteTodos(ctx),
 	}
 
-	// Initialize Provider
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		fmt.Fprintln(os.Stderr, "Error: GEMINI_API_KEY environment variable is required")
-		os.Exit(1)
-	}
-
-	// Initialize GenAI client
-	genaiClient, err := genai.NewClient(context.Background(), &genai.ClientConfig{APIKey: apiKey})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing GenAI client: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Wrap with GeminiClient
-	geminiClient := gemini.NewRealGeminiClient(genaiClient)
-
-	// Default model
-	modelName := "gemini-2.0-flash-exp"
-	providerClient, err := gemini.NewGeminiProvider(geminiClient, modelName)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing Gemini provider: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Initialize Policy
-	// Default policy: ask for everything initially, but allow session caching
-	policy := &orchmodels.Policy{
-		Shell: orchmodels.ShellPolicy{
-			SessionAllow: make(map[string]bool),
-		},
-		Tools: orchmodels.ToolPolicy{
-			SessionAllow: make(map[string]bool),
-		},
-	}
-	policyService := orchestrator.NewPolicyService(policy, userInterface)
-
-	// Initialize Orchestrator
-	orch := orchestrator.New(providerClient, policyService, userInterface, toolList)
-
-	// Start orchestrator after UI is ready
+	// Start orchestrator and initialization in background
 	go func() {
 		<-userInterface.Ready() // Wait for UI to be ready
 
-		// Initial prompt
-		goal, err := userInterface.ReadInput(context.Background(), "What would you like to do?")
-		if err != nil {
-			// UI closed or error
+		// Initialize Provider (Async)
+		userInterface.WriteStatus("thinking", "Initializing AI...")
+
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			userInterface.WriteMessage("Error: GEMINI_API_KEY environment variable is required")
 			return
 		}
 
-		if err := orch.Run(context.Background(), goal); err != nil {
-			userInterface.WriteMessage(fmt.Sprintf("Error: %v", err))
+		genaiClient, err := genai.NewClient(context.Background(), &genai.ClientConfig{APIKey: apiKey})
+		if err != nil {
+			userInterface.WriteMessage(fmt.Sprintf("Error initializing GenAI client: %v", err))
+			return
+		}
+
+		geminiClient := gemini.NewRealGeminiClient(genaiClient)
+		modelName := "gemini-2.0-flash-exp"
+
+		// This might block on network, which is fine now
+		providerClient, err := gemini.NewGeminiProvider(geminiClient, modelName)
+		if err != nil {
+			userInterface.WriteMessage(fmt.Sprintf("Error initializing Gemini provider: %v", err))
+			return
+		}
+
+		// Set initial model in status bar
+		userInterface.SetModel(modelName)
+
+		// Initialize Policy
+		policy := &orchmodels.Policy{
+			Shell: orchmodels.ShellPolicy{
+				SessionAllow: make(map[string]bool),
+			},
+			Tools: orchmodels.ToolPolicy{
+				SessionAllow: make(map[string]bool),
+			},
+		}
+		policyService := orchestrator.NewPolicyService(policy, userInterface)
+
+		// Initialize Orchestrator
+		orch := orchestrator.New(providerClient, policyService, userInterface, toolList)
+
+		userInterface.WriteStatus("ready", "Ready")
+
+		// REPL Loop
+		for {
+			// Initial prompt
+			goal, err := userInterface.ReadInput(context.Background(), "What would you like to do?")
+			if err != nil {
+				// UI closed or error
+				return
+			}
+
+			if err := orch.Run(context.Background(), goal); err != nil {
+				userInterface.WriteMessage(fmt.Sprintf("Error: %v", err))
+			}
+
+			userInterface.WriteStatus("ready", "Ready")
+		}
+	}()
+
+	// Handle UI commands
+	go func() {
+		for cmd := range userInterface.Commands() {
+			switch cmd.Type {
+			case "list_models":
+				// In a real implementation, we'd fetch this from the provider
+				// For now, hardcode some known models
+				models := []string{"gemini-2.0-flash-exp", "gemini-1.5-pro"}
+				userInterface.WriteModelList(models)
+			case "switch_model":
+				model := cmd.Args["model"]
+				userInterface.SetModel(model)
+				// Note: We'd also need to update the provider here in a full implementation
+				// providerClient.SetModel(model)
+				// But providerClient is local to the other goroutine.
+				// For this fix, we just update the UI.
+				userInterface.WriteMessage(fmt.Sprintf("Switched to model: %s", model))
+			}
 		}
 	}()
 

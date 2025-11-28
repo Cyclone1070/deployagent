@@ -20,6 +20,7 @@ type UI struct {
 	statusChan    chan statusMsg
 	messageChan   chan string
 	modelListChan chan []string
+	setModelChan  chan string
 
 	// UI -> Orchestrator
 	commandChan chan UICommand
@@ -52,6 +53,7 @@ type UIChannels struct {
 	StatusChan    chan statusMsg
 	MessageChan   chan string
 	ModelListChan chan []string
+	SetModelChan  chan string
 	CommandChan   chan UICommand
 	ReadyChan     chan struct{} // Signals when UI is ready to accept requests
 }
@@ -66,6 +68,7 @@ func NewUIChannels() *UIChannels {
 		StatusChan:    make(chan statusMsg, 10),
 		MessageChan:   make(chan string, 10),
 		ModelListChan: make(chan []string),
+		SetModelChan:  make(chan string, 10),
 		CommandChan:   make(chan UICommand, 10),
 		ReadyChan:     make(chan struct{}),
 	}
@@ -85,6 +88,7 @@ func NewUI(
 		statusChan:    channels.StatusChan,
 		messageChan:   channels.MessageChan,
 		modelListChan: channels.ModelListChan,
+		setModelChan:  channels.SetModelChan,
 		commandChan:   channels.CommandChan,
 		readyChan:     channels.ReadyChan,
 	}
@@ -97,6 +101,7 @@ func NewUI(
 		ui.statusChan,
 		ui.messageChan,
 		ui.modelListChan,
+		ui.setModelChan,
 		ui.commandChan,
 		ui.readyChan,
 		renderer,
@@ -166,6 +171,15 @@ func (u *UI) WriteMessage(content string) {
 func (u *UI) WriteModelList(models []string) {
 	select {
 	case u.modelListChan <- models:
+	default:
+		// Drop if channel is full
+	}
+}
+
+// SetModel updates the current model name displayed in the UI
+func (u *UI) SetModel(model string) {
+	select {
+	case u.setModelChan <- model:
 	default:
 		// Drop if channel is full
 	}

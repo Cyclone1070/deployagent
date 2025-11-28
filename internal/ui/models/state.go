@@ -20,6 +20,7 @@ type State struct {
 	StatusMessage string
 	Spinner       spinner.Model
 	DotCount      int // For animating "..." (0-3)
+	CurrentModel  string
 
 	// Permission request
 	PendingPermission *PermissionRequest
