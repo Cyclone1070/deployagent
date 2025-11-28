@@ -13,11 +13,11 @@ type UI struct {
 	program *tea.Program
 
 	// Orchestrator -> UI channels
-	inputReq      chan inputRequest
+	inputReq      chan InputRequest
 	inputResp     chan string
-	permReq       chan permRequest
+	permReq       chan PermRequest
 	permResp      chan PermissionDecision
-	statusChan    chan statusMsg
+	statusChan    chan StatusMsg
 	messageChan   chan string
 	modelListChan chan []string
 	setModelChan  chan string
@@ -30,27 +30,28 @@ type UI struct {
 }
 
 // Internal message types
-type inputRequest struct {
-	prompt string
+// Internal message types
+type InputRequest struct {
+	Prompt string
 }
 
-type permRequest struct {
-	prompt  string
-	preview *models.ToolPreview
+type PermRequest struct {
+	Prompt  string
+	Preview *models.ToolPreview
 }
 
-type statusMsg struct {
-	phase   string
-	message string
+type StatusMsg struct {
+	Phase   string
+	Message string
 }
 
 // UIChannels holds the channels for UI communication
 type UIChannels struct {
-	InputReq      chan inputRequest
+	InputReq      chan InputRequest
 	InputResp     chan string
-	PermReq       chan permRequest
+	PermReq       chan PermRequest
 	PermResp      chan PermissionDecision
-	StatusChan    chan statusMsg
+	StatusChan    chan StatusMsg
 	MessageChan   chan string
 	ModelListChan chan []string
 	SetModelChan  chan string
@@ -61,11 +62,11 @@ type UIChannels struct {
 // NewUIChannels creates a new UIChannels struct with default buffers
 func NewUIChannels() *UIChannels {
 	return &UIChannels{
-		InputReq:      make(chan inputRequest),
+		InputReq:      make(chan InputRequest),
 		InputResp:     make(chan string),
-		PermReq:       make(chan permRequest),
+		PermReq:       make(chan PermRequest),
 		PermResp:      make(chan PermissionDecision),
-		StatusChan:    make(chan statusMsg, 10),
+		StatusChan:    make(chan StatusMsg, 10),
 		MessageChan:   make(chan string, 10),
 		ModelListChan: make(chan []string),
 		SetModelChan:  make(chan string, 10),
@@ -124,7 +125,7 @@ func (u *UI) ReadInput(ctx context.Context, prompt string) (string, error) {
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case u.inputReq <- inputRequest{prompt: prompt}:
+	case u.inputReq <- InputRequest{Prompt: prompt}:
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -139,7 +140,7 @@ func (u *UI) ReadPermission(ctx context.Context, prompt string, preview *models.
 	select {
 	case <-ctx.Done():
 		return DecisionDeny, ctx.Err()
-	case u.permReq <- permRequest{prompt: prompt, preview: preview}:
+	case u.permReq <- PermRequest{Prompt: prompt, Preview: preview}:
 		select {
 		case <-ctx.Done():
 			return DecisionDeny, ctx.Err()
@@ -152,7 +153,7 @@ func (u *UI) ReadPermission(ctx context.Context, prompt string, preview *models.
 // WriteStatus updates the status bar
 func (u *UI) WriteStatus(phase string, message string) {
 	select {
-	case u.statusChan <- statusMsg{phase: phase, message: message}:
+	case u.statusChan <- StatusMsg{Phase: phase, Message: message}:
 	default:
 		// Drop if channel is full
 	}

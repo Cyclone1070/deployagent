@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Cyclone1070/deployforme/internal/ui/models"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/stretchr/testify/assert"
 )
@@ -30,18 +31,23 @@ func TestReadInput_ReturnsUserInput(t *testing.T) {
 	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
 	ctx := context.Background()
 	expected := "hello world"
+	prompt := "You: "
 
 	go func() {
+		// Verify request sent
 		select {
 		case req := <-channels.InputReq:
-			assert.Equal(t, "You: ", req.prompt)
+			if req.Prompt != prompt {
+				t.Errorf("Expected prompt '%s', got '%s'", prompt, req.Prompt)
+			}
+			// Send response
 			channels.InputResp <- expected
-		case <-time.After(1 * time.Second):
-			t.Error("Timeout waiting for input request")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Timeout waiting for input request")
 		}
 	}()
 
-	result, err := ui.ReadInput(ctx, "You: ")
+	result, err := ui.ReadInput(ctx, prompt)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 }
@@ -62,34 +68,51 @@ func TestReadPermission_Allow(t *testing.T) {
 	channels := NewUIChannels()
 	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
 	ctx := context.Background()
+	prompt := "Allow?"
+	var preview *models.ToolPreview = nil
 
 	go func() {
+		// Verify request sent
 		select {
 		case req := <-channels.PermReq:
-			assert.Equal(t, "Allow?", req.prompt)
+			if req.Prompt != prompt {
+				t.Errorf("Expected prompt '%s', got '%s'", prompt, req.Prompt)
+			}
+			if req.Preview != preview {
+				t.Error("Expected preview to be passed")
+			}
+			// Send response
 			channels.PermResp <- DecisionAllow
-		case <-time.After(1 * time.Second):
-			t.Error("Timeout waiting for perm request")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Timeout waiting for permission request")
 		}
 	}()
 
-	decision, err := ui.ReadPermission(ctx, "Allow?", nil)
+	decision, err := ui.ReadPermission(ctx, prompt, preview)
 	assert.NoError(t, err)
 	assert.Equal(t, DecisionAllow, decision)
 }
 
-func TestWriteStatus_UpdatesStatus(t *testing.T) {
+func TestWriteStatus(t *testing.T) {
 	channels := NewUIChannels()
 	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
 
 	go func() {
-		msg := <-channels.StatusChan
-		assert.Equal(t, "executing", msg.phase)
-		assert.Equal(t, "EditFile main.go", msg.message)
+		// Verify status update
+		select {
+		case msg := <-channels.StatusChan:
+			if msg.Phase != "test" {
+				t.Errorf("Expected phase 'test', got '%s'", msg.Phase)
+			}
+			if msg.Message != "message" {
+				t.Errorf("Expected message 'message', got '%s'", msg.Message)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Timeout waiting for status update")
+		}
 	}()
 
-	ui.WriteStatus("executing", "EditFile main.go")
-	// Give time for channel send (it's buffered but we want to ensure no panic)
+	ui.WriteStatus("test", "message")
 }
 
 func TestWriteMessage_AddsMessage(t *testing.T) {

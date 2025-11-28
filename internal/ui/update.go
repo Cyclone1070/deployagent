@@ -21,11 +21,11 @@ type BubbleTeaModel struct {
 	renderer services.MarkdownRenderer
 
 	// Channels for communication with orchestrator
-	inputReq      <-chan inputRequest
+	inputReq      <-chan InputRequest
 	inputResp     chan<- string
-	permReq       <-chan permRequest
+	permReq       <-chan PermRequest
 	permResp      chan<- PermissionDecision
-	statusChan    <-chan statusMsg
+	statusChan    <-chan StatusMsg
 	messageChan   <-chan string
 	modelListChan <-chan []string
 	setModelChan  <-chan string
@@ -51,11 +51,11 @@ type SpinnerFactory func() spinner.Model
 
 // newBubbleTeaModel creates a new Bubble Tea model
 func newBubbleTeaModel(
-	inputReq <-chan inputRequest,
+	inputReq <-chan InputRequest,
 	inputResp chan<- string,
-	permReq <-chan permRequest,
+	permReq <-chan PermRequest,
 	permResp chan<- PermissionDecision,
-	statusChan <-chan statusMsg,
+	statusChan <-chan StatusMsg,
 	messageChan <-chan string,
 	modelListChan <-chan []string,
 	setModelChan <-chan string,
@@ -96,9 +96,9 @@ func newBubbleTeaModel(
 
 // Internal messages
 type tickMsg time.Time
-type inputRequestMsg inputRequest
-type permRequestMsg permRequest
-type statusUpdateMsg statusMsg
+type inputRequestMsg InputRequest
+type permRequestMsg PermRequest
+type statusUpdateMsg StatusMsg
 type messageReceivedMsg string
 type modelListReceivedMsg []string
 type setModelMsg string
@@ -160,14 +160,14 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case permRequestMsg:
 		m.state.PendingPermission = &models.PermissionRequest{
-			Prompt:  msg.prompt,
-			Preview: msg.preview,
+			Prompt:  msg.Prompt,
+			Preview: msg.Preview,
 		}
 		return m, listenForPermRequests(m.permReq)
 
 	case statusUpdateMsg:
-		m.state.StatusPhase = msg.phase
-		m.state.StatusMessage = msg.message
+		m.state.StatusPhase = msg.Phase
+		m.state.StatusMessage = msg.Message
 		return m, listenForStatus(m.statusChan)
 
 	case messageReceivedMsg:
@@ -309,19 +309,19 @@ func (m *BubbleTeaModel) updateViewport() {
 }
 
 // Helper commands for listening to channels
-func listenForInputRequests(ch <-chan inputRequest) tea.Cmd {
+func listenForInputRequests(ch <-chan InputRequest) tea.Cmd {
 	return func() tea.Msg {
 		return inputRequestMsg(<-ch)
 	}
 }
 
-func listenForPermRequests(ch <-chan permRequest) tea.Cmd {
+func listenForPermRequests(ch <-chan PermRequest) tea.Cmd {
 	return func() tea.Msg {
 		return permRequestMsg(<-ch)
 	}
 }
 
-func listenForStatus(ch <-chan statusMsg) tea.Cmd {
+func listenForStatus(ch <-chan StatusMsg) tea.Cmd {
 	return func() tea.Msg {
 		return statusUpdateMsg(<-ch)
 	}

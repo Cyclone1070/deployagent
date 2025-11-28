@@ -179,6 +179,21 @@ func (m *MockUI) Commands() <-chan ui.UICommand {
 	return nil
 }
 
+func (m *MockUI) SetModel(model string) {
+	// No-op for tests
+}
+
+func (m *MockUI) Ready() <-chan struct{} {
+	// Return closed channel (always ready)
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
+func (m *MockUI) Start() error {
+	return nil
+}
+
 // Test Case 1: Happy Path - Text Response
 func TestRun_HappyPath_TextResponse(t *testing.T) {
 	mockProvider := &MockProvider{

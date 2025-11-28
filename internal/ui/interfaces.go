@@ -43,6 +43,12 @@ type UserInterface interface {
 
 	// Commands returns a channel for UI-initiated commands (e.g., /models)
 	Commands() <-chan UICommand
+
+	// Start starts the UI loop (blocking)
+	Start() error
+
+	// Ready returns a channel that is closed when the UI is ready
+	Ready() <-chan struct{}
 }
 
 // UICommand represents a command from the UI to the orchestrator

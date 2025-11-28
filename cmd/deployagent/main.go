@@ -11,6 +11,7 @@ import (
 	orchadapter "github.com/Cyclone1070/deployforme/internal/orchestrator/adapter"
 	orchmodels "github.com/Cyclone1070/deployforme/internal/orchestrator/models"
 	"github.com/Cyclone1070/deployforme/internal/provider/gemini"
+	provider "github.com/Cyclone1070/deployforme/internal/provider/models"
 	"github.com/Cyclone1070/deployforme/internal/tools"
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 	"github.com/Cyclone1070/deployforme/internal/tools/services"
@@ -19,6 +20,53 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"google.golang.org/genai"
 )
+
+// Dependencies holds the components required to run the application.
+type Dependencies struct {
+	UI              ui.UserInterface
+	ProviderFactory func(context.Context) (provider.Provider, error)
+	Tools           []orchadapter.Tool
+}
+
+func createRealUI() ui.UserInterface {
+	channels := ui.NewUIChannels()
+	renderer := uiservices.NewGlamourRenderer()
+	spinnerFactory := func() spinner.Model {
+		return spinner.New(spinner.WithSpinner(spinner.Dot))
+	}
+	return ui.NewUI(channels, renderer, spinnerFactory)
+}
+
+func createRealProviderFactory() func(context.Context) (provider.Provider, error) {
+	return func(ctx context.Context) (provider.Provider, error) {
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			return nil, fmt.Errorf("GEMINI_API_KEY environment variable is required")
+		}
+
+		genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+		}
+
+		geminiClient := gemini.NewRealGeminiClient(genaiClient)
+		return gemini.NewGeminiProvider(geminiClient, "gemini-2.0-flash-exp")
+	}
+}
+
+func createTools(ctx *models.WorkspaceContext) []orchadapter.Tool {
+	return []orchadapter.Tool{
+		orchadapter.NewReadFile(ctx),
+		orchadapter.NewWriteFile(ctx),
+		orchadapter.NewEditFile(ctx),
+		orchadapter.NewListDirectory(ctx),
+		orchadapter.NewShell(&tools.ShellTool{CommandExecutor: ctx.CommandExecutor}, ctx),
+		orchadapter.NewSearchContent(ctx),
+		orchadapter.NewFindFile(ctx),
+		orchadapter.NewReadTodos(ctx),
+		orchadapter.NewWriteTodos(ctx),
+	}
+}
 
 func main() {
 	// Get current working directory as workspace root
@@ -58,33 +106,20 @@ func main() {
 		},
 	}
 
+	// Create dependencies
+	deps := Dependencies{
+		UI:              createRealUI(),
+		ProviderFactory: createRealProviderFactory(),
+		Tools:           createTools(ctx),
+	}
+
 	// Interactive mode
-	runInteractive(ctx)
+	runInteractive(ctx, deps)
 }
 
-func runInteractive(ctx *models.WorkspaceContext) {
-	// Initialize UI dependencies
-	channels := ui.NewUIChannels()
-	renderer := uiservices.NewGlamourRenderer()
-	spinnerFactory := func() spinner.Model {
-		return spinner.New(spinner.WithSpinner(spinner.Dot))
-	}
-
-	// Create UI
-	userInterface := ui.NewUI(channels, renderer, spinnerFactory)
-
-	// Initialize tools
-	toolList := []orchadapter.Tool{
-		orchadapter.NewReadFile(ctx),
-		orchadapter.NewWriteFile(ctx),
-		orchadapter.NewEditFile(ctx),
-		orchadapter.NewListDirectory(ctx),
-		orchadapter.NewShell(&tools.ShellTool{CommandExecutor: ctx.CommandExecutor}, ctx),
-		orchadapter.NewSearchContent(ctx),
-		orchadapter.NewFindFile(ctx),
-		orchadapter.NewReadTodos(ctx),
-		orchadapter.NewWriteTodos(ctx),
-	}
+func runInteractive(ctx *models.WorkspaceContext, deps Dependencies) {
+	userInterface := deps.UI
+	toolList := deps.Tools
 
 	// Start orchestrator and initialization in background
 	go func() {
@@ -93,30 +128,15 @@ func runInteractive(ctx *models.WorkspaceContext) {
 		// Initialize Provider (Async)
 		userInterface.WriteStatus("thinking", "Initializing AI...")
 
-		apiKey := os.Getenv("GEMINI_API_KEY")
-		if apiKey == "" {
-			userInterface.WriteMessage("Error: GEMINI_API_KEY environment variable is required")
-			return
-		}
-
-		genaiClient, err := genai.NewClient(context.Background(), &genai.ClientConfig{APIKey: apiKey})
+		providerClient, err := deps.ProviderFactory(context.Background())
 		if err != nil {
-			userInterface.WriteMessage(fmt.Sprintf("Error initializing GenAI client: %v", err))
-			return
-		}
-
-		geminiClient := gemini.NewRealGeminiClient(genaiClient)
-		modelName := "gemini-2.0-flash-exp"
-
-		// This might block on network, which is fine now
-		providerClient, err := gemini.NewGeminiProvider(geminiClient, modelName)
-		if err != nil {
-			userInterface.WriteMessage(fmt.Sprintf("Error initializing Gemini provider: %v", err))
+			userInterface.WriteMessage(fmt.Sprintf("Error initializing provider: %v", err))
 			return
 		}
 
 		// Set initial model in status bar
-		userInterface.SetModel(modelName)
+		// Note: In a real app we might get this from the provider
+		userInterface.SetModel("gemini-2.0-flash-exp")
 
 		// Initialize Policy
 		policy := &orchmodels.Policy{
