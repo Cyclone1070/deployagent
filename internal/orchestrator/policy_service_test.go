@@ -7,6 +7,7 @@ import (
 
 	"github.com/Cyclone1070/deployforme/internal/orchestrator/models"
 	"github.com/Cyclone1070/deployforme/internal/ui"
+	uimodels "github.com/Cyclone1070/deployforme/internal/ui/models"
 )
 
 func TestCheckShell_Concurrency(t *testing.T) {
@@ -19,7 +20,7 @@ func TestCheckShell_Concurrency(t *testing.T) {
 	}
 
 	mockUI := &MockUI{
-		ReadPermissionFunc: func(ctx context.Context, prompt string) (ui.PermissionDecision, error) {
+		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error) {
 			return ui.DecisionAllowAlways, nil
 		},
 	}
@@ -66,7 +67,7 @@ func TestCheckTool_Concurrency(t *testing.T) {
 	}
 
 	mockUI := &MockUI{
-		ReadPermissionFunc: func(ctx context.Context, prompt string) (ui.PermissionDecision, error) {
+		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error) {
 			return ui.DecisionAllowAlways, nil
 		},
 	}
@@ -81,7 +82,7 @@ func TestCheckTool_Concurrency(t *testing.T) {
 		wg.Add(1)
 		go func(toolName string) {
 			defer wg.Done()
-			err := ps.CheckTool(context.Background(), toolName)
+			err := ps.CheckTool(context.Background(), toolName, nil)
 			if err != nil {
 				t.Errorf("CheckTool failed for %s: %v", toolName, err)
 			}

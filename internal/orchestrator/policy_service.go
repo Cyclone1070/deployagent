@@ -9,6 +9,7 @@ import (
 
 	"github.com/Cyclone1070/deployforme/internal/orchestrator/models"
 	"github.com/Cyclone1070/deployforme/internal/ui"
+	uimodels "github.com/Cyclone1070/deployforme/internal/ui/models"
 )
 
 // policyService implements models.PolicyService
@@ -53,17 +54,18 @@ func (p *policyService) CheckShell(ctx context.Context, command []string) error 
 	}
 	p.mu.RUnlock()
 
-	// Ask user for permission (no lock held during I/O)
-	// NOTE: There is a benign race condition here between releasing RLock and acquiring Lock.
-	// If two goroutines check the same command simultaneously, both may prompt the user.
-	// This is safe because:
-	// 1. The SessionAllow map is always protected by locks (RLock for reads, Lock for writes)
-	// 2. Writing "true" to the map is idempotent - setting allow[cmd]=true twice is harmless
-	// 3. The worst case is duplicate user prompts (UX issue), not data corruption
-	// We cannot hold the lock during ReadPermission as it blocks on user input, which would
-	// freeze the entire policy service and prevent other tools from checking permissions.
+	// Ask user for permission
 	prompt := fmt.Sprintf("Agent wants to execute shell command: %s\nAllow this command?", root)
-	decision, err := p.ui.ReadPermission(ctx, prompt)
+
+	// Create preview
+	preview := &uimodels.ToolPreview{
+		Type: "shell_command",
+		Data: map[string]any{
+			"command": command,
+		},
+	}
+
+	decision, err := p.ui.ReadPermission(ctx, prompt, preview)
 	if err != nil {
 		return fmt.Errorf("failed to get user permission: %w", err)
 	}
@@ -88,7 +90,7 @@ func (p *policyService) CheckShell(ctx context.Context, command []string) error 
 }
 
 // CheckTool validates if a tool is allowed to be used
-func (p *policyService) CheckTool(ctx context.Context, toolName string) error {
+func (p *policyService) CheckTool(ctx context.Context, toolName string, args map[string]any) error {
 	if toolName == "" {
 		return fmt.Errorf("tool name cannot be empty")
 	}
@@ -109,17 +111,19 @@ func (p *policyService) CheckTool(ctx context.Context, toolName string) error {
 	}
 	p.mu.RUnlock()
 
-	// Ask user for permission (no lock held during I/O)
-	// NOTE: There is a benign race condition here between releasing RLock and acquiring Lock.
-	// If two goroutines check the same tool simultaneously, both may prompt the user.
-	// This is safe because:
-	// 1. The SessionAllow map is always protected by locks (RLock for reads, Lock for writes)
-	// 2. Writing "true" to the map is idempotent - setting allow[tool]=true twice is harmless
-	// 3. The worst case is duplicate user prompts (UX issue), not data corruption
-	// We cannot hold the lock during ReadPermission as it blocks on user input, which would
-	// freeze the entire policy service and prevent other tools from checking permissions.
+	// Ask user for permission
 	prompt := fmt.Sprintf("Agent wants to use tool: %s\nAllow this tool?", toolName)
-	decision, err := p.ui.ReadPermission(ctx, prompt)
+
+	// Create preview if applicable
+	var preview *uimodels.ToolPreview
+	if toolName == "edit_file" {
+		preview = &uimodels.ToolPreview{
+			Type: "edit_operations",
+			Data: args,
+		}
+	}
+
+	decision, err := p.ui.ReadPermission(ctx, prompt, preview)
 	if err != nil {
 		return fmt.Errorf("failed to get user permission: %w", err)
 	}

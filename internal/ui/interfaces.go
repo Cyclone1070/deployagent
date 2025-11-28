@@ -1,6 +1,10 @@
 package ui
 
-import "context"
+import (
+	"context"
+
+	"github.com/Cyclone1070/deployforme/internal/ui/models"
+)
 
 // PermissionDecision represents the user's choice for a permission request
 type PermissionDecision string
@@ -23,11 +27,23 @@ type UserInterface interface {
 	ReadInput(ctx context.Context, prompt string) (string, error)
 
 	// ReadPermission prompts the user for a yes/no/always permission decision
-	ReadPermission(ctx context.Context, prompt string) (PermissionDecision, error)
+	ReadPermission(ctx context.Context, prompt string, preview *models.ToolPreview) (PermissionDecision, error)
 
 	// WriteStatus displays ephemeral status updates (e.g., "Thinking...")
 	WriteStatus(phase string, message string)
 
 	// WriteMessage displays the agent's actual text responses
 	WriteMessage(content string)
+
+	// WriteModelList sends a list of available models to the UI
+	WriteModelList(models []string)
+
+	// Commands returns a channel for UI-initiated commands (e.g., /models)
+	Commands() <-chan UICommand
+}
+
+// UICommand represents a command from the UI to the orchestrator
+type UICommand struct {
+	Type string            // "list_models", "switch_model"
+	Args map[string]string // Additional arguments
 }

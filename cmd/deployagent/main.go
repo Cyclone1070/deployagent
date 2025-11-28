@@ -11,9 +11,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Cyclone1070/deployforme/internal/orchestrator"
+	orchadapter "github.com/Cyclone1070/deployforme/internal/orchestrator/adapter"
+	orchmodels "github.com/Cyclone1070/deployforme/internal/orchestrator/models"
+	"github.com/Cyclone1070/deployforme/internal/provider/gemini"
 	"github.com/Cyclone1070/deployforme/internal/tools"
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 	"github.com/Cyclone1070/deployforme/internal/tools/services"
+	"github.com/Cyclone1070/deployforme/internal/ui"
+	uiservices "github.com/Cyclone1070/deployforme/internal/ui/services"
+	"github.com/charmbracelet/bubbles/spinner"
+	"google.golang.org/genai"
 )
 
 func main() {
@@ -56,8 +64,9 @@ func main() {
 
 	// Parse command-line arguments
 	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
+		// Interactive mode
+		runInteractive(ctx)
+		return
 	}
 
 	command := os.Args[1]
@@ -84,6 +93,120 @@ func main() {
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", command)
 		printUsage()
+		os.Exit(1)
+	}
+}
+
+func runInteractive(ctx *models.WorkspaceContext) {
+	// Initialize UI dependencies
+	channels := ui.NewUIChannels()
+	renderer := uiservices.NewGlamourRenderer()
+	spinnerFactory := func() spinner.Model {
+		return spinner.New(spinner.WithSpinner(spinner.Dot))
+	}
+
+	// Create UI
+	userInterface := ui.NewUI(channels, renderer, spinnerFactory)
+
+	// Initialize tools
+	toolList := []orchadapter.Tool{
+		orchadapter.NewReadFile(ctx),
+		orchadapter.NewWriteFile(ctx),
+		orchadapter.NewEditFile(ctx),
+		orchadapter.NewListDirectory(ctx),
+		orchadapter.NewShell(&tools.ShellTool{CommandExecutor: ctx.CommandExecutor}, ctx),
+		orchadapter.NewSearchContent(ctx),
+		orchadapter.NewFindFile(ctx),
+		orchadapter.NewReadTodos(ctx),
+		orchadapter.NewWriteTodos(ctx),
+	}
+
+	// Initialize Provider
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		fmt.Fprintln(os.Stderr, "Error: GEMINI_API_KEY environment variable is required")
+		os.Exit(1)
+	}
+
+	// Initialize GenAI client
+	genaiClient, err := genai.NewClient(context.Background(), &genai.ClientConfig{APIKey: apiKey})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing GenAI client: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Wrap with GeminiClient
+	geminiClient := gemini.NewRealGeminiClient(genaiClient)
+
+	// Default model
+	modelName := "gemini-2.0-flash-exp"
+	providerClient, err := gemini.NewGeminiProvider(geminiClient, modelName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing Gemini provider: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize Policy
+	// Default policy: ask for everything initially, but allow session caching
+	policy := &orchmodels.Policy{
+		Shell: orchmodels.ShellPolicy{
+			SessionAllow: make(map[string]bool),
+		},
+		Tools: orchmodels.ToolPolicy{
+			SessionAllow: make(map[string]bool),
+		},
+	}
+	policyService := orchestrator.NewPolicyService(policy, userInterface)
+
+	// Initialize Orchestrator
+	orch := orchestrator.New(providerClient, policyService, userInterface, toolList)
+
+	// Start UI in a goroutine
+	go func() {
+		if err := userInterface.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running UI: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Wait for UI to be ready (hacky, but simple for now)
+	// Better way: UI signals readiness via a channel?
+	// The UI Start() blocks, so we run it in a goroutine.
+	// We can just start the orchestrator loop.
+
+	// Ask for initial goal
+	// We need to wait a bit for UI to render first frame?
+	// Or we can just call ReadInput, which will block until UI processes it.
+
+	// Run Orchestrator Loop
+	// We need a context that can be cancelled by the UI (e.g. Ctrl+C)
+	// The UI handles Ctrl+C and returns from Start().
+	// But we are in a separate goroutine here? No, runInteractive is called from main.
+	// So we should block here.
+
+	// Actually, userInterface.Start() blocks. So if we run it in a goroutine, main() will exit.
+	// We need to run Orchestrator in a goroutine and UI in main thread (or vice versa).
+	// Bubble Tea recommends running Program.Run() in the main thread.
+
+	// So:
+	go func() {
+		// Give UI a moment to start
+		// TODO: Use a proper ready channel
+
+		// Initial prompt
+		goal, err := userInterface.ReadInput(context.Background(), "What would you like to do?")
+		if err != nil {
+			// UI closed or error
+			return
+		}
+
+		if err := orch.Run(context.Background(), goal); err != nil {
+			userInterface.WriteMessage(fmt.Sprintf("Error: %v", err))
+		}
+	}()
+
+	if err := userInterface.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running UI: %v\n", err)
 		os.Exit(1)
 	}
 }

@@ -11,5 +11,5 @@ type PolicyService interface {
 	CheckShell(ctx context.Context, command []string) error
 
 	// CheckTool validates if a tool is allowed to be used
-	CheckTool(ctx context.Context, toolName string) error
+	CheckTool(ctx context.Context, toolName string, args map[string]any) error
 }

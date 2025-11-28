@@ -113,7 +113,7 @@ func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.Tool
 	}
 
 	// Policy check
-	if err := o.policy.CheckTool(ctx, toolCall.Name); err != nil {
+	if err := o.policy.CheckTool(ctx, toolCall.Name, toolCall.Args); err != nil {
 		return models.ToolResult{
 			ID:      toolCall.ID,
 			Name:    toolCall.Name,

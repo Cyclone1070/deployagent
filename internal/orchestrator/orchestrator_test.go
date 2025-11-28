@@ -10,6 +10,7 @@ import (
 	"github.com/Cyclone1070/deployforme/internal/orchestrator/models"
 	provider "github.com/Cyclone1070/deployforme/internal/provider/models"
 	"github.com/Cyclone1070/deployforme/internal/ui"
+	uimodels "github.com/Cyclone1070/deployforme/internal/ui/models"
 )
 
 // MockProvider implements provider.Provider for testing
@@ -121,13 +122,13 @@ func (m *MockTool) Execute(ctx context.Context, args map[string]any) (string, er
 
 // MockPolicy implements models.PolicyService for testing
 type MockPolicy struct {
-	CheckToolFunc  func(ctx context.Context, toolName string) error
+	CheckToolFunc  func(ctx context.Context, toolName string, args map[string]any) error
 	CheckShellFunc func(ctx context.Context, command []string) error
 }
 
-func (m *MockPolicy) CheckTool(ctx context.Context, toolName string) error {
+func (m *MockPolicy) CheckTool(ctx context.Context, toolName string, args map[string]any) error {
 	if m.CheckToolFunc != nil {
-		return m.CheckToolFunc(ctx, toolName)
+		return m.CheckToolFunc(ctx, toolName, args)
 	}
 	return nil
 }
@@ -144,7 +145,7 @@ type MockUI struct {
 	Messages           []string
 	Statuses           []string
 	InputFunc          func(ctx context.Context, prompt string) (string, error)
-	ReadPermissionFunc func(ctx context.Context, prompt string) (ui.PermissionDecision, error)
+	ReadPermissionFunc func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error)
 }
 
 func (m *MockUI) WriteMessage(message string) {
@@ -162,11 +163,20 @@ func (m *MockUI) ReadInput(ctx context.Context, prompt string) (string, error) {
 	return "test input", nil
 }
 
-func (m *MockUI) ReadPermission(ctx context.Context, prompt string) (ui.PermissionDecision, error) {
+func (m *MockUI) ReadPermission(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error) {
 	if m.ReadPermissionFunc != nil {
-		return m.ReadPermissionFunc(ctx, prompt)
+		return m.ReadPermissionFunc(ctx, prompt, preview)
 	}
 	return ui.DecisionAllow, nil
+}
+
+func (m *MockUI) WriteModelList(models []string) {
+	// No-op for tests
+}
+
+func (m *MockUI) Commands() <-chan ui.UICommand {
+	// Return nil channel for tests
+	return nil
 }
 
 // Test Case 1: Happy Path - Text Response
@@ -619,7 +629,7 @@ func TestRun_PolicyDenial(t *testing.T) {
 	}
 
 	mockPolicy := &MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string) error {
+		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
 			return errors.New("policy denied")
 		},
 	}
