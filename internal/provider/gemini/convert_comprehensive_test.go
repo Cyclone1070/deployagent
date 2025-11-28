@@ -307,8 +307,9 @@ func TestToGeminiTools(t *testing.T) {
 		{
 			Name:        "test_tool",
 			Description: "A test tool",
-			Parameters: &provider.ParameterSchema{
-				Properties: map[string]provider.PropertySchema{
+			Parameters: &provider.Schema{
+				Type: "object",
+				Properties: map[string]provider.Schema{
 					"arg1": {Type: "string", Description: "First argument"},
 				},
 				Required: []string{"arg1"},

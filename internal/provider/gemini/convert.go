@@ -181,38 +181,41 @@ func toGeminiTools(tools []provider.ToolDefinition) []*genai.Tool {
 	}
 }
 
-// toGeminiSchema converts ParameterSchema to Gemini Schema.
-func toGeminiSchema(params *provider.ParameterSchema) *genai.Schema {
-	schema := &genai.Schema{
-		Type: genai.TypeObject,
+// toGeminiSchema converts Schema to Gemini Schema recursively.
+func toGeminiSchema(schema *provider.Schema) *genai.Schema {
+	if schema == nil {
+		return nil
 	}
 
-	if params.Properties != nil {
-		schema.Properties = make(map[string]*genai.Schema)
-		for name, prop := range params.Properties {
-			schema.Properties[name] = &genai.Schema{
-				Type:        toGeminiType(prop.Type),
-				Description: prop.Description,
-			}
+	result := &genai.Schema{
+		Type:        toGeminiType(schema.Type),
+		Description: schema.Description,
+	}
 
-			if len(prop.Enum) > 0 {
-				schema.Properties[name].Enum = prop.Enum
-			}
-
-			if prop.Items != nil {
-				schema.Properties[name].Items = &genai.Schema{
-					Type:        toGeminiType(prop.Items.Type),
-					Description: prop.Items.Description,
-				}
-			}
+	// Handle object properties recursively
+	if len(schema.Properties) > 0 {
+		result.Properties = make(map[string]*genai.Schema)
+		for name, prop := range schema.Properties {
+			// Make a copy to get a pointer we can pass recursively
+			propCopy := prop
+			result.Properties[name] = toGeminiSchema(&propCopy)
 		}
 	}
 
-	if len(params.Required) > 0 {
-		schema.Required = params.Required
+	// Handle array items recursively
+	if schema.Items != nil {
+		result.Items = toGeminiSchema(schema.Items)
 	}
 
-	return schema
+	if len(schema.Required) > 0 {
+		result.Required = schema.Required
+	}
+
+	if len(schema.Enum) > 0 {
+		result.Enum = schema.Enum
+	}
+
+	return result
 }
 
 // toGeminiType converts string type to Gemini Type.

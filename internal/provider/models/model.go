@@ -104,22 +104,19 @@ type StreamChunk struct {
 type ToolDefinition struct {
 	Name        string
 	Description string
-	Parameters  *ParameterSchema // Pointer to allow nil (no params)
+	Parameters  *Schema // Pointer to allow nil (no params)
 }
 
-// ParameterSchema maps directly to standard JSON Schema.
-type ParameterSchema struct {
-	Type       string                    `json:"type"`
-	Properties map[string]PropertySchema `json:"properties"`
-	Required   []string                  `json:"required,omitempty"`
-}
-
-// PropertySchema defines a single parameter property.
-type PropertySchema struct {
-	Type        string          `json:"type"`
-	Description string          `json:"description,omitempty"`
-	Enum        []string        `json:"enum,omitempty"`
-	Items       *PropertySchema `json:"items,omitempty"`
+// Schema defines the structure of tool parameters using JSON Schema format.
+// This is a recursive type that fully supports nested objects and arrays,
+// following the OpenAPI 3.0 specification.
+type Schema struct {
+	Type        string            `json:"type"`
+	Description string            `json:"description,omitempty"`
+	Properties  map[string]Schema `json:"properties,omitempty"` // For object types - recursive
+	Required    []string          `json:"required,omitempty"`   // For object types
+	Items       *Schema           `json:"items,omitempty"`      // For array types - recursive
+	Enum        []string          `json:"enum,omitempty"`       // For enumerated values
 }
 
 // Capabilities describes what features a provider supports.

@@ -44,14 +44,14 @@ type BaseAdapter[Req, Resp any] struct {
 //	adapter := NewBaseAdapter(
 //	    "read_file",
 //	    "Reads a file from the workspace",
-//	    &provider.ParameterSchema{...},
+//	    &provider.Schema{...},
 //	    workspaceCtx,
 //	    tools.ReadFile,  // Direct function reference
 //	)
 func NewBaseAdapter[Req, Resp any](
 	name string,
 	description string,
-	paramSchema *provider.ParameterSchema,
+	paramSchema *provider.Schema,
 	wCtx *toolModels.WorkspaceContext,
 	executor ToolExecutor[Req, Resp],
 ) *BaseAdapter[Req, Resp] {

@@ -16,9 +16,9 @@ func NewReadFile(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"read_file",
 		"Reads a file from the workspace",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"path": {
 					Type:        "string",
 					Description: "Path to the file (relative to workspace root)",
@@ -44,9 +44,9 @@ func NewWriteFile(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"write_file",
 		"Creates a new file in the workspace",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"path": {
 					Type:        "string",
 					Description: "Path to the file (relative to workspace root)",
@@ -72,18 +72,33 @@ func NewEditFile(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"edit_file",
 		"Applies edit operations to an existing file",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"path": {
 					Type:        "string",
 					Description: "Path to the file (relative to workspace root)",
 				},
 				"operations": {
 					Type:        "array",
-					Description: "List of edit operations",
-					Items: &provider.PropertySchema{
+					Description: "List of edit operations to apply",
+					Items: &provider.Schema{
 						Type: "object",
+						Properties: map[string]provider.Schema{
+							"before": {
+								Type:        "string",
+								Description: "Exact text to find and replace",
+							},
+							"after": {
+								Type:        "string",
+								Description: "Replacement text",
+							},
+							"expected_replacements": {
+								Type:        "integer",
+								Description: "Expected number of replacements (defaults to 1 if omitted)",
+							},
+						},
+						Required: []string{"before", "after"},
 					},
 				},
 			},
@@ -99,9 +114,9 @@ func NewFindFile(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"find_file",
 		"Finds files in the workspace matching a pattern",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"pattern": {
 					Type:        "string",
 					Description: "Glob pattern to match files",
@@ -127,9 +142,9 @@ func NewListDirectory(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"list_directory",
 		"Lists contents of a directory",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"path": {
 					Type:        "string",
 					Description: "Directory path (relative to workspace root)",
@@ -163,9 +178,9 @@ func NewSearchContent(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"search_content",
 		"Searches for content within files",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"query": {
 					Type:        "string",
 					Description: "Search query",
@@ -196,13 +211,13 @@ func NewShell(tool *tools.ShellTool, wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"run_shell",
 		"Executes shell commands in the workspace",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"command": {
 					Type:        "array",
 					Description: "The command and arguments to execute",
-					Items: &provider.PropertySchema{
+					Items: &provider.Schema{
 						Type: "string",
 					},
 				},
@@ -216,12 +231,12 @@ func NewShell(tool *tools.ShellTool, wCtx *toolModels.WorkspaceContext) Tool {
 				},
 				"env": {
 					Type:        "object",
-					Description: "Environment variables",
+					Description: "Environment variables as key-value pairs",
 				},
 				"env_files": {
 					Type:        "array",
 					Description: "Paths to .env files to load",
-					Items: &provider.PropertySchema{
+					Items: &provider.Schema{
 						Type: "string",
 					},
 				},
@@ -247,9 +262,9 @@ func NewReadTodos(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"read_todos",
 		"Reads all TODO items",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type:       "object",
-			Properties: map[string]provider.PropertySchema{},
+			Properties: map[string]provider.Schema{},
 			Required:   []string{},
 		},
 		wCtx,
@@ -262,12 +277,27 @@ func NewWriteTodos(wCtx *toolModels.WorkspaceContext) Tool {
 	return NewBaseAdapter(
 		"write_todos",
 		"Writes TODO items",
-		&provider.ParameterSchema{
+		&provider.Schema{
 			Type: "object",
-			Properties: map[string]provider.PropertySchema{
+			Properties: map[string]provider.Schema{
 				"todos": {
 					Type:        "array",
 					Description: "List of TODO items",
+					Items: &provider.Schema{
+						Type: "object",
+						Properties: map[string]provider.Schema{
+							"description": {
+								Type:        "string",
+								Description: "Description of the todo item",
+							},
+							"status": {
+								Type:        "string",
+								Description: "Status of the todo",
+								Enum:        []string{"pending", "in_progress", "completed", "cancelled"},
+							},
+						},
+						Required: []string{"description", "status"},
+					},
 				},
 			},
 			Required: []string{"todos"},
