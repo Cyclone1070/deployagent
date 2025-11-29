@@ -41,21 +41,12 @@ func (c *RealGeminiClient) CountTokens(ctx context.Context, model string, conten
 
 // ListModels returns a list of available model names
 func (c *RealGeminiClient) ListModels(ctx context.Context) ([]string, error) {
-	iter, err := c.client.Models.List(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	var models []string
-	for {
-		page, err := iter.Next(ctx)
+	for model, err := range c.client.Models.All(ctx) {
 		if err != nil {
-			break // End of list or error
+			return nil, err
 		}
-		// Each page contains multiple models in the Items field
-		for _, model := range page.Items {
-			models = append(models, model.Name)
-		}
+		models = append(models, model.Name)
 	}
 	return models, nil
 }
