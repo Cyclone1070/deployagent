@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/Cyclone1070/deployforme/internal/orchestrator"
 	orchadapter "github.com/Cyclone1070/deployforme/internal/orchestrator/adapter"
@@ -69,76 +70,86 @@ func createTools(ctx *models.WorkspaceContext) []orchadapter.Tool {
 }
 
 func main() {
-	// Get current working directory as workspace root
-	workspaceRoot, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get working directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Initialize filesystem service
-	fileSystem := services.NewOSFileSystem(models.DefaultMaxFileSize)
-
-	// Initialize binary detector
-	binaryDetector := &services.SystemBinaryDetector{}
-
-	// Initialize checksum manager
-	checksumMgr := services.NewChecksumManager()
-
-	// Initialize gitignore service
-	gitignoreSvc, err := services.NewGitignoreService(workspaceRoot, fileSystem)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to initialize gitignore service: %v\n", err)
-	}
-
-	// Create workspace context
-	ctx := &models.WorkspaceContext{
-		FS:               fileSystem,
-		BinaryDetector:   binaryDetector,
-		ChecksumManager:  checksumMgr,
-		MaxFileSize:      models.DefaultMaxFileSize,
-		WorkspaceRoot:    workspaceRoot,
-		GitignoreService: gitignoreSvc,
-		CommandExecutor:  &services.OSCommandExecutor{},
-		DockerConfig: models.DockerConfig{
-			CheckCommand: []string{"docker", "info"},
-			StartCommand: []string{"docker", "desktop", "start"},
-		},
-	}
-
 	// Create dependencies
 	deps := Dependencies{
 		UI:              createRealUI(),
 		ProviderFactory: createRealProviderFactory(),
-		Tools:           createTools(ctx),
+		Tools:           nil, // Will be created in runInteractive
 	}
 
-	// Interactive mode
-	runInteractive(ctx, deps)
+	// Run interactive mode (blocks until exit)
+	runInteractive(context.Background(), deps)
 }
 
-func runInteractive(ctx *models.WorkspaceContext, deps Dependencies) {
+func runInteractive(ctx context.Context, deps Dependencies) {
 	userInterface := deps.UI
-	toolList := deps.Tools
 
-	// Start orchestrator and initialization in background
+	// Create cancellable context for goroutines
+	orchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	// Goroutine #1: Initialize & REPL
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		<-userInterface.Ready() // Wait for UI to be ready
 
-		// Initialize Provider (Async)
+		// === WORKSPACE INITIALIZATION ===
+		userInterface.WriteStatus("thinking", "Initializing workspace...")
+
+		workspaceRoot, err := os.Getwd()
+		if err != nil {
+			userInterface.WriteStatus("error", "Initialization failed")
+			userInterface.WriteMessage(fmt.Sprintf("Error: failed to get working directory: %v", err))
+			userInterface.WriteMessage("The application cannot start. Press Ctrl+C to exit.")
+			return // DEGRADED MODE: UI runs but app doesn't start
+		}
+
+		fileSystem := services.NewOSFileSystem(models.DefaultMaxFileSize)
+		binaryDetector := &services.SystemBinaryDetector{}
+		checksumMgr := services.NewChecksumManager()
+
+		gitignoreSvc, err := services.NewGitignoreService(workspaceRoot, fileSystem)
+		if err != nil {
+			// Non-fatal - just log warning
+			userInterface.WriteMessage(fmt.Sprintf("Warning: failed to initialize gitignore service: %v", err))
+		}
+
+		workspaceCtx := &models.WorkspaceContext{
+			FS:               fileSystem,
+			BinaryDetector:   binaryDetector,
+			ChecksumManager:  checksumMgr,
+			MaxFileSize:      models.DefaultMaxFileSize,
+			WorkspaceRoot:    workspaceRoot,
+			GitignoreService: gitignoreSvc,
+			CommandExecutor:  &services.OSCommandExecutor{},
+			DockerConfig: models.DockerConfig{
+				CheckCommand: []string{"docker", "info"},
+				StartCommand: []string{"docker", "desktop", "start"},
+			},
+		}
+
+		// Create tools
+		toolList := createTools(workspaceCtx)
+
+		// === PROVIDER INITIALIZATION ===
 		userInterface.WriteStatus("thinking", "Initializing AI...")
 
-		providerClient, err := deps.ProviderFactory(context.Background())
+		providerClient, err := deps.ProviderFactory(orchCtx)
 		if err != nil {
+			userInterface.WriteStatus("error", "AI initialization failed")
 			userInterface.WriteMessage(fmt.Sprintf("Error initializing provider: %v", err))
-			return
+			userInterface.WriteMessage("The application cannot start. Press Ctrl+C to exit.")
+			return // DEGRADED MODE
 		}
 
 		// Set initial model in status bar
-		// Note: In a real app we might get this from the provider
 		userInterface.SetModel("gemini-2.0-flash-exp")
 
-		// Initialize Policy
+		// === ORCHESTRATOR INITIALIZATION ===
 		policy := &orchmodels.Policy{
 			Shell: orchmodels.ShellPolicy{
 				SessionAllow: make(map[string]bool),
@@ -148,46 +159,56 @@ func runInteractive(ctx *models.WorkspaceContext, deps Dependencies) {
 			},
 		}
 		policyService := orchestrator.NewPolicyService(policy, userInterface)
-
-		// Initialize Orchestrator
 		orch := orchestrator.New(providerClient, policyService, userInterface, toolList)
 
 		userInterface.WriteStatus("ready", "Ready")
 
-		// REPL Loop
+		// === REPL LOOP (with cancellation) ===
 		for {
-			// Initial prompt
-			goal, err := userInterface.ReadInput(context.Background(), "What would you like to do?")
-			if err != nil {
-				// UI closed or error
-				return
-			}
+			select {
+			case <-orchCtx.Done():
+				return // Exit on cancellation
+			default:
+				// Initial prompt
+				goal, err := userInterface.ReadInput(orchCtx, "What would you like to do?")
+				if err != nil {
+					return // UI closed or context cancelled
+				}
 
-			if err := orch.Run(context.Background(), goal); err != nil {
-				userInterface.WriteMessage(fmt.Sprintf("Error: %v", err))
-			}
+				if err := orch.Run(orchCtx, goal); err != nil {
+					userInterface.WriteMessage(fmt.Sprintf("Error: %v", err))
+				}
 
-			userInterface.WriteStatus("ready", "Ready")
+				userInterface.WriteStatus("ready", "Ready")
+			}
 		}
 	}()
 
-	// Handle UI commands
+	// Goroutine #2: Command handler (with cancellation)
+	wg.Add(1)
 	go func() {
-		for cmd := range userInterface.Commands() {
-			switch cmd.Type {
-			case "list_models":
-				// In a real implementation, we'd fetch this from the provider
-				// For now, hardcode some known models
-				models := []string{"gemini-2.0-flash-exp", "gemini-1.5-pro"}
-				userInterface.WriteModelList(models)
-			case "switch_model":
-				model := cmd.Args["model"]
-				userInterface.SetModel(model)
-				// Note: We'd also need to update the provider here in a full implementation
-				// providerClient.SetModel(model)
-				// But providerClient is local to the other goroutine.
-				// For this fix, we just update the UI.
-				userInterface.WriteMessage(fmt.Sprintf("Switched to model: %s", model))
+		defer wg.Done()
+
+		for {
+			select {
+			case <-orchCtx.Done():
+				return
+			case cmd := <-userInterface.Commands():
+				switch cmd.Type {
+				case "list_models":
+					// In a real implementation, we'd fetch this from the provider
+					// For now, hardcode some known models
+					models := []string{"gemini-2.0-flash-exp", "gemini-1.5-pro"}
+					userInterface.WriteModelList(models)
+				case "switch_model":
+					model := cmd.Args["model"]
+					userInterface.SetModel(model)
+					// Note: We'd also need to update the provider here in a full implementation
+					// providerClient.SetModel(model)
+					// But providerClient is local to the other goroutine.
+					// For this fix, we just update the UI.
+					userInterface.WriteMessage(fmt.Sprintf("Switched to model: %s", model))
+				}
 			}
 		}
 	}()
@@ -197,4 +218,10 @@ func runInteractive(ctx *models.WorkspaceContext, deps Dependencies) {
 		fmt.Fprintf(os.Stderr, "Error running UI: %v\n", err)
 		os.Exit(1)
 	}
+
+	// UI exited, trigger shutdown
+	cancel()
+
+	// Wait for goroutines to finish
+	wg.Wait()
 }

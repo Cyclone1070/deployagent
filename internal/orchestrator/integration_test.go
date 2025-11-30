@@ -6,10 +6,12 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	orchadapter "github.com/Cyclone1070/deployforme/internal/orchestrator/adapter"
 	orchmodels "github.com/Cyclone1070/deployforme/internal/orchestrator/models"
+	pmodels "github.com/Cyclone1070/deployforme/internal/provider/models"
 	"github.com/Cyclone1070/deployforme/internal/testing/testhelpers"
 	"github.com/Cyclone1070/deployforme/internal/tools/models"
 	"github.com/Cyclone1070/deployforme/internal/tools/services"
@@ -96,6 +98,10 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 		orchadapter.NewListDirectory(ctx),
 	}
 
+	// Track what orchestrator sends to provider
+	var allHistories [][]orchmodels.Message
+	var mu sync.Mutex
+
 	// Create mock provider
 	mockProvider := testhelpers.NewMockProvider().
 		WithToolCallResponse([]orchmodels.ToolCall{
@@ -111,6 +117,16 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 			},
 		}).
 		WithTextResponse("Found 0 files")
+
+	// Capture provider inputs
+	mockProvider.OnGenerateCalled = func(req *pmodels.GenerateRequest) {
+		mu.Lock()
+		defer mu.Unlock()
+		// Capture history
+		historyCopy := make([]orchmodels.Message, len(req.History))
+		copy(historyCopy, req.History)
+		allHistories = append(allHistories, historyCopy)
+	}
 
 	// Create policy
 	policy := &orchmodels.Policy{
@@ -139,9 +155,46 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 		t.Errorf("Run returned unexpected error: %v", err)
 	}
 
-	// History progression - this will need to be verified once we have access to history
-	// For now, we verify it doesn't crash and completes
-	assert.NotNil(t, orch)
+	// Verify progression through provider calls
+	mu.Lock()
+	historyCount := len(allHistories)
+	mu.Unlock()
+	assert.GreaterOrEqual(t, historyCount, 2,
+		"Provider should be called multiple times")
+
+	// First call: user goal
+	mu.Lock()
+	firstHistory := allHistories[0]
+	mu.Unlock()
+	assert.Len(t, firstHistory, 1, "First call should have just user goal")
+	assert.Equal(t, "user", firstHistory[0].Role)
+
+	// Second call: should include model + function messages
+	if historyCount >= 2 {
+		mu.Lock()
+		secondHistory := allHistories[1]
+		mu.Unlock()
+		assert.GreaterOrEqual(t, len(secondHistory), 3,
+			"Second call should have goal + tool call + tool result")
+
+		// Find model message with tool calls
+		foundToolCall := false
+		for i, msg := range secondHistory {
+			if msg.Role == "model" && len(msg.ToolCalls) > 0 {
+				foundToolCall = true
+				assert.Equal(t, "list_directory", msg.ToolCalls[0].Name)
+
+				// Next message should be function result
+				if i+1 < len(secondHistory) {
+					nextMsg := secondHistory[i+1]
+					assert.Equal(t, "function", nextMsg.Role)
+					assert.NotEmpty(t, nextMsg.ToolResults)
+				}
+				break
+			}
+		}
+		assert.True(t, foundToolCall, "Should have tool call in second history")
+	}
 
 	// Check if expected message was delivered
 	found := false
@@ -160,6 +213,17 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	// Create small context window provider
 	mockProvider := testhelpers.NewMockProvider().
 		WithContextWindow(200) // Very small window
+
+	// Track history sent to provider
+	var lastHistory []orchmodels.Message
+	var mu sync.Mutex
+
+	mockProvider.OnGenerateCalled = func(req *pmodels.GenerateRequest) {
+		mu.Lock()
+		defer mu.Unlock()
+		lastHistory = make([]orchmodels.Message, len(req.History))
+		copy(lastHistory, req.History)
+	}
 
 	// Create workspace context
 	workspaceRoot := t.TempDir()
@@ -205,11 +269,23 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 
 	orch := New(mockProvider, policyService, userInterface, toolList)
 
-	// Build large history by adding many messages
-	for i := 0; i < 10; i++ {
+	// Set a clear goal message
+	goalMsg := orchmodels.Message{
+		Role:    "user",
+		Content: "GOAL: This is the critical goal message that must be preserved.",
+	}
+	orch.history = append(orch.history, goalMsg)
+
+	// Build large history to force truncation
+	// Add enough messages to definitely exceed 200 tokens
+	for i := 0; i < 20; i++ {
 		orch.history = append(orch.history, orchmodels.Message{
 			Role:    "user",
-			Content: "This is a test message with some content to make it longer and consume more tokens",
+			Content: "This is filler message " + strings.Repeat("long content ", 5),
+		})
+		orch.history = append(orch.history, orchmodels.Message{
+			Role:    "model",
+			Content: "This is filler response " + strings.Repeat("long content ", 5),
 		})
 	}
 
@@ -218,15 +294,29 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, initialTokens, 200)
 
-	// Truncation should succeed
+	// Trigger truncation via checkAndTruncateHistory
 	err = orch.checkAndTruncateHistory(context.Background())
 	assert.NoError(t, err)
 
-	// Token count after truncation should be within limit
+	// Verify internal state (white-box)
 	finalTokens, err := mockProvider.CountTokens(context.Background(), orch.history)
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, finalTokens, 200)
 
-	//First message should be preserved (if we added one as the goal)
-	// This test might need adjustment based on actual truncation logic
+	// Verify what provider sees (black-box via OnGenerateCalled)
+	// We need to trigger a Generate call to see what the provider gets
+	_, err = mockProvider.Generate(context.Background(), &pmodels.GenerateRequest{
+		History: orch.history,
+	})
+	assert.NoError(t, err)
+
+	mu.Lock()
+	capturedHistory := lastHistory
+	mu.Unlock()
+
+	assert.NotEmpty(t, capturedHistory)
+	// First message MUST be the goal
+	assert.Equal(t, goalMsg.Content, capturedHistory[0].Content,
+		"First message (goal) should be preserved after truncation")
+	assert.Equal(t, goalMsg.Role, capturedHistory[0].Role)
 }

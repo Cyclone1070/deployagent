@@ -4,14 +4,14 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	orchmodels "github.com/Cyclone1070/deployforme/internal/orchestrator/models"
 	providermodels "github.com/Cyclone1070/deployforme/internal/provider/models"
 	"github.com/Cyclone1070/deployforme/internal/testing/testhelpers"
-	"github.com/Cyclone1070/deployforme/internal/tools/models"
-	"github.com/Cyclone1070/deployforme/internal/tools/services"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,37 +20,29 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	// Create workspace context
-	workspaceRoot := t.TempDir()
-	fileSystem := services.NewOSFileSystem(models.DefaultMaxFileSize)
-	binaryDetector := &services.SystemBinaryDetector{}
-	checksumMgr := services.NewChecksumManager()
-	gitignoreSvc, _ := services.NewGitignoreService(workspaceRoot, fileSystem)
+	// Workspace context creation removed as it is now internal to runInteractive
 
-	ctx := &models.WorkspaceContext{
-		FS:               fileSystem,
-		BinaryDetector:   binaryDetector,
-		ChecksumManager:  checksumMgr,
-		MaxFileSize:      models.DefaultMaxFileSize,
-		WorkspaceRoot:    workspaceRoot,
-		GitignoreService: gitignoreSvc,
-		CommandExecutor:  &services.OSCommandExecutor{},
-		DockerConfig: models.DockerConfig{
-			CheckCommand: []string{"docker", "info"},
-			StartCommand: []string{"docker", "desktop", "start"},
-		},
-	}
+	// Control when MockUI exits
+	startBlocker := make(chan struct{})
 
 	// Create Mock UI
+	var inputCount int
 	mockUI := &testhelpers.MockUI{
 		InputFunc: func(ctx context.Context, prompt string) (string, error) {
+			inputCount++
+			if inputCount > 1 {
+				return "", fmt.Errorf("stop test")
+			}
 			return "List files", nil
 		},
+		StartBlocker: startBlocker,
 	}
 
-	// Create mock provider that will:
-	// 1. Call list_directory tool
-	// 2. Return final text response
+	// Track what orchestrator sends to provider
+	var allProviderCalls []providermodels.GenerateRequest
+	var mu sync.Mutex
+
+	// Create mock provider
 	mockProvider := testhelpers.NewMockProvider().
 		WithToolCallResponse([]orchmodels.ToolCall{
 			{
@@ -66,6 +58,13 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 		}).
 		WithTextResponse("Found files in current directory")
 
+	// Capture provider inputs
+	mockProvider.OnGenerateCalled = func(req *providermodels.GenerateRequest) {
+		mu.Lock()
+		defer mu.Unlock()
+		allProviderCalls = append(allProviderCalls, *req)
+	}
+
 	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
 		return mockProvider, nil
 	}
@@ -74,26 +73,49 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 	deps := Dependencies{
 		UI:              mockUI,
 		ProviderFactory: providerFactory,
-		Tools:           createTools(ctx),
+		Tools:           nil, // Created in goroutine
 	}
 
 	// Run interactive mode in background
-	done := make(chan bool)
 	go func() {
-		runInteractive(ctx, deps)
-		done <- true
+		runInteractive(context.Background(), deps)
 	}()
 
-	// Wait for completion (should be fast with mocks)
-	select {
-	case <-done:
-		// Success
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timeout waiting for runInteractive to complete")
+	// Give orchestrator time to initialize and run
+	time.Sleep(300 * time.Millisecond)
+
+	// Let UI exit
+	close(startBlocker)
+
+	// Small delay for cleanup
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify provider called multiple times (tool call + final response)
+	mu.Lock()
+	callCount := len(allProviderCalls)
+	mu.Unlock()
+	assert.GreaterOrEqual(t, callCount, 2,
+		"Provider should be called at least twice (initial + after tool execution)")
+
+	// Verify orchestrator sent tool results back to provider
+	mu.Lock()
+	lastHistory := allProviderCalls[len(allProviderCalls)-1].History
+	mu.Unlock()
+
+	foundToolResult := false
+	for _, msg := range lastHistory {
+		if msg.Role == "function" && len(msg.ToolResults) > 0 {
+			foundToolResult = true
+			// Verify tool result structure
+			assert.Equal(t, "list_directory", msg.ToolResults[0].Name)
+			assert.Equal(t, "call_1", msg.ToolResults[0].ID)
+			break
+		}
 	}
+	assert.True(t, foundToolResult,
+		"Orchestrator should send tool results to provider in history")
 
 	// Verify UI received final message
-	// Since orchestrator runs in background, we need to wait for it
 	foundResponse := false
 	timeout := time.After(2 * time.Second)
 	ticker := time.NewTicker(10 * time.Millisecond)

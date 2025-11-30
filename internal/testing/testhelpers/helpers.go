@@ -19,6 +19,8 @@ type MockProvider struct {
 	countTokensVal int
 	contextWindow  int
 	modelName      string
+	// OnGenerateCalled is a callback for observing Generate calls
+	OnGenerateCalled func(req *models.GenerateRequest)
 }
 
 // NewMockProvider creates a new mock provider with default settings
@@ -61,6 +63,11 @@ func (m *MockProvider) WithContextWindow(size int) *MockProvider {
 
 // Generate implements the Provider interface
 func (m *MockProvider) Generate(ctx context.Context, req *models.GenerateRequest) (*models.GenerateResponse, error) {
+	// Invoke callback if set
+	if m.OnGenerateCalled != nil {
+		m.OnGenerateCalled(req)
+	}
+
 	if m.responseIndex >= len(m.responses) {
 		// Return a default text response if we run out
 		return &models.GenerateResponse{
@@ -138,6 +145,10 @@ type MockUI struct {
 	InputFunc          func(ctx context.Context, prompt string) (string, error)
 	ReadPermissionFunc func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error)
 	ReadyChan          chan struct{}
+	// OnReadyCalled is a callback for observing Ready calls
+	OnReadyCalled func()
+	// StartBlocker controls when Start() returns (for tests)
+	StartBlocker chan struct{}
 }
 
 func (m *MockUI) WriteMessage(message string) {
@@ -189,6 +200,11 @@ func (m *MockUI) SetModel(model string) {
 }
 
 func (m *MockUI) Ready() <-chan struct{} {
+	// Invoke callback if set
+	if m.OnReadyCalled != nil {
+		m.OnReadyCalled()
+	}
+
 	if m.ReadyChan != nil {
 		return m.ReadyChan
 	}
@@ -199,5 +215,8 @@ func (m *MockUI) Ready() <-chan struct{} {
 }
 
 func (m *MockUI) Start() error {
+	if m.StartBlocker != nil {
+		<-m.StartBlocker // Block until test signals
+	}
 	return nil
 }
