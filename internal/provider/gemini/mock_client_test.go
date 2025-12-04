@@ -11,7 +11,7 @@ import (
 type MockGeminiClient struct {
 	GenerateContentFunc func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error)
 	CountTokensFunc     func(ctx context.Context, model string, contents []*genai.Content) (*genai.CountTokensResponse, error)
-	ListModelsFunc      func(ctx context.Context) ([]string, error)
+	ListModelsFunc      func(ctx context.Context) ([]ModelInfo, error)
 }
 
 // GenerateContent calls the mock function if set, otherwise returns an error.
@@ -31,7 +31,7 @@ func (m *MockGeminiClient) CountTokens(ctx context.Context, model string, conten
 }
 
 // ListModels calls the mock function if set, otherwise returns an error.
-func (m *MockGeminiClient) ListModels(ctx context.Context) ([]string, error) {
+func (m *MockGeminiClient) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	if m.ListModelsFunc != nil {
 		return m.ListModelsFunc(ctx)
 	}

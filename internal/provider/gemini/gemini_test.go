@@ -11,6 +11,7 @@ import (
 )
 
 // TestGenerate_HappyPath_TextResponse tests successful text generation.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_HappyPath_TextResponse(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -32,9 +33,12 @@ func TestGenerate_HappyPath_TextResponse(t *testing.T) {
 				},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt:  "Hello",
@@ -61,6 +65,7 @@ func TestGenerate_HappyPath_TextResponse(t *testing.T) {
 }
 
 // TestGenerate_HappyPath_ToolCall tests successful tool call generation.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_HappyPath_ToolCall(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -87,9 +92,12 @@ func TestGenerate_HappyPath_ToolCall(t *testing.T) {
 				},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt: "Read foo.txt",
@@ -119,6 +127,7 @@ func TestGenerate_HappyPath_ToolCall(t *testing.T) {
 }
 
 // TestCountTokens_HappyPath tests successful token counting.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestCountTokens_HappyPath(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		CountTokensFunc: func(ctx context.Context, model string, contents []*genai.Content) (*genai.CountTokensResponse, error) {
@@ -126,12 +135,12 @@ func TestCountTokens_HappyPath(t *testing.T) {
 				TotalTokens: 150,
 			}, nil
 		},
-		ListModelsFunc: func(ctx context.Context) ([]string, error) {
-			return []string{"gemini-1.5-flash"}, nil
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
 		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	messages := []models.Message{
 		{Role: "user", Content: "Hello"},
@@ -151,29 +160,34 @@ func TestCountTokens_HappyPath(t *testing.T) {
 }
 
 // TestSetModel_GetModel tests model switching.
+// Uses mock model names since this test doesn't verify version parsing or sorting logic.
 func TestSetModel_GetModel(t *testing.T) {
 	mockClient := &MockGeminiClient{
-		ListModelsFunc: func(ctx context.Context) ([]string, error) {
-			return []string{"gemini-1.5-flash", "gemini-1.5-pro"}, nil
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{
+				{Name: "models/gemini-mock-1", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-mock-2", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+			}, nil
 		},
 	}
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock-1")
 
-	if p.GetModel() != "gemini-1.5-flash" {
-		t.Errorf("expected 'gemini-1.5-flash', got %q", p.GetModel())
+	if p.GetModel() != "models/gemini-mock-1" {
+		t.Errorf("expected 'models/gemini-mock-1', got %q", p.GetModel())
 	}
 
-	err := p.SetModel("gemini-1.5-pro")
+	err := p.SetModel("models/gemini-mock-2")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if p.GetModel() != "gemini-1.5-pro" {
-		t.Errorf("expected 'gemini-1.5-pro', got %q", p.GetModel())
+	if p.GetModel() != "models/gemini-mock-2" {
+		t.Errorf("expected 'models/gemini-mock-2', got %q", p.GetModel())
 	}
 }
 
 // TestGenerate_UnhappyPath_RateLimit tests rate limit error handling.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_UnhappyPath_RateLimit(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -182,9 +196,12 @@ func TestGenerate_UnhappyPath_RateLimit(t *testing.T) {
 				Message: "Rate limit exceeded",
 			}
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt: "Hello",
@@ -211,6 +228,7 @@ func TestGenerate_UnhappyPath_RateLimit(t *testing.T) {
 }
 
 // TestGenerate_UnhappyPath_AuthFailure tests authentication error handling.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_UnhappyPath_AuthFailure(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -219,9 +237,12 @@ func TestGenerate_UnhappyPath_AuthFailure(t *testing.T) {
 				Message: "Unauthorized",
 			}
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt: "Hello",
@@ -248,6 +269,7 @@ func TestGenerate_UnhappyPath_AuthFailure(t *testing.T) {
 }
 
 // TestGenerate_EdgeCase_EmptyResponse tests handling of empty candidate list.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_EmptyResponse(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -255,9 +277,12 @@ func TestGenerate_EdgeCase_EmptyResponse(t *testing.T) {
 				Candidates: []*genai.Candidate{},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt: "Hello",
@@ -280,6 +305,7 @@ func TestGenerate_EdgeCase_EmptyResponse(t *testing.T) {
 }
 
 // TestGenerate_EdgeCase_SafetyBlock tests content blocked by safety filters.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_SafetyBlock(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -296,9 +322,12 @@ func TestGenerate_EdgeCase_SafetyBlock(t *testing.T) {
 				},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt: "Dangerous content",
@@ -321,6 +350,7 @@ func TestGenerate_EdgeCase_SafetyBlock(t *testing.T) {
 }
 
 // TestGenerate_EdgeCase_NilConfig tests handling of nil config.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_NilConfig(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -341,9 +371,12 @@ func TestGenerate_EdgeCase_NilConfig(t *testing.T) {
 				},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt: "Hello",
@@ -358,6 +391,7 @@ func TestGenerate_EdgeCase_NilConfig(t *testing.T) {
 }
 
 // TestGenerate_EdgeCase_NilHistory tests handling of nil history.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_NilHistory(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -378,9 +412,12 @@ func TestGenerate_EdgeCase_NilHistory(t *testing.T) {
 				},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	req := &provider.GenerateRequest{
 		Prompt:  "Hello",
@@ -395,13 +432,14 @@ func TestGenerate_EdgeCase_NilHistory(t *testing.T) {
 }
 
 // TestGetCapabilities tests capability reporting.
+// Uses real model name with version to verify GetCapabilities correctly looks up cached ModelInfo.
 func TestGetCapabilities(t *testing.T) {
 	mockClient := &MockGeminiClient{
-		ListModelsFunc: func(ctx context.Context) ([]string, error) {
-			return []string{"gemini-1.5-pro"}, nil
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192}}, nil
 		},
 	}
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-pro")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-1.5-pro")
 
 	caps := p.GetCapabilities()
 
@@ -409,8 +447,8 @@ func TestGetCapabilities(t *testing.T) {
 		t.Error("expected tool calling support")
 	}
 
-	if caps.SupportsStreaming {
-		t.Error("expected streaming to not be supported yet")
+	if !caps.SupportsStreaming {
+		t.Error("expected streaming support")
 	}
 
 	if caps.MaxContextTokens != 2_000_000 {
@@ -419,6 +457,7 @@ func TestGetCapabilities(t *testing.T) {
 }
 
 // TestDefineTools tests tool definition registration.
+// Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestDefineTools(t *testing.T) {
 	mockClient := &MockGeminiClient{
 		GenerateContentFunc: func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
@@ -445,9 +484,12 @@ func TestDefineTools(t *testing.T) {
 				},
 			}, nil
 		},
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192}}, nil
+		},
 	}
 
-	p, _ := NewGeminiProvider(mockClient, "gemini-1.5-flash")
+	p, _ := NewGeminiProvider(mockClient, "models/gemini-mock")
 
 	tools := []provider.ToolDefinition{
 		{
@@ -469,5 +511,267 @@ func TestDefineTools(t *testing.T) {
 	_, err = p.Generate(context.Background(), req)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+// TestExtractVersion tests version extraction from model names.
+// Uses real model names with versions to verify the regex parsing logic works correctly.
+func TestExtractVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		model    string
+		expected float64
+		ok       bool
+	}{
+		{
+			name:     "gemini-2.0-flash",
+			model:    "models/gemini-2.0-flash",
+			expected: 2.0,
+			ok:       true,
+		},
+		{
+			name:     "gemini-1.5-pro",
+			model:    "models/gemini-1.5-pro",
+			expected: 1.5,
+			ok:       true,
+		},
+		{
+			name:     "gemini-2.5-flash",
+			model:    "models/gemini-2.5-flash",
+			expected: 2.5,
+			ok:       true,
+		},
+		{
+			name:     "gemini-3-pro (no decimal)",
+			model:    "models/gemini-3-pro",
+			expected: 3.0,
+			ok:       true,
+		},
+		{
+			name:     "invalid format",
+			model:    "invalid-model-name",
+			expected: 0.0,
+			ok:       false,
+		},
+		{
+			name:     "non-gemini model",
+			model:    "models/other-model-1.0",
+			expected: 0.0,
+			ok:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			version, ok := extractVersion(tt.model)
+			if ok != tt.ok {
+				t.Errorf("extractVersion(%q) ok = %v, want %v", tt.model, ok, tt.ok)
+			}
+			if ok && version != tt.expected {
+				t.Errorf("extractVersion(%q) = %v, want %v", tt.model, version, tt.expected)
+			}
+		})
+	}
+}
+
+// TestSortModelsByVersion tests sorting models by version.
+// Uses real model names with versions, -pro, -flash, and -latest suffixes to verify sorting logic.
+func TestSortModelsByVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		models   []ModelInfo
+		expected []string
+	}{
+		{
+			name: "sort by version descending",
+			models: []ModelInfo{
+				{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.0-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+			},
+			expected: []string{"models/gemini-2.0-flash", "models/gemini-1.5-pro", "models/gemini-1.5-flash"},
+		},
+		{
+			name: "pro ranks higher than flash when versions equal",
+			models: []ModelInfo{
+				{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+			},
+			expected: []string{"models/gemini-1.5-pro", "models/gemini-1.5-flash"},
+		},
+		{
+			name: "latest ranks highest regardless of version",
+			models: []ModelInfo{
+				{Name: "models/gemini-3.0-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.5-pro-latest", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-flash-latest", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			},
+			expected: []string{"models/gemini-2.5-pro-latest", "models/gemini-1.5-flash-latest", "models/gemini-3.0-pro"},
+		},
+		{
+			name: "single model",
+			models: []ModelInfo{
+				{Name: "models/gemini-2.0-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			},
+			expected: []string{"models/gemini-2.0-flash"},
+		},
+		{
+			name: "mixed versions",
+			models: []ModelInfo{
+				{Name: "models/gemini-1.0-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+			},
+			expected: []string{"models/gemini-2.5-flash", "models/gemini-1.5-pro", "models/gemini-1.0-flash"},
+		},
+		{
+			name: "version 3 without decimal",
+			models: []ModelInfo{
+				{Name: "models/gemini-2.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-3-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			},
+			expected: []string{"models/gemini-3-pro", "models/gemini-2.5-pro", "models/gemini-1.5-flash"},
+		},
+		{
+			name: "pro and flash with additional suffixes",
+			models: []ModelInfo{
+				{Name: "models/gemini-2.5-flash-exp", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.5-pro-latest", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.5-flash-latest", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.5-pro-exp", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+			},
+			// Latest models first (regardless of version), then pro > flash when versions equal
+			expected: []string{"models/gemini-2.5-pro-latest", "models/gemini-2.5-flash-latest", "models/gemini-2.5-pro-exp", "models/gemini-2.5-flash-exp"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sortModelsByVersion(tt.models)
+			if len(result) != len(tt.expected) {
+				t.Fatalf("sortModelsByVersion() length = %d, want %d", len(result), len(tt.expected))
+			}
+			for i := range result {
+				if result[i].Name != tt.expected[i] {
+					t.Errorf("sortModelsByVersion()[%d] = %q, want %q", i, result[i].Name, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+// TestNewGeminiProviderWithLatest tests the NewGeminiProviderWithLatest constructor.
+// Uses real model names with versions to verify sorting and selection logic.
+func TestNewGeminiProviderWithLatest(t *testing.T) {
+	tests := []struct {
+		name          string
+		models        []ModelInfo
+		expectedModel string
+		expectError   bool
+	}{
+		{
+			name: "selects highest version",
+			models: []ModelInfo{
+				{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.0-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+			},
+			expectedModel: "models/gemini-2.0-flash",
+			expectError:   false,
+		},
+		{
+			name: "preserves order for equal versions",
+			models: []ModelInfo{
+				{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			},
+			expectedModel: "models/gemini-1.5-pro",
+			expectError:   false,
+		},
+		{
+			name:        "no models available",
+			models:      []ModelInfo{},
+			expectError: true,
+		},
+		{
+			name: "single model",
+			models: []ModelInfo{
+				{Name: "models/gemini-2.0-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			},
+			expectedModel: "models/gemini-2.0-flash",
+			expectError:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &MockGeminiClient{
+				ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+					return tt.models, nil
+				},
+			}
+
+			p, err := NewGeminiProviderWithLatest(mockClient)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if p.GetModel() != tt.expectedModel {
+				t.Errorf("GetModel() = %q, want %q", p.GetModel(), tt.expectedModel)
+			}
+
+			// Verify cache is populated
+			models, err := p.ListModels(context.Background())
+			if err != nil {
+				t.Fatalf("ListModels() error = %v", err)
+			}
+			if len(models) != len(tt.models) {
+				t.Errorf("ListModels() length = %d, want %d", len(models), len(tt.models))
+			}
+		})
+	}
+}
+
+// TestNewGeminiProvider_InvalidModel tests validation of model names.
+// Uses real model names to verify validation logic works with actual model name patterns.
+func TestNewGeminiProvider_InvalidModel(t *testing.T) {
+	mockClient := &MockGeminiClient{
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return []ModelInfo{
+				{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+				{Name: "models/gemini-2.0-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			}, nil
+		},
+	}
+
+	_, err := NewGeminiProvider(mockClient, "models/gemini-invalid-model")
+	if err == nil {
+		t.Error("expected error for invalid model, got nil")
+	}
+
+	if err != nil && err.Error() != "invalid model: models/gemini-invalid-model not found in available models" {
+		t.Errorf("error message = %q, want 'invalid model: models/gemini-invalid-model not found in available models'", err.Error())
+	}
+}
+
+// TestNewGeminiProvider_ListModelsError tests error handling when ListModels fails.
+func TestNewGeminiProvider_ListModelsError(t *testing.T) {
+	mockClient := &MockGeminiClient{
+		ListModelsFunc: func(ctx context.Context) ([]ModelInfo, error) {
+			return nil, errors.New("API error")
+		},
+	}
+
+	_, err := NewGeminiProvider(mockClient, "models/gemini-1.5-flash")
+	if err == nil {
+		t.Error("expected error when ListModels fails, got nil")
 	}
 }

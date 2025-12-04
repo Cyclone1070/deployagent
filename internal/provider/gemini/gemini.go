@@ -3,7 +3,10 @@ package gemini
 import (
 	"context" // Added for fmt.Errorf
 	"fmt"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Cyclone1070/deployforme/internal/orchestrator/models"
@@ -16,23 +19,205 @@ type GeminiProvider struct {
 	model      string // Renamed from modelName
 	mu         sync.RWMutex
 	tools      []provider.ToolDefinition
-	modelCache []string // Cached list of available models
+	modelCache []ModelInfo // Cached list of available models with metadata
 }
 
-// NewGeminiProvider creates a new Gemini provider with the given client and model
-func NewGeminiProvider(client GeminiClient, model string) (*GeminiProvider, error) {
-	p := &GeminiProvider{
-		client: client,
-		model:  model,
+// modelVersion represents a model name with its parsed version for sorting
+type modelVersion struct {
+	name    string
+	version float64 // Parsed version number (e.g., 2.0, 1.5)
+}
+
+// extractVersion extracts the version number from a model name.
+// Model names are in format "models/gemini-X.Y-variant" or "models/gemini-X-variant" (e.g., "models/gemini-2.0-flash" or "models/gemini-3-pro").
+// Returns the version as a float64 (e.g., 2.0 or 3.0) and true if successful, or 0.0 and false if parsing fails.
+func extractVersion(modelName string) (float64, bool) {
+	// Pattern to match "models/gemini-X" or "models/gemini-X.Y" where X or X.Y is the version
+	// This handles formats like "models/gemini-2.0-flash", "models/gemini-1.5-pro", or "models/gemini-3-pro"
+	re := regexp.MustCompile(`models/gemini-(\d+(?:\.\d+)?)`)
+	matches := re.FindStringSubmatch(modelName)
+	if len(matches) < 2 {
+		return 0.0, false
 	}
 
-	// Populate model cache
+	version, err := strconv.ParseFloat(matches[1], 64)
+	if err != nil {
+		return 0.0, false
+	}
+
+	return version, true
+}
+
+// getModelInfo returns the ModelInfo for the given model name from the cache
+func (p *GeminiProvider) getModelInfo(name string) *ModelInfo {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for i := range p.modelCache {
+		if p.modelCache[i].Name == name {
+			return &p.modelCache[i]
+		}
+	}
+	return nil
+}
+
+// hasLatestSuffix returns true if the model name contains "-latest"
+func hasLatestSuffix(modelName string) bool {
+	return strings.Contains(modelName, "-latest")
+}
+
+// getModelTypePriority returns a priority value for model types.
+// Higher values are preferred. pro=2, flash=1, others=0
+// Handles models with additional suffixes like "-pro-latest", "-flash-exp", etc.
+func getModelTypePriority(modelName string) int {
+	// Match "-pro" or "-pro-" followed by optional suffix (e.g., "-pro-latest", "-pro-exp")
+	if strings.Contains(modelName, "-pro") {
+		return 2
+	}
+	// Match "-flash" or "-flash-" followed by optional suffix (e.g., "-flash-latest", "-flash-exp")
+	if strings.Contains(modelName, "-flash") {
+		return 1
+	}
+	return 0
+}
+
+// sortModelsByVersion sorts models with the following priority (highest to lowest):
+// 1. Models with "-latest" suffix (regardless of version)
+// 2. Version number (descending: 3.0 > 2.5 > 2.0 > 1.5)
+// 3. Model type (pro > flash > others)
+// 4. Original API order (stable sort)
+func sortModelsByVersion(models []ModelInfo) []ModelInfo {
+	// Create slice of modelVersion with original indices for stable sort
+	type indexedModel struct {
+		modelVersion
+		originalIndex int
+		hasLatest     bool
+		typePriority  int
+	}
+
+	indexed := make([]indexedModel, 0, len(models))
+	for i, model := range models {
+		version, ok := extractVersion(model.Name)
+		if !ok {
+			// If version parsing fails, use 0.0 (will be sorted last)
+			version = 0.0
+		}
+		indexed = append(indexed, indexedModel{
+			modelVersion: modelVersion{
+				name:    model.Name,
+				version: version,
+			},
+			originalIndex: i,
+			hasLatest:    hasLatestSuffix(model.Name),
+			typePriority: getModelTypePriority(model.Name),
+		})
+	}
+
+	// Sort by: latest suffix > version > type priority > original index
+	slices.SortFunc(indexed, func(a, b indexedModel) int {
+		// First priority: models with "-latest" suffix (highest priority)
+		if a.hasLatest && !b.hasLatest {
+			return -1
+		}
+		if !a.hasLatest && b.hasLatest {
+			return 1
+		}
+		
+		// Second priority: Compare versions (descending)
+		if a.version > b.version {
+			return -1
+		}
+		if a.version < b.version {
+			return 1
+		}
+		
+		// Third priority: If versions are equal, prefer pro over flash
+		if a.typePriority > b.typePriority {
+			return -1
+		}
+		if a.typePriority < b.typePriority {
+			return 1
+		}
+		
+		// Fourth priority: If versions and types are equal, preserve original order
+		if a.originalIndex < b.originalIndex {
+			return -1
+		}
+		if a.originalIndex > b.originalIndex {
+			return 1
+		}
+		return 0
+	})
+
+	// Extract sorted model info
+	result := make([]ModelInfo, len(models))
+	for i, m := range indexed {
+		// Find the original model info by name
+		for j := range models {
+			if models[j].Name == m.name {
+				result[i] = models[j]
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+// NewGeminiProviderWithLatest creates a new Gemini provider with the latest available gemini-* model.
+// It fetches the list of available models, filters to gemini-* models, sorts by version (highest first),
+// and uses the first model as the default.
+func NewGeminiProviderWithLatest(client GeminiClient) (*GeminiProvider, error) {
 	ctx := context.Background()
 	models, err := client.ListModels(ctx)
-	if err == nil {
-		p.modelCache = models
+	if err != nil {
+		return nil, fmt.Errorf("failed to list models: %w", err)
 	}
-	// Ignore error - validation will be skipped if cache is empty
+
+	if len(models) == 0 {
+		return nil, fmt.Errorf("no gemini-* models available")
+	}
+
+	// Sort models by version (highest first), preserving API order for equal versions
+	sortedModels := sortModelsByVersion(models)
+	latestModel := sortedModels[0].Name
+
+	p := &GeminiProvider{
+		client:     client,
+		model:      latestModel,
+		modelCache: sortedModels,
+	}
+
+	return p, nil
+}
+
+// NewGeminiProvider creates a new Gemini provider with the given client and model.
+// It validates that the provided model exists in the filtered list of available gemini-* models.
+func NewGeminiProvider(client GeminiClient, model string) (*GeminiProvider, error) {
+	// Fetch and validate model list
+	ctx := context.Background()
+	models, err := client.ListModels(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list models: %w", err)
+	}
+
+	// Validate that the provided model exists in the filtered list
+	found := false
+	for _, m := range models {
+		if m.Name == model {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("invalid model: %s not found in available models", model)
+	}
+
+	p := &GeminiProvider{
+		client:     client,
+		model:      model,
+		modelCache: models,
+	}
 
 	return p, nil
 }
@@ -41,7 +226,11 @@ func NewGeminiProvider(client GeminiClient, model string) (*GeminiProvider, erro
 func (g *GeminiProvider) ListModels(ctx context.Context) ([]string, error) {
 	// Return cached list if available
 	if len(g.modelCache) > 0 {
-		return g.modelCache, nil
+		names := make([]string, len(g.modelCache))
+		for i, m := range g.modelCache {
+			names[i] = m.Name
+		}
+		return names, nil
 	}
 
 	// Otherwise fetch from client
@@ -52,7 +241,13 @@ func (g *GeminiProvider) ListModels(ctx context.Context) ([]string, error) {
 
 	// Update cache
 	g.modelCache = models
-	return models, nil
+	
+	// Extract names for return
+	names := make([]string, len(models))
+	for i, m := range models {
+		names[i] = m.Name
+	}
+	return names, nil
 }
 
 // Generate sends a request to the Gemini API and returns the response.
@@ -107,18 +302,28 @@ func (p *GeminiProvider) CountTokens(ctx context.Context, messages []models.Mess
 // GetContextWindow returns the maximum context size for the current model.
 func (p *GeminiProvider) GetContextWindow() int {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
+	model := p.model
+	p.mu.RUnlock()
 
-	metadata := GetModelMetadata(p.model)
-	return metadata.InputTokenLimit
+	info := p.getModelInfo(model)
+	if info != nil {
+		return info.InputTokenLimit
+	}
+	return 1_000_000 // fallback
 }
 
 // SetModel sets the model to use for generation
 func (p *GeminiProvider) SetModel(model string) error {
 	// Validate model if cache is available
 	if len(p.modelCache) > 0 {
-		valid := slices.Contains(p.modelCache, model)
-		if !valid {
+		found := false
+		for _, m := range p.modelCache {
+			if m.Name == model {
+				found = true
+				break
+			}
+		}
+		if !found {
 			return fmt.Errorf("invalid model name: %s", model)
 		}
 	}
@@ -138,15 +343,27 @@ func (p *GeminiProvider) GetModel() string {
 // GetCapabilities returns what features the provider/model supports.
 func (p *GeminiProvider) GetCapabilities() provider.Capabilities {
 	p.mu.RLock()
-	metadata := GetModelMetadata(p.model)
+	model := p.model
 	p.mu.RUnlock()
 
+	info := p.getModelInfo(model)
+	if info == nil {
+		// Fallback if model not found
+		return provider.Capabilities{
+			SupportsStreaming:   true,
+			SupportsToolCalling: true,
+			SupportsJSONMode:    true,
+			MaxContextTokens:    1_000_000,
+			MaxOutputTokens:     8192,
+		}
+	}
+
 	return provider.Capabilities{
-		SupportsStreaming:   metadata.SupportsStreaming,
-		SupportsToolCalling: metadata.SupportsTools,
+		SupportsStreaming:   true, // All gemini models support this via SDK
+		SupportsToolCalling: true, // All gemini models support this via SDK
 		SupportsJSONMode:    true,
-		MaxContextTokens:    metadata.InputTokenLimit,
-		MaxOutputTokens:     metadata.OutputTokenLimit,
+		MaxContextTokens:    info.InputTokenLimit,
+		MaxOutputTokens:     info.OutputTokenLimit,
 	}
 }
 

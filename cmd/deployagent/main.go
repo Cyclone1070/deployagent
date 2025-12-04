@@ -51,7 +51,7 @@ func createRealProviderFactory() func(context.Context) (provider.Provider, error
 		}
 
 		geminiClient := gemini.NewRealGeminiClient(genaiClient)
-		return gemini.NewGeminiProvider(geminiClient, "gemini-2.0-flash-exp")
+		return gemini.NewGeminiProviderWithLatest(geminiClient)
 	}
 }
 
@@ -154,8 +154,8 @@ func runInteractive(ctx context.Context, deps Dependencies) {
 		providerClient = p
 		close(providerReady)
 
-		// Set initial model in status bar
-		userInterface.SetModel("gemini-2.0-flash-exp")
+		// Set initial model in status bar (use the model from the provider)
+		userInterface.SetModel(p.GetModel())
 
 		// === ORCHESTRATOR INITIALIZATION ===
 		policy := &orchmodels.Policy{
