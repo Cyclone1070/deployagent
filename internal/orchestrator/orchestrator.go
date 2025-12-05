@@ -204,7 +204,7 @@ func (o *Orchestrator) checkAndTruncateHistory(ctx context.Context) error {
 			// Only remove if it won't orphan a function message
 			if len(o.history) > 2 {
 				// Check if removing index 1 would orphan a function at index 2
-				if len(o.history) > 2 && o.history[2].Role == "function" {
+				if o.history[2].Role == "function" {
 					// Would orphan - remove both index 1 and 2
 					o.history = append(o.history[:1], o.history[3:]...)
 				} else {
