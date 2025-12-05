@@ -93,12 +93,20 @@ type WriteTodosRequest struct {
 }
 
 func (r WriteTodosRequest) Validate() error {
+	// Check for empty todos array (questionable but allow it - might be clearing all todos)
+	// But validate each todo if present
 	for i, todo := range r.Todos {
+		// Validate status
 		switch todo.Status {
 		case TodoStatusPending, TodoStatusInProgress, TodoStatusCompleted, TodoStatusCancelled:
 			// Valid
 		default:
 			return fmt.Errorf("todo[%d]: invalid status %q", i, todo.Status)
+		}
+
+		// Validate description is not empty
+		if todo.Description == "" {
+			return fmt.Errorf("todo[%d]: description cannot be empty", i)
 		}
 	}
 	return nil

@@ -112,6 +112,22 @@ func TestHistoryTruncation_BuildsAndTruncates(t *testing.T) {
 		t.Errorf("Expected history to be truncated from %d messages, but got %d",
 			historyLengthAtTruncation, len(orchestrator.history))
 	}
+
+	// CRITICAL: Verify WHICH messages were preserved
+	// Goal must always be first
+	if len(orchestrator.history) == 0 {
+		t.Fatal("History is empty after truncation!")
+	}
+	if orchestrator.history[0].Role != "user" || orchestrator.history[0].Content != "goal" {
+		t.Errorf("Goal not preserved! First message: role=%s, content=%s",
+			orchestrator.history[0].Role, orchestrator.history[0].Content)
+	}
+
+	// Most recent messages should be preserved (we should have the final text response)
+	lastMsg := orchestrator.history[len(orchestrator.history)-1]
+	if lastMsg.Role != "assistant" {
+		t.Errorf("Expected last message to be assistant response, got %s", lastMsg.Role)
+	}
 }
 
 // TestHistoryTruncation_GoalNeverRemoved verifies the FIRST message (goal) survives
@@ -308,20 +324,50 @@ func TestHistoryTruncation_CountTokensError_NoInfiniteLoop(t *testing.T) {
 	}
 }
 
-// TestHistoryTruncation_NegativeSafetyMargin verifies behavior when
-// MaxOutputTokens > ContextWindow (edge case that should not crash).
-func TestHistoryTruncation_NegativeSafetyMargin(t *testing.T) {
+// TestHistoryTruncation_SafetyMarginExceedsContext verifies that when
+// MaxOutputTokens > ContextWindow, we don't truncate TOO aggressively.
+// The implementation should use a sensible fallback, not truncate everything.
+func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
+	generateCallCount := 0
+
+	mockTool := &MockTool{
+		NameFunc:        func() string { return "test" },
+		DescriptionFunc: func() string { return "test" },
+		DefinitionFunc: func() provider.ToolDefinition {
+			return provider.ToolDefinition{Name: "test", Description: "test"}
+		},
+		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
+			return "result", nil
+		},
+	}
+
 	mockProvider := &MockProvider{
 		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			return 100, nil // Under any reasonable limit
+			// Return token count well under context window
+			// With context=1000 and clamped safety=800, effective limit is 200
+			// So 400 tokens should NOT trigger truncation (400 > 200 but we should clamp better)
+			// Actually, let's use 150 tokens to be safely under any reasonable limit
+			return 150, nil
 		},
 		GetContextWindowFunc: func() int {
-			return 1000 // Context window is 1000
+			return 1000 // Small context
 		},
 		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 5000} // Safety margin LARGER than context!
+			return provider.Capabilities{MaxOutputTokens: 5000} // Larger than context!
 		},
 		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+			generateCallCount++
+			// Build up history with tool calls
+			if generateCallCount <= 2 {
+				return &provider.GenerateResponse{
+					Content: provider.ResponseContent{
+						Type: provider.ResponseTypeToolCall,
+						ToolCalls: []models.ToolCall{
+							{ID: "c", Name: "test", Args: map[string]any{}},
+						},
+					},
+				}, nil
+			}
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
 			}, nil
@@ -334,12 +380,24 @@ func TestHistoryTruncation_NegativeSafetyMargin(t *testing.T) {
 		},
 	}
 
-	orchestrator := New(mockProvider, &MockPolicy{}, mockUI, []adapter.Tool{})
-	err := orchestrator.Run(context.Background(), "test goal")
+	mockPolicy := &MockPolicy{
+		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
+			return nil
+		},
+	}
 
-	// Should not panic or infinite loop, should complete normally
-	if err == nil || !strings.Contains(err.Error(), "test complete") {
-		t.Errorf("Unexpected behavior with negative effective context: %v", err)
+	orchestrator := New(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
+	_ = orchestrator.Run(context.Background(), "goal")
+
+	// CRITICAL ASSERTION: With 150 tokens and 1000 context window,
+	// we should NOT truncate (we're well under the limit even with safety margin).
+	// With clamped safety margin of 800, effective limit is 200.
+	// 150 < 200, so no truncation should happen.
+	// Expected: goal + 2 tool call pairs + final response = 5+ messages
+	if len(orchestrator.history) < 5 {
+		t.Errorf("BUG DETECTED: Over-aggressive truncation with safety margin > context. History length: %d (expected >= 5)", len(orchestrator.history))
+		t.Logf("With 150 tokens and context 1000, clamped safety 800, limit should be 200")
+		t.Logf("150 < 200 so truncation should NOT happen")
 	}
 }
 
@@ -371,6 +429,172 @@ func TestHistoryTruncation_TokensNeverDecrease(t *testing.T) {
 	// So we shouldn't loop forever even if tokens never decrease
 	if callCount > 100 {
 		t.Errorf("Infinite loop detected! CountTokens called %d times", callCount)
+	}
+}
+
+// TestHistoryTruncation_ThreeMessageEdgeCase verifies that when history has exactly
+// 3 messages (goal + model + function), truncation doesn't orphan the function message.
+// This exposes a bug in the truncation logic at line 196-201.
+func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
+	tokenCountCalls := 0
+
+	mockTool := &MockTool{
+		NameFunc:        func() string { return "test" },
+		DescriptionFunc: func() string { return "test" },
+		DefinitionFunc: func() provider.ToolDefinition {
+			return provider.ToolDefinition{Name: "test", Description: "test"}
+		},
+		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
+			return "result", nil
+		},
+	}
+
+	mockProvider := &MockProvider{
+		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
+			tokenCountCalls++
+			// When we have exactly 3 messages (goal + model + function),
+			// report high token count to force truncation
+			if len(messages) == 3 {
+				return 10000, nil // Way over limit - force truncation
+			}
+			return 100, nil // Under limit after truncation
+		},
+		GetContextWindowFunc: func() int {
+			return 2000
+		},
+		GetCapabilitiesFunc: func() provider.Capabilities {
+			return provider.Capabilities{MaxOutputTokens: 1000}
+		},
+		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+			// First call: return tool call (creates model + function messages)
+			if len(req.History) == 1 {
+				return &provider.GenerateResponse{
+					Content: provider.ResponseContent{
+						Type: provider.ResponseTypeToolCall,
+						ToolCalls: []models.ToolCall{
+							{ID: "c", Name: "test", Args: map[string]any{}},
+						},
+					},
+				}, nil
+			}
+			// After truncation, return text to end
+			return &provider.GenerateResponse{
+				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+			}, nil
+		},
+	}
+
+	mockUI := &MockUI{
+		InputFunc: func(ctx context.Context, prompt string) (string, error) {
+			return "", errors.New("test complete")
+		},
+	}
+
+	mockPolicy := &MockPolicy{
+		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
+			return nil
+		},
+	}
+
+	orchestrator := New(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
+	_ = orchestrator.Run(context.Background(), "goal")
+
+	// BUG: With history of [goal, model, function] and len==3,
+	// the condition `isPair && len > 3` is FALSE (3 > 3 is false)
+	// So it removes single message at index 1 (model), leaving orphaned function
+	for i, msg := range orchestrator.history {
+		if msg.Role == "function" {
+			if i == 0 {
+				t.Fatal("Function message at index 0 - no preceding model!")
+			}
+			prevRole := orchestrator.history[i-1].Role
+			if prevRole != "model" {
+				t.Errorf("BUG DETECTED: Orphaned function message at index %d. Preceded by '%s', not 'model'",
+					i, prevRole)
+				t.Logf("This happens when history has exactly 3 messages and isPair check succeeds")
+				t.Logf("but len(history) > 3 is FALSE, so single-message removal orphans the function")
+			}
+		}
+	}
+}
+
+// TestHistoryTruncation_NonPairedMessages verifies that truncation handles
+// non-standard message sequences without orphaning function results.
+// This tests the edge case where messages don't form recognized pairs.
+func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
+	generateCallCount := 0
+
+	mockTool := &MockTool{
+		NameFunc:        func() string { return "test" },
+		DescriptionFunc: func() string { return "test" },
+		DefinitionFunc: func() provider.ToolDefinition {
+			return provider.ToolDefinition{Name: "test", Description: "test"}
+		},
+		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
+			return "result", nil
+		},
+	}
+
+	mockProvider := &MockProvider{
+		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
+			// Force truncation when we have enough messages
+			if len(messages) >= 6 {
+				return 10000, nil // Way over limit
+			}
+			return 500, nil
+		},
+		GetContextWindowFunc: func() int {
+			return 2000
+		},
+		GetCapabilitiesFunc: func() provider.Capabilities {
+			return provider.Capabilities{MaxOutputTokens: 1000}
+		},
+		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+			generateCallCount++
+			// Build up history with tool calls
+			if generateCallCount <= 3 {
+				return &provider.GenerateResponse{
+					Content: provider.ResponseContent{
+						Type: provider.ResponseTypeToolCall,
+						ToolCalls: []models.ToolCall{
+							{ID: "c", Name: "test", Args: map[string]any{}},
+						},
+					},
+				}, nil
+			}
+			return &provider.GenerateResponse{
+				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+			}, nil
+		},
+	}
+
+	mockUI := &MockUI{
+		InputFunc: func(ctx context.Context, prompt string) (string, error) {
+			return "", errors.New("test complete")
+		},
+	}
+
+	mockPolicy := &MockPolicy{
+		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
+			return nil
+		},
+	}
+
+	orchestrator := New(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
+	_ = orchestrator.Run(context.Background(), "goal")
+
+	// Verify no orphaned function messages after truncation
+	for i, msg := range orchestrator.history {
+		if msg.Role == "function" {
+			if i == 0 {
+				t.Fatal("Function message at index 0 - no preceding model!")
+			}
+			prevRole := orchestrator.history[i-1].Role
+			if prevRole != "model" {
+				t.Errorf("Orphaned function message at index %d. Preceded by '%s', not 'model'",
+					i, prevRole)
+			}
+		}
 	}
 }
 

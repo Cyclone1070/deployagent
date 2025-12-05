@@ -156,7 +156,14 @@ func (o *Orchestrator) checkAndTruncateHistory(ctx context.Context) error {
 	if maxOutput == 0 {
 		maxOutput = 8192 // Fallback for models without capability info
 	}
+
+	// Handle edge case: if safety margin would consume too much of context window,
+	// clamp it to 80% of context (reserve at least 20% for input history)
 	safetyMargin := maxOutput
+	maxAllowedMargin := (contextWindow * 4) / 5 // 80% of context
+	if safetyMargin > maxAllowedMargin {
+		safetyMargin = maxAllowedMargin
+	}
 
 	if tokens <= contextWindow-safetyMargin {
 		return nil // No truncation needed
@@ -186,12 +193,25 @@ func (o *Orchestrator) checkAndTruncateHistory(ctx context.Context) error {
 			isPair = true
 		}
 
-		if isPair && len(o.history) > 3 {
-			// Remove the pair
-			o.history = append(o.history[:1], o.history[3:]...)
+		if isPair {
+			// Remove the pair (even if len==3, we remove both to avoid orphaning)
+			// This leaves just the goal, which is acceptable
+			if len(o.history) >= 3 {
+				o.history = append(o.history[:1], o.history[3:]...)
+			}
 		} else {
-			// Remove single message (fallback)
-			o.history = append(o.history[:1], o.history[2:]...)
+			// Not a recognized pair - remove single message carefully
+			// Only remove if it won't orphan a function message
+			if len(o.history) > 2 {
+				// Check if removing index 1 would orphan a function at index 2
+				if len(o.history) > 2 && o.history[2].Role == "function" {
+					// Would orphan - remove both index 1 and 2
+					o.history = append(o.history[:1], o.history[3:]...)
+				} else {
+					// Safe to remove single message
+					o.history = append(o.history[:1], o.history[2:]...)
+				}
+			}
 		}
 
 		// Recount tokens
