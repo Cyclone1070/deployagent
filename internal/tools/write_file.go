@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -42,10 +41,7 @@ func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Wr
 		return nil, models.ErrBinaryFile
 	}
 
-	maxFileSize := config.DefaultConfig().Tools.MaxFileSize
-	if wCtx.Config != nil {
-		maxFileSize = wCtx.Config.Tools.MaxFileSize
-	}
+	maxFileSize := wCtx.Config.Tools.MaxFileSize
 
 	if int64(len(contentBytes)) > maxFileSize {
 		return nil, models.ErrTooLarge

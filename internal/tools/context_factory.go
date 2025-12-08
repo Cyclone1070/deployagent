@@ -35,7 +35,7 @@ func NewWorkspaceContextWithOptions(cfg *config.Config, workspaceRoot string, ma
 	}
 
 	return &models.WorkspaceContext{
-		Config:          cfg,
+		Config:          *cfg,
 		FS:              fs,
 		BinaryDetector:  &services.SystemBinaryDetector{SampleSize: cfg.Tools.BinaryDetectionSampleSize},
 		ChecksumManager: services.NewChecksumManager(),

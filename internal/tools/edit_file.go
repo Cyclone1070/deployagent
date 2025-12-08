@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -91,11 +90,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 	newContentBytes := []byte(content)
 
 	// Check size limit
-	maxFileSize := config.DefaultConfig().Tools.MaxFileSize
-	if wCtx.Config != nil {
-		maxFileSize = wCtx.Config.Tools.MaxFileSize
-	}
-
+	maxFileSize := wCtx.Config.Tools.MaxFileSize
 	if int64(len(newContentBytes)) > maxFileSize {
 		return nil, models.ErrTooLarge
 	}

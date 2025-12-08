@@ -26,7 +26,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		resp, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -59,6 +59,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		offset := int64(5)
@@ -95,7 +96,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  detector,
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "binary.bin"})
@@ -118,7 +119,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "large.txt"})
@@ -138,6 +139,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		offset := int64(-1)
@@ -158,6 +160,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		limit := int64(-1)
@@ -178,6 +181,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		offset := int64(10000)
@@ -200,6 +204,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "subdir"})
@@ -216,6 +221,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "nonexistent.txt"})
@@ -235,6 +241,7 @@ func TestReadFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		limit := int64(4)

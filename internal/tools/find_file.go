@@ -9,17 +9,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
 
-// FindFile searches for files matching a glob pattern within the workspace.
-// It uses `fd` (preferred) or `find` (fallback) for efficient searching.
-// If includeIgnored is true, searches will include files that match .gitignore patterns.
-// FindFile searches for files matching a glob pattern using the fd command.
-// It validates the search path is within workspace boundaries, respects gitignore rules
-// (unless includeIgnored is true), and returns matches with pagination support.
+// FindFile searches for files matching a glob pattern within the workspace using the fd command.
+// It supports pagination, optional ignoring of .gitignore rules, and workspace path validation.
 func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.FindFileRequest) (*models.FindFileResponse, error) {
 	// Validate pattern (reject path traversal attempts)
 	if strings.Contains(req.Pattern, "..") || strings.HasPrefix(req.Pattern, "/") {
@@ -32,7 +27,16 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 		return nil, err
 	}
 
-	// Check if search path exists and is a directory
+	if req.Pattern == "" {
+		return nil, fmt.Errorf("pattern is required")
+	}
+
+	// Validate pattern syntax
+	if _, err := filepath.Match(req.Pattern, ""); err != nil {
+		return nil, fmt.Errorf("invalid glob pattern: %w", err)
+	}
+
+	// Verify search path exists and is a directory
 	info, err := wCtx.FS.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -45,60 +49,55 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 		return nil, fmt.Errorf("search path is not a directory")
 	}
 
-	// Validate pattern
-	if req.Pattern == "" {
-		return nil, fmt.Errorf("pattern cannot be empty")
+	// Use configured limits
+	limit := wCtx.Config.Tools.DefaultFindFileLimit
+	maxLimit := wCtx.Config.Tools.MaxFindFileLimit
+
+	if req.Limit < 0 {
+		return nil, models.ErrInvalidPaginationLimit
+	}
+	if req.Limit > 0 {
+		limit = req.Limit
 	}
 
-	// Validate and set defaults for pagination
-	limit := req.Limit
-	if limit == 0 {
-		if wCtx.Config != nil {
-			limit = wCtx.Config.Tools.DefaultListDirectoryLimit
-		} else {
-			limit = config.DefaultConfig().Tools.DefaultListDirectoryLimit
-		}
-	}
-
-	maxLimit := config.DefaultConfig().Tools.MaxListDirectoryLimit
-	if wCtx.Config != nil {
-		maxLimit = wCtx.Config.Tools.MaxListDirectoryLimit
-	}
-	if limit > maxLimit {
-		limit = maxLimit
-	}
-	if limit < 0 {
+	if limit < 1 || limit > maxLimit {
 		return nil, models.ErrInvalidPaginationLimit
 	}
 
-	offset := max(req.Offset, 0)
+	// Validate offset
+	if req.Offset < 0 {
+		return nil, models.ErrInvalidPaginationOffset
+	}
+	offset := req.Offset
 
-	// Get config values
-	maxResults := config.DefaultConfig().Tools.MaxFindFileResults
-	if wCtx.Config != nil {
-		maxResults = wCtx.Config.Tools.MaxFindFileResults
+	// fd --glob "pattern" searchPath
+	cmd := []string{"fd", "--glob", req.Pattern, absSearchPath}
+
+	// Handle ignored files
+	if req.IncludeIgnored {
+		cmd = append(cmd, "--no-ignore", "--hidden")
 	}
 
-	// Build fd command
-	// fd -g "pattern" searchPath --max-depth N [--no-ignore]
-	cmd := []string{"fd", "-g", req.Pattern}
+	// Max depth
 	if req.MaxDepth > 0 {
 		cmd = append(cmd, "--max-depth", fmt.Sprintf("%d", req.MaxDepth))
 	}
-	if req.IncludeIgnored {
-		cmd = append(cmd, "--no-ignore")
-	}
-	cmd = append(cmd, absSearchPath)
 
 	// Execute command with streaming
 	proc, stdout, _, err := wCtx.CommandExecutor.Start(ctx, cmd, models.ProcessOptions{Dir: absSearchPath})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start fd command: %w", err)
 	}
-	defer proc.Wait()
+	// We will wait explicitly to check for errors
 
-	// Stream and process output line by line
-	var allMatches []string
+	// Capture all output to safe buffer with limit
+	// We read all matches then slice, as fd doesn't support offset/limit natively in a way that guarantees consistent sorting without reading all.
+	// For massive result sets, this could be optimized, but for now we rely on MaxFindFileResults cap.
+
+	// Max results hard cap for memory safety
+	maxResults := wCtx.Config.Tools.MaxFindFileResults
+
+	var matches []string
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -106,54 +105,49 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 			continue
 		}
 
-		// Convert to relative path
+		// Convert absolute to relative
 		relPath, err := filepath.Rel(wCtx.WorkspaceRoot, line)
 		if err != nil {
-			// Skip paths that can't be made relative (shouldn't happen with fd)
-			continue
+			relPath = line // Fallback
 		}
+		matches = append(matches, filepath.ToSlash(relPath))
 
-		// Normalize to forward slashes
-		relPath = filepath.ToSlash(relPath)
-
-		allMatches = append(allMatches, relPath)
-
-		// Safety limit to prevent unbounded growth
-		if len(allMatches) >= maxResults {
+		if len(matches) >= maxResults {
 			break
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
+		// Try to wait to clean up process even on scan error
+		_ = proc.Wait()
 		return nil, fmt.Errorf("error reading fd output: %w", err)
 	}
 
-	// Wait for command to complete
+	// Check command exit status
 	if err := proc.Wait(); err != nil {
-		// fd returns 0 even if no matches are found.
-		// Non-zero exit code indicates an actual error
 		return nil, fmt.Errorf("fd command failed: %w", err)
 	}
 
-	// Sort matches alphabetically
-	sort.Strings(allMatches)
+	// Sort ensures consistent pagination
+	sort.Strings(matches)
 
 	// Apply pagination
-	totalCount := len(allMatches)
-	truncated := false
+	start := offset
+	end := offset + limit
+	totalCount := len(matches)
+	truncated := (offset + limit) < totalCount
 
-	if offset >= totalCount {
-		allMatches = []string{}
-	} else {
-		allMatches = allMatches[offset:]
-		if len(allMatches) > limit {
-			allMatches = allMatches[:limit]
-			truncated = true
-		}
+	if start > totalCount {
+		start = totalCount
+	}
+	if end > totalCount {
+		end = totalCount
 	}
 
+	paginatedMatches := matches[start:end]
+
 	return &models.FindFileResponse{
-		Matches:    allMatches,
+		Matches:    paginatedMatches,
 		Offset:     offset,
 		Limit:      limit,
 		TotalCount: totalCount,

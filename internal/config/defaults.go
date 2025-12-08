@@ -37,10 +37,15 @@ type ToolsConfig struct {
 	DefaultShellTimeout         int   `json:"default_shell_timeout"`           // Default: 600 (10 minutes, in seconds)
 
 	// Search
-	MaxSearchContentResults int `json:"max_search_content_results"` // Default: 10000
-	MaxLineLength           int `json:"max_line_length"`            // Default: 10000
-	MaxScanTokenSize        int `json:"max_scan_token_size"`        // Default: 10 * 1024 * 1024 (10MB)
-	MaxFindFileResults      int `json:"max_find_file_results"`      // Default: 10000
+	MaxSearchContentResults   int `json:"max_search_content_results"`   // Default: 10000
+	MaxLineLength             int `json:"max_line_length"`              // Default: 10000
+	MaxScanTokenSize          int `json:"max_scan_token_size"`          // Default: 10 * 1024 * 1024 (10MB)
+	InitialScannerBufferSize  int `json:"initial_scanner_buffer_size"`  // Default: 64 * 1024 (64KB)
+	DefaultSearchContentLimit int `json:"default_search_content_limit"` // Default: 100
+	MaxSearchContentLimit     int `json:"max_search_content_limit"`     // Default: 1000
+	MaxFindFileResults        int `json:"max_find_file_results"`        // Default: 10000
+	DefaultFindFileLimit      int `json:"default_find_file_limit"`      // Default: 100
+	MaxFindFileLimit          int `json:"max_find_file_limit"`          // Default: 1000
 
 	// Docker
 	DockerRetryAttempts      int `json:"docker_retry_attempts"`       // Default: 10
@@ -109,7 +114,12 @@ func DefaultConfig() *Config {
 			MaxSearchContentResults:     10000,
 			MaxLineLength:               10000,
 			MaxScanTokenSize:            10 * 1024 * 1024,
+			InitialScannerBufferSize:    64 * 1024,
+			DefaultSearchContentLimit:   100,
+			MaxSearchContentLimit:       1000,
 			MaxFindFileResults:          10000,
+			DefaultFindFileLimit:        100,
+			MaxFindFileLimit:            1000,
 			DockerRetryAttempts:         10,
 			DockerRetryIntervalMs:       1000,
 			DockerGracefulShutdownMs:    2000,

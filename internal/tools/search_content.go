@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -43,38 +42,45 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 		return nil, fmt.Errorf("query cannot be empty")
 	}
 
-	// Validate and set defaults for pagination
-	limit := req.Limit
-	// Default limit
-	if limit == 0 {
-		if wCtx.Config != nil {
-			limit = wCtx.Config.Tools.DefaultListDirectoryLimit
-		} else {
-			limit = config.DefaultConfig().Tools.DefaultListDirectoryLimit
-		}
+	// Use configured limits
+	limit := wCtx.Config.Tools.DefaultSearchContentLimit
+	maxLimit := wCtx.Config.Tools.MaxSearchContentLimit
+
+	if req.Limit < 0 {
+		return nil, models.ErrInvalidPaginationLimit
+	}
+	if req.Limit > 0 {
+		limit = req.Limit
 	}
 
-	// Validate limit
-	maxLimit := config.DefaultConfig().Tools.MaxListDirectoryLimit
-	if wCtx.Config != nil {
-		maxLimit = wCtx.Config.Tools.MaxListDirectoryLimit
-	}
+	// Validate limits
 	if limit < 1 || limit > maxLimit {
 		return nil, models.ErrInvalidPaginationLimit
 	}
 
-	offset := max(req.Offset, 0)
+	// Validate offset
+	if req.Offset < 0 {
+		return nil, models.ErrInvalidPaginationOffset
+	}
+	offset := req.Offset
 
-	// Get config values
-	maxLineLength := config.DefaultConfig().Tools.MaxLineLength
-	if wCtx.Config != nil {
-		maxLineLength = wCtx.Config.Tools.MaxLineLength
+	maxResults := wCtx.Config.Tools.MaxSearchContentResults
+	// Reject overlimit requests first (total scan cap)
+	if req.Limit > maxResults {
+		return nil, models.ErrInvalidPaginationLimit
 	}
 
-	maxResults := config.DefaultConfig().Tools.MaxSearchContentResults
-	if wCtx.Config != nil {
-		maxResults = wCtx.Config.Tools.MaxSearchContentResults
+	// Hard limit on line length to avoid memory issues
+	maxLineLength := wCtx.Config.Tools.MaxLineLength
+	if maxLineLength == 0 {
+		maxLineLength = 10000
 	}
+
+	// 10MB default for crazy long lines (minified JS etc)
+	maxScanTokenSize := wCtx.Config.Tools.MaxScanTokenSize
+
+	// Configure scanner buffer
+	initialBufSize := wCtx.Config.Tools.InitialScannerBufferSize
 
 	// Build ripgrep command
 	// rg --json "query" searchPath [--no-ignore]
@@ -92,18 +98,13 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	if err != nil {
 		return nil, fmt.Errorf("failed to start rg command: %w", err)
 	}
-	defer proc.Wait()
+	// process will be waited on explicitly later
 
 	// Stream and process JSON output line by line
 	var matches []models.SearchContentMatch
 	scanner := bufio.NewScanner(stdout)
 	// Increase buffer size to handle very long lines (e.g. minified JS)
-	// Increase buffer size to handle very long lines (e.g. minified JS)
-	maxScanTokenSize := 10 * 1024 * 1024 // Default fallback (10MB)
-	if wCtx.Config != nil {
-		maxScanTokenSize = wCtx.Config.Tools.MaxScanTokenSize
-	}
-	buf := make([]byte, 0, 64*1024)
+	buf := make([]byte, 0, initialBufSize)
 	scanner.Buffer(buf, maxScanTokenSize)
 
 	for scanner.Scan() {
@@ -127,39 +128,35 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 		}
 
 		if err := json.Unmarshal([]byte(line), &rgMatch); err != nil {
-			// Skip invalid JSON lines
+			// Skip malformed lines (though rg output should be reliable)
 			continue
 		}
 
-		// Only process "match" type entries
-		if rgMatch.Type != "match" {
-			continue
-		}
+		if rgMatch.Type == "match" {
+			// Convert absolute path to workspace-relative
+			relPath, err := filepath.Rel(wCtx.WorkspaceRoot, rgMatch.Data.Path.Text)
+			if err != nil {
+				// Should work if using absolute paths, but fallback to absolute if fails
+				relPath = rgMatch.Data.Path.Text
+			}
 
-		// Convert absolute path to relative
-		relPath, err := filepath.Rel(wCtx.WorkspaceRoot, rgMatch.Data.Path.Text)
-		if err != nil {
-			// Skip if we can't make it relative
-			continue
-		}
+			lineContent := strings.TrimSpace(rgMatch.Data.Lines.Text)
+			// Check if line is too long, truncate if necessary
+			// This prevents returning massive lines that could crash the response
+			if len(lineContent) > maxLineLength {
+				lineContent = lineContent[:maxLineLength] + "...[truncated]"
+			}
 
-		// Normalize to forward slashes
-		relPath = filepath.ToSlash(relPath)
+			matches = append(matches, models.SearchContentMatch{
+				File:        filepath.ToSlash(relPath),
+				LineNumber:  rgMatch.Data.LineNumber,
+				LineContent: lineContent,
+			})
 
-		lineContent := rgMatch.Data.Lines.Text
-		if len(lineContent) > maxLineLength {
-			lineContent = lineContent[:maxLineLength] + "... [truncated]"
-		}
-
-		matches = append(matches, models.SearchContentMatch{
-			File:        relPath,
-			LineNumber:  rgMatch.Data.LineNumber,
-			LineContent: lineContent,
-		})
-
-		// Hard limit to prevent resource exhaustion
-		if len(matches) >= maxResults {
-			break
+			// Safety check for memory
+			if len(matches) >= maxResults {
+				break
+			}
 		}
 	}
 
@@ -188,10 +185,13 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	})
 
 	// Apply pagination
+	start := offset
+	end := offset + limit
 	totalCount := len(matches)
-	start := min(offset, totalCount)
-	end := start + limit
-	truncated := end < totalCount
+	truncated := (offset + limit) < totalCount
+	if start > totalCount {
+		start = totalCount
+	}
 	if end > totalCount {
 		end = totalCount
 	}

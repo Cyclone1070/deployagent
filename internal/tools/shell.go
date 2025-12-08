@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -38,7 +37,10 @@ func (t *ShellTool) Run(ctx context.Context, wCtx *models.WorkspaceContext, req 
 	// Policy check removed - caller is responsible for enforcement
 
 	if services.IsDockerCommand(req.Command) {
-		if err := services.EnsureDockerReady(ctx, t.CommandExecutor, wCtx.DockerConfig); err != nil {
+		retryAttempts := wCtx.Config.Tools.DockerRetryAttempts
+		retryIntervalMs := wCtx.Config.Tools.DockerRetryIntervalMs
+
+		if err := services.EnsureDockerReady(ctx, t.CommandExecutor, wCtx.DockerConfig, retryAttempts, retryIntervalMs); err != nil {
 			return nil, err
 		}
 	}
@@ -77,32 +79,22 @@ func (t *ShellTool) Run(ctx context.Context, wCtx *models.WorkspaceContext, req 
 		return nil, err
 	}
 
-
-	// Get binary detection sample size from config
-	sampleSize := config.DefaultConfig().Tools.BinaryDetectionSampleSize
-	if wCtx.Config != nil {
-		sampleSize = wCtx.Config.Tools.BinaryDetectionSampleSize
-	}
-
-	// Get max output size from config
-	maxOutputSize := config.DefaultConfig().Tools.DefaultMaxCommandOutputSize
-	if wCtx.Config != nil {
-		maxOutputSize = int64(wCtx.Config.Tools.DefaultMaxCommandOutputSize)
-	}
+	// Use configured binary detection sample size
+	sampleSize := wCtx.Config.Tools.BinaryDetectionSampleSize
+	// Use configured max output size
+	maxOutputSize := wCtx.Config.Tools.DefaultMaxCommandOutputSize
 
 	stdoutStr, stderrStr, truncated, _ := services.CollectProcessOutput(stdout, stderr, int(maxOutputSize), sampleSize)
 
 	timeout := time.Duration(req.TimeoutSeconds) * time.Second
 	if timeout == 0 {
-		// Use config value if available, otherwise fall back to default
-		if wCtx.Config != nil {
-			timeout = time.Duration(wCtx.Config.Tools.DefaultShellTimeout) * time.Second
-		} else {
-			timeout = time.Duration(config.DefaultConfig().Tools.DefaultShellTimeout) * time.Second
-		}
+		timeout = time.Duration(wCtx.Config.Tools.DefaultShellTimeout) * time.Second
 	}
 
-	execErr := services.ExecuteWithTimeout(ctx, timeout, proc)
+	// Use configured graceful shutdown
+	gracefulShutdownMs := wCtx.Config.Tools.DockerGracefulShutdownMs
+
+	execErr := services.ExecuteWithTimeout(ctx, timeout, gracefulShutdownMs, proc)
 
 	resp := &models.ShellResponse{
 		Stdout:     stdoutStr,

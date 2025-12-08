@@ -25,7 +25,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		content := "test content"
@@ -67,6 +67,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "existing.txt", Content: "new content"})
@@ -86,6 +87,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "escape", Content: "content"})
@@ -104,7 +106,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		// Create content larger than limit
@@ -127,6 +129,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Content with NUL byte
@@ -145,6 +148,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		perm := os.FileMode(0o755)
@@ -175,6 +179,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "nested/deep/file.txt", Content: "content"})
@@ -204,6 +209,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Writing to a symlink that points inside workspace should work
@@ -230,6 +236,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Try to write a file through the symlink directory - should fail
@@ -252,6 +259,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Write through symlink chain - should succeed
@@ -288,6 +296,7 @@ func TestWriteFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Try to write through escaping chain - should fail
@@ -313,6 +322,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "test.txt", Content: "content"})
@@ -344,6 +354,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "test.txt", Content: "content"})
@@ -375,6 +386,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "test.txt", Content: "content"})
@@ -406,6 +418,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "test.txt", Content: "content"})
@@ -440,6 +453,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Resolve path to get absolute path
@@ -482,6 +496,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "test.txt", Content: "content"})
@@ -506,6 +521,7 @@ func TestAtomicWriteCrashScenarios(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		content := "test content"

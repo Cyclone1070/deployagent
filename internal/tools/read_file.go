@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -32,10 +31,7 @@ func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Rea
 	}
 
 	// Enforce size limit
-	maxFileSize := config.DefaultConfig().Tools.MaxFileSize
-	if wCtx.Config != nil {
-		maxFileSize = wCtx.Config.Tools.MaxFileSize
-	}
+	maxFileSize := wCtx.Config.Tools.MaxFileSize
 	if info.Size() > maxFileSize {
 		return nil, models.ErrTooLarge
 	}

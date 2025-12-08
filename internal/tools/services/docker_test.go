@@ -23,7 +23,7 @@ func TestEnsureDockerReady(t *testing.T) {
 				return nil, errors.New("unexpected command")
 			},
 		}
-		err := EnsureDockerReady(context.Background(), runner, config)
+		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
 		if err != nil {
 			t.Errorf("EnsureDockerReady failed: %v", err)
 		}
@@ -46,11 +46,8 @@ func TestEnsureDockerReady(t *testing.T) {
 				return nil, errors.New("unexpected command")
 			},
 		}
-		// We need to inject a shorter retry delay/count for testing to avoid slow tests
-		// For now, we'll assume the implementation allows configuring this or we accept a small delay.
-		// Ideally, we'd inject a "Sleeper" interface, but for simplicity we might just rely on the loop.
 
-		err := EnsureDockerReady(context.Background(), runner, config)
+		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
 		if err != nil {
 			t.Errorf("EnsureDockerReady failed: %v", err)
 		}
@@ -65,7 +62,7 @@ func TestEnsureDockerReady(t *testing.T) {
 				return nil, errors.New("command failed")
 			},
 		}
-		err := EnsureDockerReady(context.Background(), runner, config)
+		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
 		if err == nil {
 			t.Error("EnsureDockerReady succeeded, want error")
 		}

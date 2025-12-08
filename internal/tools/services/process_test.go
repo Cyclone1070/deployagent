@@ -1,8 +1,8 @@
 package services
 
 import (
-	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +17,7 @@ func TestExecuteWithTimeout_Success(t *testing.T) {
 		WaitDelay: 10 * time.Millisecond,
 	}
 
-	err := ExecuteWithTimeout(context.Background(), 100*time.Millisecond, mock)
+	err := ExecuteWithTimeout(context.Background(), 100*time.Millisecond, 2000, mock)
 	if err != nil {
 		t.Errorf("ExecuteWithTimeout failed: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestExecuteWithTimeout_Fail(t *testing.T) {
 		WaitDelay: 200 * time.Millisecond,
 	}
 
-	err := ExecuteWithTimeout(context.Background(), 50*time.Millisecond, mock)
+	err := ExecuteWithTimeout(context.Background(), 50*time.Millisecond, 2000, mock)
 	if err != models.ErrShellTimeout {
 		t.Errorf("Error = %v, want ErrShellTimeout", err)
 	}
@@ -167,12 +167,12 @@ type slowReader struct {
 
 func (r *slowReader) Read(p []byte) (n int, err error) {
 	if r.pos >= len(r.data) {
-		return 0, bytes.ErrTooLarge // Use as EOF substitute
+		return 0, io.EOF // Use as EOF substitute
 	}
 	n = copy(p, r.data[r.pos:])
 	r.pos += n
 	if r.pos >= len(r.data) {
-		err = bytes.ErrTooLarge
+		err = io.EOF
 	}
 	return n, err
 }

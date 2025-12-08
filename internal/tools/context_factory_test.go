@@ -24,6 +24,7 @@ func TestMultiContextIsolation(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager1,
 		WorkspaceRoot:   "/workspace1",
+		Config:          *config.DefaultConfig(),
 	}
 
 	ctx2 := &models.WorkspaceContext{
@@ -31,6 +32,7 @@ func TestMultiContextIsolation(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager2,
 		WorkspaceRoot:   "/workspace2",
+		Config:          *config.DefaultConfig(),
 	}
 
 	// Create files in both contexts
@@ -110,7 +112,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		// Create content that exceeds the limit
@@ -136,7 +138,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		// Create content within the large limit but exceeding default
@@ -165,7 +167,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager1,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg1,
+			Config:          *cfg1,
 		}
 
 		cfg2 := config.DefaultConfig()
@@ -175,7 +177,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager2,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg2,
+			Config:          *cfg2,
 		}
 
 		// Content that fits in ctx2 but not ctx1

@@ -33,7 +33,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -71,6 +71,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Read first to populate cache
@@ -124,6 +125,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -156,6 +158,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -188,6 +191,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -235,6 +239,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -270,6 +275,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  detector,
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		ops := []models.Operation{
@@ -298,6 +304,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -340,6 +347,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -369,6 +377,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		ops := []models.Operation{
@@ -404,7 +413,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
-			Config:          cfg,
+			Config:          *cfg,
 		}
 
 		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
@@ -443,6 +452,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Read file to populate cache
@@ -484,6 +494,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Read first to populate cache
@@ -534,6 +545,7 @@ func TestEditFile(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		ops := []models.Operation{

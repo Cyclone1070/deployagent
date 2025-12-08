@@ -8,25 +8,19 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
 
 // ListDirectory lists the contents of a directory within the workspace.
-// ListDirectory lists the contents of a directory with optional recursion and pagination.
-// It validates the path is within workspace boundaries, respects gitignore rules,
-// and returns entries sorted by path with pagination support.
+// It supports optional recursion and pagination, validating that the path is within
+// workspace boundaries, respecting gitignore rules, and returning entries sorted by path.
 func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req models.ListDirectoryRequest) (*models.ListDirectoryResponse, error) {
 	// Validate pagination parameters
 	if req.Offset < 0 {
 		return nil, models.ErrInvalidPaginationOffset
 	}
-	maxLimit := config.DefaultConfig().Tools.MaxListDirectoryLimit
-	if wCtx.Config != nil {
-		maxLimit = wCtx.Config.Tools.MaxListDirectoryLimit
-	}
-
+	maxLimit := wCtx.Config.Tools.MaxListDirectoryLimit
 	if req.Limit < 1 || req.Limit > maxLimit {
 		return nil, models.ErrInvalidPaginationLimit
 	}
@@ -82,21 +76,19 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	})
 
 	// Apply pagination
+	start := req.Offset
+	end := req.Offset + req.Limit
 	totalCount := len(directoryEntries)
-	truncated := false
+	truncated := (req.Offset + req.Limit) < totalCount
 
-	// Handle offset
-	if req.Offset >= totalCount {
-		directoryEntries = []models.DirectoryEntry{}
-	} else {
-		directoryEntries = directoryEntries[req.Offset:]
-
-		// Handle limit
-		if len(directoryEntries) > req.Limit {
-			directoryEntries = directoryEntries[:req.Limit]
-			truncated = true
-		}
+	if start > totalCount {
+		start = totalCount
 	}
+	if end > totalCount {
+		end = totalCount
+	}
+
+	directoryEntries = directoryEntries[start:end]
 
 	return &models.ListDirectoryResponse{
 		DirectoryPath: rel,

@@ -161,7 +161,7 @@ func (o *Orchestrator) checkAndTruncateHistory(ctx context.Context) error {
 	// Reserve tokens for response - use model's max output capability
 	maxOutput := o.provider.GetCapabilities().MaxOutputTokens
 	if maxOutput == 0 {
-		maxOutput = 8192 // Fallback for models without capability info
+		maxOutput = o.config.Provider.FallbackMaxOutputTokens
 	}
 
 	// Handle edge case: if safety margin would consume too much of context window,

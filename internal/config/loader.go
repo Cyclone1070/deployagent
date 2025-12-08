@@ -139,8 +139,23 @@ func mergeConfig(dst, src *Config) {
 	if src.Tools.MaxScanTokenSize != 0 {
 		dst.Tools.MaxScanTokenSize = src.Tools.MaxScanTokenSize
 	}
+	if src.Tools.InitialScannerBufferSize != 0 {
+		dst.Tools.InitialScannerBufferSize = src.Tools.InitialScannerBufferSize
+	}
+	if src.Tools.DefaultSearchContentLimit != 0 {
+		dst.Tools.DefaultSearchContentLimit = src.Tools.DefaultSearchContentLimit
+	}
+	if src.Tools.MaxSearchContentLimit != 0 {
+		dst.Tools.MaxSearchContentLimit = src.Tools.MaxSearchContentLimit
+	}
 	if src.Tools.MaxFindFileResults != 0 {
 		dst.Tools.MaxFindFileResults = src.Tools.MaxFindFileResults
+	}
+	if src.Tools.DefaultFindFileLimit != 0 {
+		dst.Tools.DefaultFindFileLimit = src.Tools.DefaultFindFileLimit
+	}
+	if src.Tools.MaxFindFileLimit != 0 {
+		dst.Tools.MaxFindFileLimit = src.Tools.MaxFindFileLimit
 	}
 	if src.Tools.DockerRetryAttempts != 0 {
 		dst.Tools.DockerRetryAttempts = src.Tools.DockerRetryAttempts

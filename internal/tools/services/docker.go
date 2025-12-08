@@ -60,8 +60,8 @@ func IsDockerComposeUpDetached(command []string) bool {
 }
 
 // EnsureDockerReady checks if Docker is running and attempts to start it if not.
-// It retries the check up to 10 times with 1-second intervals after starting Docker.
-func EnsureDockerReady(ctx context.Context, runner models.CommandExecutor, config models.DockerConfig) error {
+// It retries the check up to retryAttempts times with retryIntervalMs formatted as milliseconds after starting Docker.
+func EnsureDockerReady(ctx context.Context, runner models.CommandExecutor, config models.DockerConfig, retryAttempts int, retryIntervalMs int) error {
 	if _, err := runner.Run(ctx, config.CheckCommand); err == nil {
 		return nil
 	}
@@ -70,10 +70,10 @@ func EnsureDockerReady(ctx context.Context, runner models.CommandExecutor, confi
 		return err
 	}
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(time.Duration(retryIntervalMs) * time.Millisecond)
 	defer ticker.Stop()
 
-	for range 10 {
+	for range retryAttempts {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

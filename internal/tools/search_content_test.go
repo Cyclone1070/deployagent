@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -35,6 +36,7 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func .*", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -83,6 +85,7 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	_, _ = SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: false, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -108,6 +111,7 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: &services.MockCommandExecutor{},
+		Config:          *config.DefaultConfig(),
 	}
 
 	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "../outside", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -129,6 +133,7 @@ func TestSearchContent_EmptyQuery(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: &services.MockCommandExecutor{},
+		Config:          *config.DefaultConfig(),
 	}
 
 	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -150,6 +155,7 @@ func TestSearchContent_HugeLimit(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: &services.MockCommandExecutor{},
+		Config:          *config.DefaultConfig(),
 	}
 
 	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 1000000})
@@ -181,6 +187,7 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -227,6 +234,7 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	query := "foo; rm -rf /"
@@ -264,6 +272,7 @@ func TestSearchContent_NoMatches(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "nonexistent", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -306,6 +315,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	// Request offset=2, limit=2
@@ -356,6 +366,7 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -404,6 +415,7 @@ invalid json line
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -440,6 +452,7 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -473,6 +486,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
@@ -523,4 +537,151 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	if !foundVisible {
 		t.Error("expected to find match in visible.go when includeIgnored=true")
 	}
+}
+
+func TestSearchContent_LimitValidation(t *testing.T) {
+	workspaceRoot := "/workspace"
+	maxFileSize := int64(1024 * 1024)
+
+	fs := services.NewMockFileSystem(maxFileSize)
+	fs.CreateDir("/workspace")
+
+	mockRunner := &services.MockCommandExecutor{
+		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+			return &services.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
+		},
+	}
+
+	t.Run("zero limit uses default", func(t *testing.T) {
+		ctx := &models.WorkspaceContext{
+			FS:              fs,
+			WorkspaceRoot:   workspaceRoot,
+			CommandExecutor: mockRunner,
+			Config:          *config.DefaultConfig(),
+		}
+
+		resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query: "test",
+			Limit: 0, // Should use DefaultSearchContentLimit
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Limit != ctx.Config.Tools.DefaultSearchContentLimit {
+			t.Errorf("expected default limit %d, got %d", ctx.Config.Tools.DefaultSearchContentLimit, resp.Limit)
+		}
+	})
+
+	t.Run("limit exceeds max returns error", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Tools.MaxSearchContentLimit = 100
+
+		ctx := &models.WorkspaceContext{
+			FS:              fs,
+			WorkspaceRoot:   workspaceRoot,
+			CommandExecutor: mockRunner,
+			Config:          *cfg,
+		}
+
+		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query: "test",
+			Limit: 101, // Exceeds max
+		})
+		if err != models.ErrInvalidPaginationLimit {
+			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
+		}
+	})
+
+	t.Run("negative limit returns error", func(t *testing.T) {
+		ctx := &models.WorkspaceContext{
+			FS:              fs,
+			WorkspaceRoot:   workspaceRoot,
+			CommandExecutor: mockRunner,
+			Config:          *config.DefaultConfig(),
+		}
+
+		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query: "test",
+			Limit: -1,
+		})
+		if err != models.ErrInvalidPaginationLimit {
+			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
+		}
+	})
+
+	t.Run("custom config limits are respected", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Tools.DefaultSearchContentLimit = 25
+		cfg.Tools.MaxSearchContentLimit = 50
+
+		ctx := &models.WorkspaceContext{
+			FS:              fs,
+			WorkspaceRoot:   workspaceRoot,
+			CommandExecutor: mockRunner,
+			Config:          *cfg,
+		}
+
+		resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query: "test",
+			Limit: 30,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Limit != 30 {
+			t.Errorf("expected limit 30, got %d", resp.Limit)
+		}
+	})
+}
+
+func TestSearchContent_OffsetValidation(t *testing.T) {
+	workspaceRoot := "/workspace"
+	fs := services.NewMockFileSystem(1024 * 1024)
+	fs.CreateDir("/workspace")
+
+	mockRunner := &services.MockCommandExecutor{
+		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+			return &services.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
+		},
+	}
+
+	ctx := &models.WorkspaceContext{
+		FS:              fs,
+		WorkspaceRoot:   workspaceRoot,
+		CommandExecutor: mockRunner,
+		Config:          *config.DefaultConfig(),
+	}
+
+	t.Run("negative offset returns error", func(t *testing.T) {
+		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query:  "test",
+			Offset: -1,
+			Limit:  10,
+		})
+		if err != models.ErrInvalidPaginationOffset {
+			t.Errorf("expected ErrInvalidPaginationOffset, got %v", err)
+		}
+	})
+
+	t.Run("zero offset is valid", func(t *testing.T) {
+		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query:  "test",
+			Offset: 0,
+			Limit:  10,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error for offset 0: %v", err)
+		}
+	})
+
+	t.Run("positive offset is valid", func(t *testing.T) {
+		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+			Query:  "test",
+			Offset: 100,
+			Limit:  10,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error for positive offset: %v", err)
+		}
+	})
 }

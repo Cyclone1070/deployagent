@@ -57,7 +57,7 @@ func TestLoad_FullOverride_AllValuesReplaced(t *testing.T) {
 	configJSON := `{
 		"orchestrator": {"max_turns": 100},
 		"provider": {"fallback_max_output_tokens": 16384, "fallback_context_window": 2000000},
-		"tools": {"max_file_size": 10485760, "default_shell_timeout": 1800},
+		"tools": {"max_file_size": 10485760, "default_shell_timeout": 1800, "initial_scanner_buffer_size": 131072},
 		"ui": {"tick_interval_ms": 200, "color_primary": "99"},
 		"policy": {"shell_allow": ["docker"], "shell_deny": ["rm"]}
 	}`
@@ -75,6 +75,7 @@ func TestLoad_FullOverride_AllValuesReplaced(t *testing.T) {
 	assert.Equal(t, 100, cfg.Orchestrator.MaxTurns)
 	assert.Equal(t, 16384, cfg.Provider.FallbackMaxOutputTokens)
 	assert.Equal(t, int64(10485760), cfg.Tools.MaxFileSize)
+	assert.Equal(t, 131072, cfg.Tools.InitialScannerBufferSize)
 	assert.Equal(t, 200, cfg.UI.TickIntervalMs)
 	assert.Equal(t, []string{"docker"}, cfg.Policy.ShellAllow)
 }

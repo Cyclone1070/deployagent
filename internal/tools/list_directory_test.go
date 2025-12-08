@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 )
@@ -28,6 +29,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -78,6 +80,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -113,6 +116,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "empty", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -135,6 +139,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "file.txt", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -158,6 +163,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "../outside", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -175,6 +181,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "nonexistent", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -199,6 +206,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "testdir", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -221,6 +229,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -244,6 +253,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "/workspace/src", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -266,6 +276,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -289,6 +300,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -347,6 +359,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -388,6 +401,7 @@ func TestListDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "src/app", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -426,6 +440,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// First page: offset=0, limit=50
@@ -501,6 +516,7 @@ func TestListDirectory_InvalidPagination(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
+		Config:          *config.DefaultConfig(),
 	}
 
 	t.Run("negative offset", func(t *testing.T) {
@@ -541,6 +557,7 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -584,6 +601,7 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -645,6 +663,7 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 			ChecksumManager:  services.NewChecksumManager(),
 			WorkspaceRoot:    workspaceRoot,
 			GitignoreService: gitignoreService,
+			Config:           *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -698,6 +717,7 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 			ChecksumManager:  services.NewChecksumManager(),
 			WorkspaceRoot:    workspaceRoot,
 			GitignoreService: nil, // No gitignore service
+			Config:           *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -744,6 +764,7 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		// Paginate through all files
@@ -806,6 +827,7 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 			BinaryDetector:  services.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
+			Config:          *config.DefaultConfig(),
 		}
 
 		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 100, Limit: 10})
@@ -842,6 +864,7 @@ func TestListDirectory_Recursive(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
+		Config:          *config.DefaultConfig(),
 	}
 
 	resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
@@ -893,6 +916,7 @@ func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
+		Config:          *config.DefaultConfig(),
 	}
 
 	// Depth limit of 2 should go 2 levels deep from root
@@ -933,6 +957,7 @@ func TestListDirectory_SymlinkLoop(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
+		Config:          *config.DefaultConfig(),
 	}
 
 	// Should detect loop and not hang
@@ -968,6 +993,7 @@ func TestListDirectory_RecursivePagination(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
+		Config:          *config.DefaultConfig(),
 	}
 
 	// Request offset=5, limit=5
@@ -1005,6 +1031,7 @@ func TestListDirectory_NonRecursive(t *testing.T) {
 		BinaryDetector:  services.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
+		Config:          *config.DefaultConfig(),
 	}
 
 	// Depth 0 means only list immediate children (non-recursive)
