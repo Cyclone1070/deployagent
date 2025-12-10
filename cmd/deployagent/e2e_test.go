@@ -21,22 +21,25 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	// Workspace context creation removed as it is now internal to runInteractive
-
 	// Control when MockUI exits
 	startBlocker := make(chan struct{})
 
+	// Create synchronization for readiness
+	readyChan := make(chan struct{})
+
 	// Create Mock UI
 	var inputCount int
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			inputCount++
-			if inputCount > 1 {
-				return "", fmt.Errorf("stop test")
-			}
-			return "List files", nil
-		},
-		StartBlocker: startBlocker,
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		inputCount++
+		if inputCount > 1 {
+			return "", fmt.Errorf("stop test")
+		}
+		return "List files", nil
+	}
+	mockUI.StartBlocker = startBlocker
+	mockUI.OnReadyCalled = func() {
+		close(readyChan)
 	}
 
 	// Track what orchestrator sends to provider
@@ -82,44 +85,67 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 		runInteractive(context.Background(), deps)
 	}()
 
-	// Give orchestrator time to initialize and run
-	time.Sleep(300 * time.Millisecond)
+	// Wait for initialization using channel
+	select {
+	case <-readyChan:
+		// System ready
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for UI to become ready")
+	}
+
+	// Verify provider called multiple times (tool call + final response)
+	// Retry loop to allow async processing to finish
+	var callCount int
+	timeout := time.After(2 * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+waitForCalls:
+	for {
+		select {
+		case <-timeout:
+			break waitForCalls
+		case <-ticker.C:
+			mu.Lock()
+			callCount = len(allProviderCalls)
+			mu.Unlock()
+			if callCount >= 2 {
+				break waitForCalls
+			}
+		}
+	}
 
 	// Let UI exit
 	close(startBlocker)
 
-	// Small delay for cleanup
-	time.Sleep(50 * time.Millisecond)
-
-	// Verify provider called multiple times (tool call + final response)
-	mu.Lock()
-	callCount := len(allProviderCalls)
-	mu.Unlock()
 	assert.GreaterOrEqual(t, callCount, 2,
 		"Provider should be called at least twice (initial + after tool execution)")
 
 	// Verify orchestrator sent tool results back to provider
 	mu.Lock()
-	lastHistory := allProviderCalls[len(allProviderCalls)-1].History
-	mu.Unlock()
-
-	foundToolResult := false
-	for _, msg := range lastHistory {
-		if msg.Role == "function" && len(msg.ToolResults) > 0 {
-			foundToolResult = true
-			// Verify tool result structure
-			assert.Equal(t, "list_directory", msg.ToolResults[0].Name)
-			assert.Equal(t, "call_1", msg.ToolResults[0].ID)
-			break
+	if len(allProviderCalls) > 0 {
+		lastHistory := allProviderCalls[len(allProviderCalls)-1].History
+		foundToolResult := false
+		for _, msg := range lastHistory {
+			if msg.Role == "function" && len(msg.ToolResults) > 0 {
+				foundToolResult = true
+				// Verify tool result structure
+				assert.Equal(t, "list_directory", msg.ToolResults[0].Name)
+				assert.Equal(t, "call_1", msg.ToolResults[0].ID)
+				break
+			}
 		}
+		assert.True(t, foundToolResult,
+			"Orchestrator should send tool results to provider in history")
+	} else {
+		t.Error("No provider calls captured")
 	}
-	assert.True(t, foundToolResult,
-		"Orchestrator should send tool results to provider in history")
+	mu.Unlock()
 
 	// Verify UI received final message
 	foundResponse := false
-	timeout := time.After(2 * time.Second)
-	ticker := time.NewTicker(10 * time.Millisecond)
+	timeout = time.After(2 * time.Second)
+	ticker = time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
 loop:
@@ -173,24 +199,30 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	var receivedModels []string
 	modelListChan := make(chan []string, 1)
 
+	// Create synchronization for readiness
+	readyChan := make(chan struct{})
+
 	startBlocker := make(chan struct{})
 	commandChan := make(chan uimodels.UICommand, 1)
 
-	mockUI := &mocks.MockUI{
-		StartBlocker: startBlocker,
-		CommandsChan: commandChan,
-		OnModelListWritten: func(models []string) {
-			modelListChan <- models
-		},
-		// We need to provide InputFunc to avoid infinite loop if ReadInput is called
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			case <-time.After(10 * time.Second):
-				return "timeout", nil
-			}
-		},
+	// Create Mock UI using constructor
+	mockUI := mocks.NewMockUI()
+	mockUI.StartBlocker = startBlocker
+	mockUI.CommandsChan = commandChan
+	mockUI.OnModelListWritten = func(models []string) {
+		modelListChan <- models
+	}
+	mockUI.OnReadyCalled = func() {
+		close(readyChan)
+	}
+	// We need to provide InputFunc to avoid infinite loop if ReadInput is called
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(10 * time.Second):
+			return "timeout", nil
+		}
 	}
 
 	deps := Dependencies{
@@ -204,8 +236,13 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 		runInteractive(context.Background(), deps)
 	}()
 
-	// Wait for initialization
-	time.Sleep(300 * time.Millisecond)
+	// Wait for initialization using channel
+	select {
+	case <-readyChan:
+		// System ready
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for UI to become ready")
+	}
 
 	// Send list_models command
 	commandChan <- uimodels.UICommand{Type: "list_models"}
@@ -220,7 +257,10 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 
 	// Stop test
 	close(startBlocker)
-	time.Sleep(50 * time.Millisecond)
+
+	// Wait for cleanup
+	// Ideally we'd wait for runInteractive to exit via channel, but MockUI doesn't expose it.
+	// We rely on startBlocker closing causing loop exit.
 
 	// Verify provider.ListModels was called
 	mu.Lock()
@@ -254,20 +294,26 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 		return mockProvider, nil
 	}
 
+	// Create synchronization for readiness
+	readyChan := make(chan struct{})
+
 	startBlocker := make(chan struct{})
 	commandChan := make(chan uimodels.UICommand, 1)
 
-	mockUI := &mocks.MockUI{
-		StartBlocker: startBlocker,
-		CommandsChan: commandChan,
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			case <-time.After(10 * time.Second):
-				return "timeout", nil
-			}
-		},
+	// Create Mock UI using constructor
+	mockUI := mocks.NewMockUI()
+	mockUI.StartBlocker = startBlocker
+	mockUI.CommandsChan = commandChan
+	mockUI.OnReadyCalled = func() {
+		close(readyChan)
+	}
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(10 * time.Second):
+			return "timeout", nil
+		}
 	}
 
 	deps := Dependencies{
@@ -280,8 +326,13 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 		runInteractive(context.Background(), deps)
 	}()
 
-	// Wait for initialization
-	time.Sleep(300 * time.Millisecond)
+	// Wait for initialization using channel
+	select {
+	case <-readyChan:
+		// System ready
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for UI to become ready")
+	}
 
 	// Send switch_model command
 	targetModel := "gemini-1.5-flash"
@@ -290,16 +341,36 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 		Args: map[string]string{"model": targetModel},
 	}
 
-	// Give it time to process
-	time.Sleep(100 * time.Millisecond)
+	// Wait for cleanup later...
+
+	// Poll for changes instead of sleep
+	timeout := time.After(2 * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	var called bool
+
+waitForCall:
+	for {
+		select {
+		case <-timeout:
+			break waitForCall
+		case <-ticker.C:
+			mu.Lock()
+			called = setModelCalled
+			mu.Unlock()
+			if called {
+				break waitForCall
+			}
+		}
+	}
 
 	// Stop test
 	close(startBlocker)
-	time.Sleep(50 * time.Millisecond)
 
 	// Verify provider.SetModel was called
 	mu.Lock()
-	called := setModelCalled
+	called = setModelCalled
 	modelArg := setModelArg
 	mu.Unlock()
 

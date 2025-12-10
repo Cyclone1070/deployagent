@@ -91,9 +91,14 @@ func TestMain_GoroutineCleanup(t *testing.T) {
 
 	// Workspace context creation removed as it is now internal to runInteractive
 
+	// Create readiness signal
+	readyChan := make(chan struct{})
+
 	// Create dependencies
-	mockUI := &mocks.MockUI{
-		StartBlocker: make(chan struct{}),
+	mockUI := mocks.NewMockUI()
+	mockUI.StartBlocker = make(chan struct{})
+	mockUI.OnReadyCalled = func() {
+		close(readyChan)
 	}
 	mockProvider := mocks.NewMockProvider()
 	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
@@ -113,8 +118,13 @@ func TestMain_GoroutineCleanup(t *testing.T) {
 		done <- true
 	}()
 
-	// Wait for startup
-	time.Sleep(100 * time.Millisecond)
+	// Wait for startup signal (instead of sleep)
+	select {
+	case <-readyChan:
+		// Ready to proceed
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for runInteractive to start")
+	}
 
 	// Verify goroutines started (proxy for "app is running")
 	midCount := runtime.NumGoroutine()
@@ -155,7 +165,7 @@ func TestMain_UIStartsInstantly(t *testing.T) {
 
 	// Track when UI ready
 	readyChan := make(chan struct{}, 1)
-	mockUI := &mocks.MockUI{}
+	mockUI := mocks.NewMockUI()
 	mockUI.OnReadyCalled = func() {
 		mu.Lock()
 		events = append(events, "UI_READY")
