@@ -13,7 +13,7 @@ import (
 	orchadapter "github.com/Cyclone1070/iav/internal/orchestrator/adapter"
 	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
 	pmodels "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/testhelpers"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 	"github.com/Cyclone1070/iav/internal/ui"
@@ -103,7 +103,7 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 	var mu sync.Mutex
 
 	// Create mock provider
-	mockProvider := testhelpers.NewMockProvider().
+	mockProvider := mocks.NewMockProvider().
 		WithToolCallResponse([]orchmodels.ToolCall{
 			{
 				ID:   "call_1",
@@ -211,7 +211,7 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	t.Parallel()
 
 	// Create small context window provider
-	mockProvider := testhelpers.NewMockProvider().
+	mockProvider := mocks.NewMockProvider().
 		WithContextWindow(200) // Very small window
 
 	// Track history sent to provider

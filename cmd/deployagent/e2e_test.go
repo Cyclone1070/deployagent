@@ -11,7 +11,7 @@ import (
 
 	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
 	providermodels "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/testhelpers"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	uimodels "github.com/Cyclone1070/iav/internal/ui/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -28,7 +28,7 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 
 	// Create Mock UI
 	var inputCount int
-	mockUI := &testhelpers.MockUI{
+	mockUI := &mocks.MockUI{
 		InputFunc: func(ctx context.Context, prompt string) (string, error) {
 			inputCount++
 			if inputCount > 1 {
@@ -44,7 +44,7 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 	var mu sync.Mutex
 
 	// Create mock provider
-	mockProvider := testhelpers.NewMockProvider().
+	mockProvider := mocks.NewMockProvider().
 		WithToolCallResponse([]orchmodels.ToolCall{
 			{
 				ID:   "call_1",
@@ -157,7 +157,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	var mu sync.Mutex
 
 	// Create mock provider with ListModels implementation
-	mockProvider := testhelpers.NewMockProvider()
+	mockProvider := mocks.NewMockProvider()
 	mockProvider.ListModelsFunc = func(ctx context.Context) ([]string, error) {
 		mu.Lock()
 		listModelsCalled = true
@@ -176,7 +176,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	startBlocker := make(chan struct{})
 	commandChan := make(chan uimodels.UICommand, 1)
 
-	mockUI := &testhelpers.MockUI{
+	mockUI := &mocks.MockUI{
 		StartBlocker: startBlocker,
 		CommandsChan: commandChan,
 		OnModelListWritten: func(models []string) {
@@ -241,7 +241,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 	var setModelArg string
 	var mu sync.Mutex
 
-	mockProvider := testhelpers.NewMockProvider()
+	mockProvider := mocks.NewMockProvider()
 	mockProvider.SetModelFunc = func(model string) error {
 		mu.Lock()
 		setModelCalled = true
@@ -257,7 +257,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 	startBlocker := make(chan struct{})
 	commandChan := make(chan uimodels.UICommand, 1)
 
-	mockUI := &testhelpers.MockUI{
+	mockUI := &mocks.MockUI{
 		StartBlocker: startBlocker,
 		CommandsChan: commandChan,
 		InputFunc: func(ctx context.Context, prompt string) (string, error) {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/Cyclone1070/iav/internal/config"
 	providermodels "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/testhelpers"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
 	"github.com/stretchr/testify/assert"
@@ -92,10 +92,10 @@ func TestMain_GoroutineCleanup(t *testing.T) {
 	// Workspace context creation removed as it is now internal to runInteractive
 
 	// Create dependencies
-	mockUI := &testhelpers.MockUI{
+	mockUI := &mocks.MockUI{
 		StartBlocker: make(chan struct{}),
 	}
-	mockProvider := testhelpers.NewMockProvider()
+	mockProvider := mocks.NewMockProvider()
 	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
 		return mockProvider, nil
 	}
@@ -155,7 +155,7 @@ func TestMain_UIStartsInstantly(t *testing.T) {
 
 	// Track when UI ready
 	readyChan := make(chan struct{}, 1)
-	mockUI := &testhelpers.MockUI{}
+	mockUI := &mocks.MockUI{}
 	mockUI.OnReadyCalled = func() {
 		mu.Lock()
 		events = append(events, "UI_READY")
@@ -172,7 +172,7 @@ func TestMain_UIStartsInstantly(t *testing.T) {
 		close(providerStartChan)
 
 		time.Sleep(100 * time.Millisecond) // Simulate slow init
-		return testhelpers.NewMockProvider(), nil
+		return mocks.NewMockProvider(), nil
 	}
 
 	deps := Dependencies{
