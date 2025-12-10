@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 )
 
@@ -15,7 +16,7 @@ func TestEnsureDockerReady(t *testing.T) {
 	}
 
 	t.Run("Success immediately", func(t *testing.T) {
-		runner := &MockCommandExecutor{
+		runner := &mocks.MockCommandExecutor{
 			RunFunc: func(ctx context.Context, cmd []string) ([]byte, error) {
 				if cmd[0] == "docker" && cmd[1] == "info" {
 					return nil, nil
@@ -31,7 +32,7 @@ func TestEnsureDockerReady(t *testing.T) {
 
 	t.Run("Start required and succeeds", func(t *testing.T) {
 		checkCalls := 0
-		runner := &MockCommandExecutor{
+		runner := &mocks.MockCommandExecutor{
 			RunFunc: func(ctx context.Context, cmd []string) ([]byte, error) {
 				if cmd[0] == "docker" && cmd[1] == "info" {
 					checkCalls++
@@ -57,7 +58,7 @@ func TestEnsureDockerReady(t *testing.T) {
 	})
 
 	t.Run("Start fails", func(t *testing.T) {
-		runner := &MockCommandExecutor{
+		runner := &mocks.MockCommandExecutor{
 			RunFunc: func(ctx context.Context, cmd []string) ([]byte, error) {
 				return nil, errors.New("command failed")
 			},

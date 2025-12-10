@@ -1,7 +1,5 @@
 package models
 
-import "github.com/Cyclone1070/iav/internal/config"
-
 // Message represents a single message in the conversation history
 type Message struct {
 	Role    string // "user", "assistant", "system", "model", "function"
@@ -48,25 +46,4 @@ type ToolPolicy struct {
 	Allow        []string        // Allowed tool names (e.g. "read_file")
 	Deny         []string        // Denied tool names
 	SessionAllow map[string]bool // Runtime approvals
-}
-
-// NewPolicy creates a Policy with values from config.
-// It initializes all maps to ensure thread safety.
-func NewPolicy(cfg *config.Config) *Policy {
-	if cfg == nil {
-		cfg = config.DefaultConfig()
-	}
-
-	return &Policy{
-		Shell: ShellPolicy{
-			Allow:        cfg.Policy.ShellAllow,
-			Deny:         cfg.Policy.ShellDeny,
-			SessionAllow: make(map[string]bool),
-		},
-		Tools: ToolPolicy{
-			Allow:        cfg.Policy.ToolsAllow,
-			Deny:         cfg.Policy.ToolsDeny,
-			SessionAllow: make(map[string]bool),
-		},
-	}
 }

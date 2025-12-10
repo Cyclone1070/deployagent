@@ -7,21 +7,22 @@ import (
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 )
 
 func TestMultiContextIsolation(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	// Create two separate contexts with different workspace roots
-	fs1 := services.NewMockFileSystem(maxFileSize)
+	fs1 := mocks.NewMockFileSystem(maxFileSize)
 	checksumManager1 := services.NewChecksumManager()
 
-	fs2 := services.NewMockFileSystem(maxFileSize)
+	fs2 := mocks.NewMockFileSystem(maxFileSize)
 	checksumManager2 := services.NewChecksumManager()
 
 	ctx1 := &models.WorkspaceContext{
 		FS:              fs1,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager1,
 		WorkspaceRoot:   "/workspace1",
 		Config:          *config.DefaultConfig(),
@@ -29,7 +30,7 @@ func TestMultiContextIsolation(t *testing.T) {
 
 	ctx2 := &models.WorkspaceContext{
 		FS:              fs2,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager2,
 		WorkspaceRoot:   "/workspace2",
 		Config:          *config.DefaultConfig(),
@@ -102,14 +103,14 @@ func TestCustomFileSizeLimit(t *testing.T) {
 	largeLimit := int64(10 * 1024 * 1024) // 10MB
 
 	t.Run("small limit enforced", func(t *testing.T) {
-		fs := services.NewMockFileSystem(smallLimit)
+		fs := mocks.NewMockFileSystem(smallLimit)
 		checksumManager := services.NewChecksumManager()
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = smallLimit
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
@@ -128,14 +129,14 @@ func TestCustomFileSizeLimit(t *testing.T) {
 	})
 
 	t.Run("large limit allows bigger files", func(t *testing.T) {
-		fs := services.NewMockFileSystem(largeLimit)
+		fs := mocks.NewMockFileSystem(largeLimit)
 		checksumManager := services.NewChecksumManager()
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = largeLimit
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
@@ -154,17 +155,17 @@ func TestCustomFileSizeLimit(t *testing.T) {
 	})
 
 	t.Run("different limits in different contexts", func(t *testing.T) {
-		fs1 := services.NewMockFileSystem(smallLimit)
+		fs1 := mocks.NewMockFileSystem(smallLimit)
 		checksumManager1 := services.NewChecksumManager()
 
-		fs2 := services.NewMockFileSystem(largeLimit)
+		fs2 := mocks.NewMockFileSystem(largeLimit)
 		checksumManager2 := services.NewChecksumManager()
 
 		cfg1 := config.DefaultConfig()
 		cfg1.Tools.MaxFileSize = smallLimit
 		ctx1 := &models.WorkspaceContext{
 			FS:              fs1,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager1,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg1,
@@ -174,7 +175,7 @@ func TestCustomFileSizeLimit(t *testing.T) {
 		cfg2.Tools.MaxFileSize = largeLimit
 		ctx2 := &models.WorkspaceContext{
 			FS:              fs2,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager2,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg2,

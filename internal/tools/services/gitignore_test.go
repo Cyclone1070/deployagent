@@ -2,6 +2,8 @@ package services
 
 import (
 	"testing"
+
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 )
 
 func TestLoadGitignore(t *testing.T) {
@@ -9,7 +11,7 @@ func TestLoadGitignore(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("load gitignore from workspace root", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/.gitignore", []byte("*.log\n*.tmp\n"), 0644)
 
@@ -34,7 +36,7 @@ func TestLoadGitignore(t *testing.T) {
 	})
 
 	t.Run("non-existent gitignore should not error", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 
 		service, err := NewGitignoreService(workspaceRoot, fs)
@@ -52,7 +54,7 @@ func TestLoadGitignore(t *testing.T) {
 	})
 
 	t.Run("dotfiles matching gitignore patterns", func(t *testing.T) {
-		fs := NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/.gitignore", []byte("*.log\n"), 0644)
 

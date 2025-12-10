@@ -5,14 +5,9 @@ import (
 	"strings"
 
 	"google.golang.org/genai"
-)
 
-// ModelInfo contains metadata about a Gemini model from the SDK
-type ModelInfo struct {
-	Name             string
-	InputTokenLimit  int
-	OutputTokenLimit int
-}
+	provider "github.com/Cyclone1070/iav/internal/provider/models"
+)
 
 // GeminiClient defines the interface for interacting with the Gemini API.
 // This abstraction allows for easier testing and potential future implementations.
@@ -24,7 +19,7 @@ type GeminiClient interface {
 	CountTokens(ctx context.Context, model string, contents []*genai.Content) (*genai.CountTokensResponse, error)
 
 	// ListModels returns a list of available model information
-	ListModels(ctx context.Context) ([]ModelInfo, error)
+	ListModels(ctx context.Context) ([]provider.ModelInfo, error)
 }
 
 // RealGeminiClient wraps the official SDK client to satisfy GeminiClient.
@@ -49,8 +44,8 @@ func (c *RealGeminiClient) CountTokens(ctx context.Context, model string, conten
 
 // ListModels returns a list of available model information, filtered to only include gemini-* models
 // (excluding embedding, image, audio, live, and robotic models)
-func (c *RealGeminiClient) ListModels(ctx context.Context) ([]ModelInfo, error) {
-	var models []ModelInfo
+func (c *RealGeminiClient) ListModels(ctx context.Context) ([]provider.ModelInfo, error) {
+	var models []provider.ModelInfo
 	for model, err := range c.client.Models.All(ctx) {
 		if err != nil {
 			return nil, err
@@ -62,7 +57,7 @@ func (c *RealGeminiClient) ListModels(ctx context.Context) ([]ModelInfo, error) 
 			!strings.Contains(model.Name, "audio") &&
 			!strings.Contains(model.Name, "live") &&
 			!strings.Contains(model.Name, "robotic") {
-			models = append(models, ModelInfo{
+			models = append(models, provider.ModelInfo{
 				Name:             model.Name,
 				InputTokenLimit:  int(model.InputTokenLimit),
 				OutputTokenLimit: int(model.OutputTokenLimit),

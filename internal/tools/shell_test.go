@@ -14,28 +14,29 @@ import (
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 )
 
 func TestShellTool_Run_SimpleCommand(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			if command[0] != "echo" {
 				return nil, nil, nil, errors.New("unexpected command")
 			}
 			stdout := strings.NewReader("hello\n")
 			stderr := strings.NewReader("")
-			proc := &services.MockProcess{
+			proc := &mocks.MockProcess{
 				WaitFunc: func() error { return nil },
 			}
 			return proc, stdout, stderr, nil
@@ -60,23 +61,23 @@ func TestShellTool_Run_SimpleCommand(t *testing.T) {
 }
 
 func TestShellTool_Run_WorkingDir(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 	mockFS.CreateDir("/workspace/subdir")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedDir string
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedDir = opts.Dir
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
@@ -99,22 +100,22 @@ func TestShellTool_Run_WorkingDir(t *testing.T) {
 }
 
 func TestShellTool_Run_Env(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedEnv []string
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedEnv = opts.Env
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
@@ -153,7 +154,7 @@ func TestShellTool_Run_Env(t *testing.T) {
 }
 
 func TestShellTool_Run_EnvFiles(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	// Create env files
@@ -169,16 +170,16 @@ CACHE_URL=redis://localhost`
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedEnv []string
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedEnv = opts.Env
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
@@ -311,18 +312,18 @@ CACHE_URL=redis://localhost`
 }
 
 func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
-	tool := &ShellTool{CommandExecutor: &services.MockCommandExecutor{}}
+	tool := &ShellTool{CommandExecutor: &mocks.MockCommandExecutor{}}
 	req := models.ShellRequest{
 		Command:    []string{"ls"},
 		WorkingDir: "../outside",
@@ -335,20 +336,20 @@ func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
 }
 
 func TestShellTool_Run_NonZeroExit(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &services.MockProcess{
+			proc := &mocks.MockProcess{
 				WaitFunc: func() error {
 					return errors.New("exit status 1")
 				},
@@ -370,21 +371,21 @@ func TestShellTool_Run_NonZeroExit(t *testing.T) {
 }
 
 func TestShellTool_Run_BinaryOutput(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
 	binaryData := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE}
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, bytes.NewReader(binaryData), strings.NewReader(""), nil
 		},
 	}
@@ -402,22 +403,22 @@ func TestShellTool_Run_BinaryOutput(t *testing.T) {
 }
 
 func TestShellTool_Run_CommandInjection(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedCommand []string
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedCommand = command
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
@@ -439,14 +440,14 @@ func TestShellTool_Run_CommandInjection(t *testing.T) {
 }
 
 func TestShellTool_Run_HugeOutput(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
@@ -455,9 +456,9 @@ func TestShellTool_Run_HugeOutput(t *testing.T) {
 		hugeData[i] = 'A'
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, bytes.NewReader(hugeData), strings.NewReader(""), nil
 		},
 	}
@@ -478,20 +479,20 @@ func TestShellTool_Run_HugeOutput(t *testing.T) {
 }
 
 func TestShellTool_Run_Timeout(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &services.MockProcess{
+			proc := &mocks.MockProcess{
 				WaitFunc: func() error {
 					select {
 					case <-ctx.Done():
@@ -520,7 +521,7 @@ func TestShellTool_Run_Timeout(t *testing.T) {
 }
 
 func TestShellTool_Run_DockerCheck(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	workspaceRoot := "/workspace"
@@ -530,16 +531,16 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   workspaceRoot,
 		FS:              mockFS,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager,
-		CommandExecutor: &services.MockCommandExecutor{},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *cfg,
 		DockerConfig: models.DockerConfig{
 			CheckCommand: []string{"docker", "info"},
 		},
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		RunFunc: func(ctx context.Context, command []string) ([]byte, error) {
 			// Handle Docker check command
 			if len(command) >= 2 && command[0] == "docker" && command[1] == "info" {
@@ -549,7 +550,7 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 		},
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			if command[0] == "docker" && command[1] == "run" {
-				return &services.MockProcess{}, strings.NewReader("container running"), strings.NewReader(""), nil
+				return &mocks.MockProcess{}, strings.NewReader("container running"), strings.NewReader(""), nil
 			}
 			return nil, nil, nil, errors.New("unexpected command")
 		},
@@ -568,22 +569,22 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 }
 
 func TestShellTool_Run_EnvInjection(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedEnv []string
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedEnv = opts.Env
-			proc := &services.MockProcess{WaitFunc: func() error { return nil }}
+			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
 			return proc, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
@@ -606,20 +607,20 @@ func TestShellTool_Run_EnvInjection(t *testing.T) {
 }
 
 func TestShellTool_Run_ContextCancellation(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &services.MockProcess{
+			proc := &mocks.MockProcess{
 				WaitFunc: func() error {
 					<-ctx.Done()
 					return ctx.Err()
@@ -655,23 +656,23 @@ func TestShellTool_Run_ContextCancellation(t *testing.T) {
 }
 
 func TestShellTool_Run_SpecificExitCode(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
+	mockFS := mocks.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")
 
 	wCtx := &models.WorkspaceContext{
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
+		BinaryDetector:  &mocks.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &services.MockCommandExecutor{
+	factory := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &services.MockProcess{
+			proc := &mocks.MockProcess{
 				WaitFunc: func() error {
 					// Return a specific exit code using the mock error type
-					return &services.MockExitError{Code: 42}
+					return &mocks.MockExitError{Code: 42}
 				},
 			}
 			return proc, strings.NewReader(""), strings.NewReader(""), nil

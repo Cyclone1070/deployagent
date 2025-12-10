@@ -53,6 +53,13 @@ func NewLoaderWithFS(fs FileSystem) *Loader {
 // LIMITATION: Zero values (0, false, "") in the config file are treated as "not set"
 // and will NOT override defaults. To disable a feature, use validation-passing minimum
 // values (e.g., 1 instead of 0). This is a known limitation of the merge strategy.
+// Load reads configuration from ~/.config/iav/config.json
+// and merges it with defaults. Dotfile values override defaults.
+// Returns default config if dotfile doesn't exist.
+// Returns error only for parse errors, permission issues, or validation failures.
+//
+// NOTE: This implementation unmarshals JSON keys directly over the default configuration.
+// This allows explicit zero values (e.g., 0, false, "") in the config file to override defaults.
 func (l *Loader) Load() (*Config, error) {
 	cfg := DefaultConfig()
 
@@ -71,14 +78,12 @@ func (l *Loader) Load() (*Config, error) {
 		return nil, err // Return error for permission issues
 	}
 
-	// Parse JSON
-	var fileConfig Config
-	if err := json.Unmarshal(data, &fileConfig); err != nil {
+	// Parse JSON directly into the default config struct.
+	// This ensures that present keys overwrite defaults (even if zero),
+	// while missing keys leave the defaults untouched.
+	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, err // Return error for malformed JSON
 	}
-
-	// Merge (fileConfig overrides default cfg)
-	mergeConfig(cfg, &fileConfig)
 
 	// Validate the merged configuration
 	if err := cfg.Validate(); err != nil {
@@ -86,150 +91,6 @@ func (l *Loader) Load() (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-// mergeConfig merges src into dst, overriding non-zero values
-// NOTE: This function intentionally uses explicit field-by-field merging instead
-// of reflection. While verbose, this approach is type-safe, explicit, and performant.
-func mergeConfig(dst, src *Config) {
-	// Orchestrator
-	if src.Orchestrator.MaxTurns != 0 {
-		dst.Orchestrator.MaxTurns = src.Orchestrator.MaxTurns
-	}
-
-	// Provider
-	if src.Provider.FallbackMaxOutputTokens != 0 {
-		dst.Provider.FallbackMaxOutputTokens = src.Provider.FallbackMaxOutputTokens
-	}
-	if src.Provider.FallbackContextWindow != 0 {
-		dst.Provider.FallbackContextWindow = src.Provider.FallbackContextWindow
-	}
-	if src.Provider.ModelTypePriorityPro != 0 {
-		dst.Provider.ModelTypePriorityPro = src.Provider.ModelTypePriorityPro
-	}
-	if src.Provider.ModelTypePriorityFlash != 0 {
-		dst.Provider.ModelTypePriorityFlash = src.Provider.ModelTypePriorityFlash
-	}
-
-	// Tools
-	if src.Tools.MaxFileSize != 0 {
-		dst.Tools.MaxFileSize = src.Tools.MaxFileSize
-	}
-	if src.Tools.BinaryDetectionSampleSize != 0 {
-		dst.Tools.BinaryDetectionSampleSize = src.Tools.BinaryDetectionSampleSize
-	}
-	if src.Tools.DefaultListDirectoryLimit != 0 {
-		dst.Tools.DefaultListDirectoryLimit = src.Tools.DefaultListDirectoryLimit
-	}
-	if src.Tools.MaxListDirectoryLimit != 0 {
-		dst.Tools.MaxListDirectoryLimit = src.Tools.MaxListDirectoryLimit
-	}
-	if src.Tools.MaxListDirectoryResults != 0 {
-		dst.Tools.MaxListDirectoryResults = src.Tools.MaxListDirectoryResults
-	}
-	if src.Tools.DefaultMaxCommandOutputSize != 0 {
-		dst.Tools.DefaultMaxCommandOutputSize = src.Tools.DefaultMaxCommandOutputSize
-	}
-	if src.Tools.DefaultShellTimeout != 0 {
-		dst.Tools.DefaultShellTimeout = src.Tools.DefaultShellTimeout
-	}
-	if src.Tools.MaxSearchContentResults != 0 {
-		dst.Tools.MaxSearchContentResults = src.Tools.MaxSearchContentResults
-	}
-	if src.Tools.MaxLineLength != 0 {
-		dst.Tools.MaxLineLength = src.Tools.MaxLineLength
-	}
-	if src.Tools.MaxScanTokenSize != 0 {
-		dst.Tools.MaxScanTokenSize = src.Tools.MaxScanTokenSize
-	}
-	if src.Tools.InitialScannerBufferSize != 0 {
-		dst.Tools.InitialScannerBufferSize = src.Tools.InitialScannerBufferSize
-	}
-	if src.Tools.DefaultSearchContentLimit != 0 {
-		dst.Tools.DefaultSearchContentLimit = src.Tools.DefaultSearchContentLimit
-	}
-	if src.Tools.MaxSearchContentLimit != 0 {
-		dst.Tools.MaxSearchContentLimit = src.Tools.MaxSearchContentLimit
-	}
-	if src.Tools.MaxFindFileResults != 0 {
-		dst.Tools.MaxFindFileResults = src.Tools.MaxFindFileResults
-	}
-	if src.Tools.DefaultFindFileLimit != 0 {
-		dst.Tools.DefaultFindFileLimit = src.Tools.DefaultFindFileLimit
-	}
-	if src.Tools.MaxFindFileLimit != 0 {
-		dst.Tools.MaxFindFileLimit = src.Tools.MaxFindFileLimit
-	}
-	if src.Tools.DockerRetryAttempts != 0 {
-		dst.Tools.DockerRetryAttempts = src.Tools.DockerRetryAttempts
-	}
-	if src.Tools.DockerRetryIntervalMs != 0 {
-		dst.Tools.DockerRetryIntervalMs = src.Tools.DockerRetryIntervalMs
-	}
-	if src.Tools.DockerGracefulShutdownMs != 0 {
-		dst.Tools.DockerGracefulShutdownMs = src.Tools.DockerGracefulShutdownMs
-	}
-
-	// UI
-	if src.UI.StatusChannelBuffer != 0 {
-		dst.UI.StatusChannelBuffer = src.UI.StatusChannelBuffer
-	}
-	if src.UI.MessageChannelBuffer != 0 {
-		dst.UI.MessageChannelBuffer = src.UI.MessageChannelBuffer
-	}
-	if src.UI.SetModelChannelBuffer != 0 {
-		dst.UI.SetModelChannelBuffer = src.UI.SetModelChannelBuffer
-	}
-	if src.UI.CommandChannelBuffer != 0 {
-		dst.UI.CommandChannelBuffer = src.UI.CommandChannelBuffer
-	}
-	if src.UI.TickIntervalMs != 0 {
-		dst.UI.TickIntervalMs = src.UI.TickIntervalMs
-	}
-	if src.UI.DotAnimationCycle != 0 {
-		dst.UI.DotAnimationCycle = src.UI.DotAnimationCycle
-	}
-	if src.UI.ViewportHeightReserve != 0 {
-		dst.UI.ViewportHeightReserve = src.UI.ViewportHeightReserve
-	}
-	if src.UI.PermissionBoxWidth != 0 {
-		dst.UI.PermissionBoxWidth = src.UI.PermissionBoxWidth
-	}
-	if src.UI.ColorPrimary != "" {
-		dst.UI.ColorPrimary = src.UI.ColorPrimary
-	}
-	if src.UI.ColorSuccess != "" {
-		dst.UI.ColorSuccess = src.UI.ColorSuccess
-	}
-	if src.UI.ColorError != "" {
-		dst.UI.ColorError = src.UI.ColorError
-	}
-	if src.UI.ColorWarning != "" {
-		dst.UI.ColorWarning = src.UI.ColorWarning
-	}
-	if src.UI.ColorMuted != "" {
-		dst.UI.ColorMuted = src.UI.ColorMuted
-	}
-	if src.UI.ColorPurple != "" {
-		dst.UI.ColorPurple = src.UI.ColorPurple
-	}
-	if src.UI.ColorAssistant != "" {
-		dst.UI.ColorAssistant = src.UI.ColorAssistant
-	}
-
-	// Policy - arrays replace entirely if non-nil
-	if src.Policy.ShellAllow != nil {
-		dst.Policy.ShellAllow = src.Policy.ShellAllow
-	}
-	if src.Policy.ShellDeny != nil {
-		dst.Policy.ShellDeny = src.Policy.ShellDeny
-	}
-	if src.Policy.ToolsAllow != nil {
-		dst.Policy.ToolsAllow = src.Policy.ToolsAllow
-	}
-	if src.Policy.ToolsDeny != nil {
-		dst.Policy.ToolsDeny = src.Policy.ToolsDeny
-	}
 }
 
 // Load is a convenience function using the default loader

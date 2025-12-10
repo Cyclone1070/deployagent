@@ -1,4 +1,4 @@
-package services
+package mocks
 
 import (
 	"context"
@@ -13,54 +13,54 @@ import (
 	"github.com/Cyclone1070/iav/internal/tools/models"
 )
 
-// mockFileInfo implements models.FileInfo
-type mockFileInfo struct {
-	name  string
-	size  int64
-	mode  os.FileMode
-	isDir bool
+// MockFileInfo implements models.FileInfo
+type MockFileInfo struct {
+	NameVal  string
+	SizeVal  int64
+	ModeVal  os.FileMode
+	IsDirVal bool
 }
 
-func (f *mockFileInfo) Name() string      { return f.name }
-func (f *mockFileInfo) Size() int64       { return f.size }
-func (f *mockFileInfo) Mode() os.FileMode { return f.mode }
-func (f *mockFileInfo) IsDir() bool       { return f.isDir }
+func (f *MockFileInfo) Name() string      { return f.NameVal }
+func (f *MockFileInfo) Size() int64       { return f.SizeVal }
+func (f *MockFileInfo) Mode() os.FileMode { return f.ModeVal }
+func (f *MockFileInfo) IsDir() bool       { return f.IsDirVal }
 
-// mockFileHandle represents a file handle for temp files
-type mockFileHandle struct {
-	fs      *MockFileSystem
-	path    string
-	content []byte
-	closed  bool
+// MockFileHandle represents a file handle for temp files
+type MockFileHandle struct {
+	Fs      *MockFileSystem
+	Path    string
+	Content []byte
+	Closed  bool
 }
 
 // Write implements models.FileHandle.Write
-func (h *mockFileHandle) Write(data []byte) (int, error) {
-	h.fs.mu.Lock()
-	defer h.fs.mu.Unlock()
+func (h *MockFileHandle) Write(data []byte) (int, error) {
+	h.Fs.Mu.Lock()
+	defer h.Fs.Mu.Unlock()
 
-	if err, ok := h.fs.opErrors["Write"]; ok {
+	if err, ok := h.Fs.OpErrors["Write"]; ok {
 		return 0, err
 	}
 
-	if h.closed {
+	if h.Closed {
 		return 0, fmt.Errorf("file is closed")
 	}
 
-	h.content = append(h.content, data...)
+	h.Content = append(h.Content, data...)
 	return len(data), nil
 }
 
 // Sync implements models.FileHandle.Sync
-func (h *mockFileHandle) Sync() error {
-	h.fs.mu.Lock()
-	defer h.fs.mu.Unlock()
+func (h *MockFileHandle) Sync() error {
+	h.Fs.Mu.Lock()
+	defer h.Fs.Mu.Unlock()
 
-	if err, ok := h.fs.opErrors["Sync"]; ok {
+	if err, ok := h.Fs.OpErrors["Sync"]; ok {
 		return err
 	}
 
-	if h.closed {
+	if h.Closed {
 		return fmt.Errorf("file is closed")
 	}
 
@@ -69,117 +69,119 @@ func (h *mockFileHandle) Sync() error {
 }
 
 // Close implements models.FileHandle.Close
-func (h *mockFileHandle) Close() error {
-	h.fs.mu.Lock()
-	defer h.fs.mu.Unlock()
+func (h *MockFileHandle) Close() error {
+	h.Fs.Mu.Lock()
+	defer h.Fs.Mu.Unlock()
 
-	if err, ok := h.fs.opErrors["Close"]; ok {
+	if err, ok := h.Fs.OpErrors["Close"]; ok {
 		return err
 	}
 
-	if h.closed {
+	if h.Closed {
 		return fmt.Errorf("file already closed")
 	}
 
-	h.closed = true
+	h.Closed = true
 	return nil
 }
 
 // MockFileSystem implements models.FileSystem with in-memory storage.
 // This is the comprehensive mock for tool tests.
 type MockFileSystem struct {
-	mu          sync.RWMutex
-	files       map[string][]byte          // path -> content
-	fileInfos   map[string]*mockFileInfo   // path -> metadata
-	symlinks    map[string]string          // symlink path -> target path
-	dirs        map[string]bool            // path -> is directory
-	errors      map[string]error           // path -> error to return
-	opErrors    map[string]error           // operation -> error to return (e.g., "CreateTemp", "Write", "Sync", "Close", "Rename", "Chmod", "Remove")
-	tempFiles   map[string]*mockFileHandle // temp path -> handle
-	maxFileSize int64
+	Mu          sync.RWMutex
+	Files       map[string][]byte          // path -> content
+	FileInfos   map[string]*MockFileInfo   // path -> metadata
+	Symlinks    map[string]string          // symlink path -> target path
+	Dirs        map[string]bool            // path -> is directory
+	Errors      map[string]error           // path -> error to return
+	OpErrors    map[string]error           // operation -> error to return
+	TempFiles   map[string]*MockFileHandle // temp path -> handle
+	MaxFileSize int64
 	// Counter for unique temp files
-	tempCounter int
+	TempCounter int
+	HomeDir     string
+	HomeDirErr  error
 }
 
 // NewMockFileSystem creates a new mock filesystem
 func NewMockFileSystem(maxFileSize int64) *MockFileSystem {
 	return &MockFileSystem{
-		files:       make(map[string][]byte),
-		fileInfos:   make(map[string]*mockFileInfo),
-		symlinks:    make(map[string]string),
-		dirs:        make(map[string]bool),
-		errors:      make(map[string]error),
-		opErrors:    make(map[string]error),
-		tempFiles:   make(map[string]*mockFileHandle),
-		maxFileSize: maxFileSize,
-		tempCounter: 0,
+		Files:       make(map[string][]byte),
+		FileInfos:   make(map[string]*MockFileInfo),
+		Symlinks:    make(map[string]string),
+		Dirs:        make(map[string]bool),
+		Errors:      make(map[string]error),
+		OpErrors:    make(map[string]error),
+		TempFiles:   make(map[string]*MockFileHandle),
+		MaxFileSize: maxFileSize,
+		TempCounter: 0,
+		HomeDir:     "/home/user",
 	}
 }
 
 // SetError sets an error to return for a specific path
 func (f *MockFileSystem) SetError(path string, err error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.errors[path] = err
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.Errors[path] = err
 }
 
 // SetOperationError sets an error to return for a specific operation.
-// Operations: "CreateTemp", "Write", "Sync", "Close", "Rename", "Chmod", "Remove", "ListDir"
 func (f *MockFileSystem) SetOperationError(operation string, err error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.opErrors[operation] = err
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.OpErrors[operation] = err
 }
 
 // CreateFile creates a file with content
 func (f *MockFileSystem) CreateFile(path string, content []byte, perm os.FileMode) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.files[path] = content
-	f.fileInfos[path] = &mockFileInfo{
-		name:  filepath.Base(path),
-		size:  int64(len(content)),
-		mode:  perm,
-		isDir: false,
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.Files[path] = content
+	f.FileInfos[path] = &MockFileInfo{
+		NameVal:  filepath.Base(path),
+		SizeVal:  int64(len(content)),
+		ModeVal:  perm,
+		IsDirVal: false,
 	}
-	f.dirs[path] = false
+	f.Dirs[path] = false
 }
 
 // CreateDir creates a directory
 func (f *MockFileSystem) CreateDir(path string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.dirs[path] = true
-	f.fileInfos[path] = &mockFileInfo{
-		name:  filepath.Base(path),
-		size:  0,
-		mode:  os.ModeDir | 0o755,
-		isDir: true,
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.Dirs[path] = true
+	f.FileInfos[path] = &MockFileInfo{
+		NameVal:  filepath.Base(path),
+		SizeVal:  0,
+		ModeVal:  os.ModeDir | 0o755,
+		IsDirVal: true,
 	}
 }
 
 // CreateSymlink creates a symlink
 func (f *MockFileSystem) CreateSymlink(symlinkPath, targetPath string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.symlinks[symlinkPath] = targetPath
-	f.fileInfos[symlinkPath] = &mockFileInfo{
-		name:  filepath.Base(symlinkPath),
-		size:  0,
-		mode:  os.ModeSymlink | 0o777,
-		isDir: false,
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.Symlinks[symlinkPath] = targetPath
+	f.FileInfos[symlinkPath] = &MockFileInfo{
+		NameVal:  filepath.Base(symlinkPath),
+		SizeVal:  0,
+		ModeVal:  os.ModeSymlink | 0o777,
+		IsDirVal: false,
 	}
 }
 
 func (f *MockFileSystem) Stat(path string) (models.FileInfo, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
 
-	if err, ok := f.errors[path]; ok {
+	if err, ok := f.Errors[path]; ok {
 		return nil, err
 	}
 
-	if info, ok := f.fileInfos[path]; ok {
+	if info, ok := f.FileInfos[path]; ok {
 		return info, nil
 	}
 
@@ -187,22 +189,22 @@ func (f *MockFileSystem) Stat(path string) (models.FileInfo, error) {
 }
 
 func (f *MockFileSystem) Lstat(path string) (models.FileInfo, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
 
-	if err, ok := f.errors[path]; ok {
+	if err, ok := f.Errors[path]; ok {
 		return nil, err
 	}
 
 	// Check if it's a symlink first - don't follow it
-	if _, isSymlink := f.symlinks[path]; isSymlink {
-		if info, ok := f.fileInfos[path]; ok {
+	if _, isSymlink := f.Symlinks[path]; isSymlink {
+		if info, ok := f.FileInfos[path]; ok {
 			return info, nil
 		}
 	}
 
 	// For non-symlinks, return regular file info
-	if info, ok := f.fileInfos[path]; ok {
+	if info, ok := f.FileInfos[path]; ok {
 		return info, nil
 	}
 
@@ -210,21 +212,21 @@ func (f *MockFileSystem) Lstat(path string) (models.FileInfo, error) {
 }
 
 func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
 
-	if err, ok := f.errors[path]; ok {
+	if err, ok := f.Errors[path]; ok {
 		return nil, err
 	}
 
-	content, ok := f.files[path]
+	content, ok := f.Files[path]
 	if !ok {
 		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
 	}
 
 	fileSize := int64(len(content))
 
-	if fileSize > f.maxFileSize {
+	if fileSize > f.MaxFileSize {
 		return nil, models.ErrTooLarge
 	}
 
@@ -254,9 +256,30 @@ func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte
 	return content[offset:end], nil
 }
 
+// ReadFile specifically for config.Loader interface compatibility
+func (f *MockFileSystem) ReadFile(path string) ([]byte, error) {
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
+
+	if err, ok := f.OpErrors["ReadFile"]; ok {
+		return nil, err
+	}
+
+	if err, ok := f.Errors[path]; ok {
+		return nil, err
+	}
+
+	content, ok := f.Files[path]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+
+	return content, nil
+}
+
 func (f *MockFileSystem) EnsureDirs(path string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
 
 	cleaned := filepath.Clean(path)
 	parts := strings.Split(cleaned, string(filepath.Separator))
@@ -284,13 +307,13 @@ func (f *MockFileSystem) EnsureDirs(path string) error {
 		default:
 			current = filepath.Join(current, part)
 		}
-		if !f.dirs[current] {
-			f.dirs[current] = true
-			f.fileInfos[current] = &mockFileInfo{
-				name:  part,
-				size:  0,
-				mode:  os.ModeDir | 0o755,
-				isDir: true,
+		if !f.Dirs[current] {
+			f.Dirs[current] = true
+			f.FileInfos[current] = &MockFileInfo{
+				NameVal:  part,
+				SizeVal:  0,
+				ModeVal:  os.ModeDir | 0o755,
+				IsDirVal: true,
 			}
 		}
 	}
@@ -298,14 +321,14 @@ func (f *MockFileSystem) EnsureDirs(path string) error {
 }
 
 func (f *MockFileSystem) Readlink(path string) (string, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
 
-	if err, ok := f.errors[path]; ok {
+	if err, ok := f.Errors[path]; ok {
 		return "", err
 	}
 
-	target, ok := f.symlinks[path]
+	target, ok := f.Symlinks[path]
 	if !ok {
 		return "", fmt.Errorf("not a symlink: %s", path)
 	}
@@ -314,76 +337,76 @@ func (f *MockFileSystem) Readlink(path string) (string, error) {
 }
 
 func (f *MockFileSystem) UserHomeDir() (string, error) {
-	return "/home/user", nil
+	return f.HomeDir, f.HomeDirErr
 }
 
 func (f *MockFileSystem) CreateTemp(dir, pattern string) (string, models.FileHandle, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
 
-	if err, ok := f.opErrors["CreateTemp"]; ok {
+	if err, ok := f.OpErrors["CreateTemp"]; ok {
 		return "", nil, err
 	}
 
 	// Generate a temp file path
-	f.tempCounter++
-	tempPath := filepath.Join(dir, fmt.Sprintf(".tmp-%d", f.tempCounter))
-	handle := &mockFileHandle{
-		fs:      f,
-		path:    tempPath,
-		content: []byte{},
-		closed:  false,
+	f.TempCounter++
+	tempPath := filepath.Join(dir, fmt.Sprintf(".tmp-%d", f.TempCounter))
+	handle := &MockFileHandle{
+		Fs:      f,
+		Path:    tempPath,
+		Content: []byte{},
+		Closed:  false,
 	}
-	f.tempFiles[tempPath] = handle
+	f.TempFiles[tempPath] = handle
 
 	// Also add it to the regular files map and fileInfos for Stat/Lstat to work
-	f.files[tempPath] = []byte{}
-	f.fileInfos[tempPath] = &mockFileInfo{
-		name:  filepath.Base(tempPath),
-		size:  0,
-		mode:  0o600, // Default temp file permissions
-		isDir: false,
+	f.Files[tempPath] = []byte{}
+	f.FileInfos[tempPath] = &MockFileInfo{
+		NameVal:  filepath.Base(tempPath),
+		SizeVal:  0,
+		ModeVal:  0o600, // Default temp file permissions
+		IsDirVal: false,
 	}
 
 	return tempPath, handle, nil
 }
 
 func (f *MockFileSystem) Rename(oldpath, newpath string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
 
-	if err, ok := f.opErrors["Rename"]; ok {
+	if err, ok := f.OpErrors["Rename"]; ok {
 		return err
 	}
 
 	// Check if oldpath is a temp file
-	if handle, ok := f.tempFiles[oldpath]; ok {
+	if handle, ok := f.TempFiles[oldpath]; ok {
 		// Move temp file content to new path
-		f.files[newpath] = handle.content
-		f.fileInfos[newpath] = &mockFileInfo{
-			name:  filepath.Base(newpath),
-			size:  int64(len(handle.content)),
-			mode:  0o644,
-			isDir: false,
+		f.Files[newpath] = handle.Content
+		f.FileInfos[newpath] = &MockFileInfo{
+			NameVal:  filepath.Base(newpath),
+			SizeVal:  int64(len(handle.Content)),
+			ModeVal:  0o644,
+			IsDirVal: false,
 		}
-		f.dirs[newpath] = false
-		delete(f.tempFiles, oldpath)
+		f.Dirs[newpath] = false
+		delete(f.TempFiles, oldpath)
 		return nil
 	}
 
 	// Regular rename
-	if content, ok := f.files[oldpath]; ok {
-		f.files[newpath] = content
-		if info, ok := f.fileInfos[oldpath]; ok {
-			f.fileInfos[newpath] = &mockFileInfo{
-				name:  filepath.Base(newpath),
-				size:  info.size,
-				mode:  info.mode,
-				isDir: info.isDir,
+	if content, ok := f.Files[oldpath]; ok {
+		f.Files[newpath] = content
+		if info, ok := f.FileInfos[oldpath]; ok {
+			f.FileInfos[newpath] = &MockFileInfo{
+				NameVal:  filepath.Base(newpath),
+				SizeVal:  info.SizeVal,
+				ModeVal:  info.ModeVal,
+				IsDirVal: info.IsDirVal,
 			}
 		}
-		delete(f.files, oldpath)
-		delete(f.fileInfos, oldpath)
+		delete(f.Files, oldpath)
+		delete(f.FileInfos, oldpath)
 		return nil
 	}
 
@@ -391,15 +414,15 @@ func (f *MockFileSystem) Rename(oldpath, newpath string) error {
 }
 
 func (f *MockFileSystem) Chmod(name string, mode os.FileMode) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
 
-	if err, ok := f.opErrors["Chmod"]; ok {
+	if err, ok := f.OpErrors["Chmod"]; ok {
 		return err
 	}
 
-	if info, ok := f.fileInfos[name]; ok {
-		info.mode = mode
+	if info, ok := f.FileInfos[name]; ok {
+		info.ModeVal = mode
 		return nil
 	}
 
@@ -407,24 +430,24 @@ func (f *MockFileSystem) Chmod(name string, mode os.FileMode) error {
 }
 
 func (f *MockFileSystem) Remove(name string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
 
-	if err, ok := f.opErrors["Remove"]; ok {
+	if err, ok := f.OpErrors["Remove"]; ok {
 		return err
 	}
 
 	// Check if it's a temp file
-	if _, ok := f.tempFiles[name]; ok {
-		delete(f.tempFiles, name)
+	if _, ok := f.TempFiles[name]; ok {
+		delete(f.TempFiles, name)
 		return nil
 	}
 
 	// Regular file removal
-	if _, ok := f.files[name]; ok {
-		delete(f.files, name)
-		delete(f.fileInfos, name)
-		delete(f.dirs, name)
+	if _, ok := f.Files[name]; ok {
+		delete(f.Files, name)
+		delete(f.FileInfos, name)
+		delete(f.Dirs, name)
 		return nil
 	}
 
@@ -432,21 +455,21 @@ func (f *MockFileSystem) Remove(name string) error {
 }
 
 func (f *MockFileSystem) ListDir(path string) ([]models.FileInfo, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
 
 	// Check for operation-level errors
-	if err, ok := f.opErrors["ListDir"]; ok {
+	if err, ok := f.OpErrors["ListDir"]; ok {
 		return nil, err
 	}
 
 	// Check for path-specific errors
-	if err, ok := f.errors[path]; ok {
+	if err, ok := f.Errors[path]; ok {
 		return nil, err
 	}
 
 	// Verify path exists and is a directory
-	info, ok := f.fileInfos[path]
+	info, ok := f.FileInfos[path]
 	if !ok {
 		return nil, &os.PathError{Op: "readdir", Path: path, Err: os.ErrNotExist}
 	}
@@ -463,7 +486,7 @@ func (f *MockFileSystem) ListDir(path string) ([]models.FileInfo, error) {
 
 	// Collect direct children
 	var entries []models.FileInfo
-	for entryPath, entryInfo := range f.fileInfos {
+	for entryPath, entryInfo := range f.FileInfos {
 		// Skip the directory itself
 		if entryPath == path {
 			continue
@@ -484,62 +507,14 @@ func (f *MockFileSystem) ListDir(path string) ([]models.FileInfo, error) {
 
 // GetTempFiles returns all temp file paths (for testing cleanup verification)
 func (f *MockFileSystem) GetTempFiles() []string {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+	f.Mu.RLock()
+	defer f.Mu.RUnlock()
 
-	paths := make([]string, 0, len(f.tempFiles))
-	for path := range f.tempFiles {
+	paths := make([]string, 0, len(f.TempFiles))
+	for path := range f.TempFiles {
 		paths = append(paths, path)
 	}
 	return paths
-}
-
-// MockBinaryDetector implements models.BinaryDetector with configurable behaviour
-type MockBinaryDetector struct {
-	binaryPaths   map[string]bool
-	binaryContent map[string]bool // content hash -> is binary
-	SampleSize    int             // Number of bytes to sample for binary detection
-}
-
-// NewMockBinaryDetector creates a new mock binary detector
-func NewMockBinaryDetector() *MockBinaryDetector {
-	return &MockBinaryDetector{
-		binaryPaths:   make(map[string]bool),
-		binaryContent: make(map[string]bool),
-		SampleSize:    4096, // Default matches config
-	}
-}
-
-// SetBinaryPath marks a path as binary (deprecated, kept for test compatibility)
-// Note: Binary detection now uses IsBinaryContent which checks actual file content
-func (f *MockBinaryDetector) SetBinaryPath(path string, isBinary bool) {
-	f.binaryPaths[path] = isBinary
-}
-
-func (f *MockBinaryDetector) IsBinaryContent(content []byte) bool {
-	// Check for common text file BOMs (UTF-16, UTF-32)
-	if len(content) >= 2 {
-		if (content[0] == 0xFF && content[1] == 0xFE) ||
-			(content[0] == 0xFE && content[1] == 0xFF) {
-			return false
-		}
-	}
-	if len(content) >= 4 {
-		if (content[0] == 0xFF && content[1] == 0xFE && content[2] == 0x00 && content[3] == 0x00) ||
-			(content[0] == 0x00 && content[1] == 0x00 && content[2] == 0xFE && content[3] == 0xFF) {
-			return false
-		}
-	}
-
-	sampleSize := min(len(content), f.SampleSize)
-
-	for i := range sampleSize {
-		if content[i] == 0 {
-			return true
-		}
-	}
-
-	return false
 }
 
 // MockCommandExecutor implements models.CommandExecutor for testing

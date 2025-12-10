@@ -2,11 +2,13 @@ package services
 
 import (
 	"testing"
+
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 )
 
 func TestParseEnvFile(t *testing.T) {
 	t.Run("Basic KEY=VALUE parsing", func(t *testing.T) {
-		fs := NewMockFileSystem(1024 * 1024)
+		fs := mocks.NewMockFileSystem(1024 * 1024)
 		content := `KEY1=value1
 KEY2=value2
 KEY3=value3`
@@ -31,7 +33,7 @@ KEY3=value3`
 	})
 
 	t.Run("Comments and empty lines", func(t *testing.T) {
-		fs := NewMockFileSystem(1024 * 1024)
+		fs := mocks.NewMockFileSystem(1024 * 1024)
 		content := `# This is a comment
 KEY1=value1
 
@@ -55,7 +57,7 @@ KEY2=value2
 	})
 
 	t.Run("Quoted values", func(t *testing.T) {
-		fs := NewMockFileSystem(1024 * 1024)
+		fs := mocks.NewMockFileSystem(1024 * 1024)
 		content := `KEY1="value with spaces"
 KEY2='single quoted'
 KEY3=unquoted`
@@ -78,7 +80,7 @@ KEY3=unquoted`
 	})
 
 	t.Run("Invalid format", func(t *testing.T) {
-		fs := NewMockFileSystem(1024 * 1024)
+		fs := mocks.NewMockFileSystem(1024 * 1024)
 		content := `INVALID LINE WITHOUT EQUALS`
 		fs.CreateFile("/test4.env", []byte(content), 0644)
 
@@ -89,7 +91,7 @@ KEY3=unquoted`
 	})
 
 	t.Run("File not found", func(t *testing.T) {
-		fs := NewMockFileSystem(1024 * 1024)
+		fs := mocks.NewMockFileSystem(1024 * 1024)
 
 		_, err := ParseEnvFile(fs, "/nonexistent/file.env")
 		if err == nil {
@@ -98,7 +100,7 @@ KEY3=unquoted`
 	})
 
 	t.Run("Values with equals sign", func(t *testing.T) {
-		fs := NewMockFileSystem(1024 * 1024)
+		fs := mocks.NewMockFileSystem(1024 * 1024)
 		content := `DATABASE_URL=postgres://user:pass@localhost:5432/db?sslmode=disable`
 		fs.CreateFile("/test5.env", []byte(content), 0644)
 

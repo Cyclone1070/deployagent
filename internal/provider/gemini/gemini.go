@@ -24,7 +24,7 @@ type GeminiProvider struct {
 	model      string // Renamed from modelName
 	mu         sync.RWMutex
 	tools      []provider.ToolDefinition
-	modelCache []ModelInfo // Cached list of available models with metadata
+	modelCache []provider.ModelInfo // Cached list of available models with metadata
 }
 
 // modelVersion represents a model name with its parsed version for sorting
@@ -52,8 +52,8 @@ func extractVersion(modelName string) (float64, bool) {
 	return version, true
 }
 
-// getModelInfo returns the ModelInfo for the given model name from the cache
-func (p *GeminiProvider) getModelInfo(name string) *ModelInfo {
+// getModelInfo returns the provider.ModelInfo for the given model name from the cache
+func (p *GeminiProvider) getModelInfo(name string) *provider.ModelInfo {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -108,13 +108,13 @@ func getModelTypePriority(cfg *config.Config, modelName string) int {
 // 2. Version number (descending: 3.0 > 2.5 > 2.0 > 1.5)
 // 3. Model type (pro > flash > others, priorities from config)
 // 4. Original API order (stable sort)
-func sortModelsByVersion(cfg *config.Config, models []ModelInfo) []ModelInfo {
+func sortModelsByVersion(cfg *config.Config, models []provider.ModelInfo) []provider.ModelInfo {
 	// Copy to avoid mutating input
-	result := make([]ModelInfo, len(models))
+	result := make([]provider.ModelInfo, len(models))
 	copy(result, models)
 
 	// Sort directly - O(n log n)
-	slices.SortStableFunc(result, func(a, b ModelInfo) int {
+	slices.SortStableFunc(result, func(a, b provider.ModelInfo) int {
 		// First priority: models with "-latest" suffix (highest priority)
 		aLatest := hasLatestSuffix(a.Name)
 		bLatest := hasLatestSuffix(b.Name)

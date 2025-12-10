@@ -11,7 +11,6 @@ import (
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/orchestrator"
 	orchadapter "github.com/Cyclone1070/iav/internal/orchestrator/adapter"
-	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
 	"github.com/Cyclone1070/iav/internal/provider/gemini"
 	provider "github.com/Cyclone1070/iav/internal/provider/models"
 	"github.com/Cyclone1070/iav/internal/tools"
@@ -156,7 +155,8 @@ func runInteractive(ctx context.Context, deps Dependencies) {
 		userInterface.SetModel(p.GetModel())
 
 		// === ORCHESTRATOR INITIALIZATION ===
-		policy := orchmodels.NewPolicy(deps.Config)
+		// Initialize components
+		policy := orchestrator.NewPolicy(deps.Config)
 		policyService := orchestrator.NewPolicyService(policy, userInterface)
 		orch := orchestrator.New(deps.Config, providerClient, policyService, userInterface, toolList)
 

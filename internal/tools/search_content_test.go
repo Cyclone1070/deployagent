@@ -11,28 +11,29 @@ import (
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 )
 
 func TestSearchContent_BasicRegex(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Simulate rg JSON output
 	rgOutput := `{"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func foo()"},"line_number":10}}
 {"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func bar()"},"line_number":20}}`
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 		},
 	}
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -64,16 +65,16 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedCmd = cmd
-			return &services.MockProcess{
+			return &mocks.MockProcess{
 				WaitFunc: func() error {
-					return &services.MockExitError{Code: 1} // No matches
+					return &mocks.MockExitError{Code: 1} // No matches
 				},
 			}, strings.NewReader(""), strings.NewReader(""), nil
 		},
@@ -81,7 +82,7 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -102,15 +103,15 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.MockCommandExecutor{},
+		CommandExecutor: &mocks.MockCommandExecutor{},
 		Config:          *config.DefaultConfig(),
 	}
 
@@ -124,22 +125,22 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Create a very long line (1MB)
 	longLine := strings.Repeat("a", 1024*1024)
 	rgOutput := fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"%s"},"line_number":1}}`, longLine)
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 		},
 	}
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -169,16 +170,16 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			capturedCmd = cmd
-			return &services.MockProcess{
+			return &mocks.MockProcess{
 				WaitFunc: func() error {
-					return &services.MockExitError{Code: 1}
+					return &mocks.MockExitError{Code: 1}
 				},
 			}, strings.NewReader(""), strings.NewReader(""), nil
 		},
@@ -186,7 +187,7 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -208,15 +209,15 @@ func TestSearchContent_NoMatches(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			// Simulate rg returning exit code 1 (no matches)
-			return &services.MockProcess{
+			return &mocks.MockProcess{
 				WaitFunc: func() error {
-					return &services.MockExitError{Code: 1}
+					return &mocks.MockExitError{Code: 1}
 				},
 			}, strings.NewReader(""), strings.NewReader(""), nil
 		},
@@ -224,7 +225,7 @@ func TestSearchContent_NoMatches(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -249,7 +250,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Simulate 10 matches
@@ -259,15 +260,15 @@ func TestSearchContent_Pagination(t *testing.T) {
 `, i, i+1)
 	}
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 		},
 	}
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -302,7 +303,7 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Simulate matches from multiple files
@@ -310,15 +311,15 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":10}}
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":5}}`
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 		},
 	}
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -351,7 +352,7 @@ func TestSearchContent_InvalidJSON(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Mix valid and invalid JSON
@@ -359,15 +360,15 @@ func TestSearchContent_InvalidJSON(t *testing.T) {
 invalid json line
 {"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"also valid"},"line_number":2}}`
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 		},
 	}
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -389,14 +390,14 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{
+			return &mocks.MockProcess{
 				WaitFunc: func() error {
-					return &services.MockExitError{Code: 2}
+					return &mocks.MockExitError{Code: 2}
 				},
 			}, strings.NewReader(""), strings.NewReader(""), nil
 		},
@@ -404,7 +405,7 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -420,11 +421,11 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Test with includeIgnored=false (default behavior, should respect gitignore)
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
 			// Verify --no-ignore is NOT present
 			if slices.Contains(cmd, "--no-ignore") {
@@ -432,13 +433,13 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 			}
 			// Simulate rg output without ignored files
 			output := `{"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-			return &services.MockProcess{}, strings.NewReader(output), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(output), strings.NewReader(""), nil
 		},
 	}
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -463,7 +464,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		// Simulate rg output with ignored files
 		output := `{"type":"match","data":{"path":{"text":"/workspace/ignored.go"},"lines":{"text":"func main()"},"line_number":1}}
 {"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-		return &services.MockProcess{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &mocks.MockProcess{}, strings.NewReader(output), strings.NewReader(""), nil
 	}
 
 	resp, err = SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: true, Offset: 0, Limit: 100})
@@ -499,12 +500,12 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
 
@@ -555,12 +556,12 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 
 func TestSearchContent_OffsetValidation(t *testing.T) {
 	workspaceRoot := "/workspace"
-	fs := services.NewMockFileSystem(1024 * 1024)
+	fs := mocks.NewMockFileSystem(1024 * 1024)
 	fs.CreateDir("/workspace")
 
-	mockRunner := &services.MockCommandExecutor{
+	mockRunner := &mocks.MockCommandExecutor{
 		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
+			return &mocks.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
 		},
 	}
 

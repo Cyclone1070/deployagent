@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 )
 
 func TestExecuteWithTimeout_Success(t *testing.T) {
 
-	mock := &MockProcess{
+	mock := &mocks.MockProcess{
 		WaitDelay: 10 * time.Millisecond,
 	}
 
@@ -24,7 +25,7 @@ func TestExecuteWithTimeout_Success(t *testing.T) {
 }
 
 func TestExecuteWithTimeout_Fail(t *testing.T) {
-	mock := &MockProcess{
+	mock := &mocks.MockProcess{
 		WaitDelay: 200 * time.Millisecond,
 	}
 

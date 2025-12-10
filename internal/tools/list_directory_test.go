@@ -10,6 +10,7 @@ import (
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tools/models"
 	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 )
 
 func TestListDirectory(t *testing.T) {
@@ -17,7 +18,7 @@ func TestListDirectory(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	t.Run("list workspace root with mixed files and directories", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file1.txt", []byte("content1"), 0o644)
 		fs.CreateFile("/workspace/file2.txt", []byte("content2"), 0o644)
@@ -26,7 +27,7 @@ func TestListDirectory(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -68,7 +69,7 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("list nested directory", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateFile("/workspace/src/main.go", []byte("package main"), 0o644)
@@ -77,7 +78,7 @@ func TestListDirectory(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -107,13 +108,13 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("list empty directory", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/empty")
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -130,13 +131,13 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("path resolves to file not directory", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0o644)
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -154,13 +155,13 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("path outside workspace", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/outside")
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -173,12 +174,12 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("directory does not exist", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -196,14 +197,14 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("filesystem error propagation", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/testdir")
 		fs.SetOperationError("ListDir", os.ErrPermission)
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -219,14 +220,14 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("relative path input", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateFile("/workspace/src/file.txt", []byte("content"), 0o644)
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -243,14 +244,14 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("absolute path input", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateFile("/workspace/src/file.txt", []byte("content"), 0o644)
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -267,13 +268,13 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("dot path alias for workspace root", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0o644)
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -290,14 +291,14 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("verify entry metadata correctness", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("hello world"), 0o644)
 		fs.CreateDir("/workspace/subdir")
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -347,7 +348,7 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("sorting: directories before files, alphabetical within each group", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/zebra.txt", []byte("z"), 0o644)
 		fs.CreateFile("/workspace/alpha.txt", []byte("a"), 0o644)
@@ -356,7 +357,7 @@ func TestListDirectory(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -390,7 +391,7 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("nested directory with relative path", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateDir("/workspace/src/app")
@@ -398,7 +399,7 @@ func TestListDirectory(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -428,7 +429,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("pagination with offset and limit", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		// Create 150 files
 		for i := range 150 {
@@ -437,7 +438,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -508,12 +509,12 @@ func TestListDirectory_InvalidPagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
@@ -536,7 +537,7 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("directory with symlinks", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0o644)
 		fs.CreateDir("/workspace/target")
@@ -544,7 +545,7 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -579,7 +580,7 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("unicode and special characters", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/文件.txt", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/🚀.txt", []byte("content"), 0o644)
@@ -588,7 +589,7 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -635,7 +636,7 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("dotfiles filtered by gitignore", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/.gitignore", []byte("*.log\n"), 0o644)
 		fs.CreateFile("/workspace/.hidden", []byte("content"), 0o644)
@@ -649,7 +650,7 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   services.NewMockBinaryDetector(),
+			BinaryDetector:   mocks.NewMockBinaryDetector(),
 			ChecksumManager:  services.NewChecksumManager(),
 			WorkspaceRoot:    workspaceRoot,
 			GitignoreService: gitignoreService,
@@ -696,14 +697,14 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("all dotfiles included when gitignore service is nil", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/.hidden", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/.test.log", []byte("content"), 0o644)
 
 		ctx := &models.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   services.NewMockBinaryDetector(),
+			BinaryDetector:   mocks.NewMockBinaryDetector(),
 			ChecksumManager:  services.NewChecksumManager(),
 			WorkspaceRoot:    workspaceRoot,
 			GitignoreService: nil, // No gitignore service
@@ -742,7 +743,7 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("large directory pagination", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		// Create 5000 files
 		for i := range 5000 {
@@ -751,7 +752,7 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -805,7 +806,7 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 	maxFileSize := int64(1024 * 1024)
 
 	t.Run("offset beyond end returns empty", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
+		fs := mocks.NewMockFileSystem(maxFileSize)
 		fs.CreateDir("/workspace")
 		// Create 10 files
 		for i := range 10 {
@@ -814,7 +815,7 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 
 		ctx := &models.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
+			BinaryDetector:  mocks.NewMockBinaryDetector(),
 			ChecksumManager: services.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
@@ -841,7 +842,7 @@ func TestListDirectory_Recursive(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/dir1")
 	fs.CreateDir("/workspace/dir1/subdir1")
@@ -851,7 +852,7 @@ func TestListDirectory_Recursive(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
@@ -892,7 +893,7 @@ func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/level1")
 	fs.CreateDir("/workspace/level1/level2")
@@ -903,7 +904,7 @@ func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
@@ -933,7 +934,7 @@ func TestListDirectory_SymlinkLoop(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/dir1")
 	fs.CreateDir("/workspace/dir2")
@@ -944,7 +945,7 @@ func TestListDirectory_SymlinkLoop(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
@@ -966,7 +967,7 @@ func TestListDirectory_RecursivePagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 
 	// Create 20 files across multiple directories
@@ -980,7 +981,7 @@ func TestListDirectory_RecursivePagination(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
@@ -1009,7 +1010,7 @@ func TestListDirectory_NonRecursive(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
 
-	fs := services.NewMockFileSystem(maxFileSize)
+	fs := mocks.NewMockFileSystem(maxFileSize)
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/dir1")
 	fs.CreateDir("/workspace/dir1/subdir1")
@@ -1018,7 +1019,7 @@ func TestListDirectory_NonRecursive(t *testing.T) {
 
 	ctx := &models.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
+		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),

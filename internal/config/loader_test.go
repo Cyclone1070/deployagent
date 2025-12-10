@@ -1,48 +1,31 @@
-package config
+package config_test
 
 import (
 	"errors"
 	"os"
 	"testing"
 
+	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// MockFileSystem implements FileSystem for testing.
-// NOTE: This is a minimal mock for config loading tests.
-// For comprehensive filesystem mocking, see internal/tools/services/test_mocks.go.
-type MockFileSystem struct {
-	HomeDir     string
-	HomeDirErr  error
-	Files       map[string][]byte
-	ReadFileErr error
-}
-
-func (m *MockFileSystem) UserHomeDir() (string, error) {
-	return m.HomeDir, m.HomeDirErr
-}
-
-func (m *MockFileSystem) ReadFile(path string) ([]byte, error) {
-	if m.ReadFileErr != nil {
-		return nil, m.ReadFileErr
+// createMockFS helper to reduce boilerplate
+func createMockFS(files map[string][]byte) *mocks.MockFileSystem {
+	fs := mocks.NewMockFileSystem(1024 * 1024)
+	if files != nil {
+		fs.Files = files
 	}
-	data, ok := m.Files[path]
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-	return data, nil
+	return fs
 }
 
 // --- HAPPY PATH TESTS ---
 
 func TestLoad_NoConfigFile_ReturnsDefaults(t *testing.T) {
 	// Config file doesn't exist - should return all defaults
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files:   map[string][]byte{}, // Empty - no config file
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(nil)
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -61,13 +44,10 @@ func TestLoad_FullOverride_AllValuesReplaced(t *testing.T) {
 		"ui": {"tick_interval_ms": 200, "color_primary": "99"},
 		"policy": {"shell_allow": ["docker"], "shell_deny": ["rm"]}
 	}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -83,13 +63,10 @@ func TestLoad_FullOverride_AllValuesReplaced(t *testing.T) {
 func TestLoad_PartialOverride_MergesWithDefaults(t *testing.T) {
 	// Config file only overrides max_turns - rest should be defaults
 	configJSON := `{"orchestrator": {"max_turns": 200}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -102,13 +79,10 @@ func TestLoad_PartialOverride_MergesWithDefaults(t *testing.T) {
 
 func TestLoad_EmptyConfigFile_ReturnsDefaults(t *testing.T) {
 	// Empty JSON object - should use all defaults
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(`{}`),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(`{}`),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -119,13 +93,10 @@ func TestLoad_EmptyConfigFile_ReturnsDefaults(t *testing.T) {
 func TestLoad_NestedPartialOverride_OnlySpecifiedFieldsChange(t *testing.T) {
 	// Override only one field in a nested struct
 	configJSON := `{"ui": {"color_primary": "255"}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -138,13 +109,10 @@ func TestLoad_NestedPartialOverride_OnlySpecifiedFieldsChange(t *testing.T) {
 // --- UNHAPPY PATH TESTS ---
 
 func TestLoad_MalformedJSON_ReturnsError(t *testing.T) {
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(`{invalid json`),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(`{invalid json`),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -154,11 +122,10 @@ func TestLoad_MalformedJSON_ReturnsError(t *testing.T) {
 }
 
 func TestLoad_PermissionDenied_ReturnsError(t *testing.T) {
-	fs := &MockFileSystem{
-		HomeDir:     "/home/user",
-		ReadFileErr: os.ErrPermission,
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(nil)
+	fs.SetOperationError("ReadFile", os.ErrPermission)
+
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -169,10 +136,10 @@ func TestLoad_PermissionDenied_ReturnsError(t *testing.T) {
 
 func TestLoad_HomeDirError_ReturnsDefaults(t *testing.T) {
 	// Can't determine home dir - gracefully fall back to defaults
-	fs := &MockFileSystem{
-		HomeDirErr: errors.New("homeless"),
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(nil)
+	fs.HomeDirErr = errors.New("homeless")
+
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -182,13 +149,10 @@ func TestLoad_HomeDirError_ReturnsDefaults(t *testing.T) {
 
 func TestLoad_WrongJSONType_ReturnsError(t *testing.T) {
 	// JSON is valid but wrong type (array instead of object)
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(`["not", "an", "object"]`),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(`["not", "an", "object"]`),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -198,51 +162,42 @@ func TestLoad_WrongJSONType_ReturnsError(t *testing.T) {
 
 // --- EDGE CASE TESTS ---
 
-func TestLoad_ZeroValueExplicit_DoesNotOverride(t *testing.T) {
-	// Setting max_turns to 0 should NOT override (0 is zero-value)
-	// This is a known limitation of the merge strategy
-	configJSON := `{"orchestrator": {"max_turns": 0}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+func TestLoad_ZeroValueExplicit_Overrides(t *testing.T) {
+	// Setting model_type_priority_pro to 0 SHOULD override default (2)
+	// This requires fixing the merge strategy
+	configJSON := `{"provider": {"model_type_priority_pro": 0}}`
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 50, cfg.Orchestrator.MaxTurns) // Default kept (0 ignored)
+	assert.Equal(t, 0, cfg.Provider.ModelTypePriorityPro) // Expect 0, not default 2
 }
 
-func TestLoad_EmptyStringColor_DoesNotOverride(t *testing.T) {
-	// Empty string should not override default color
+func TestLoad_EmptyStringColor_Overrides(t *testing.T) {
+	// Empty string SHOULD override default color if explicitly set
 	configJSON := `{"ui": {"color_primary": ""}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, "63", cfg.UI.ColorPrimary) // Default kept
+	assert.Equal(t, "", cfg.UI.ColorPrimary) // Expect empty string, not default
 }
 
 func TestLoad_EmptyPolicyArray_ReplacesDefault(t *testing.T) {
 	// Empty array SHOULD replace default (user explicitly wants empty)
 	configJSON := `{"policy": {"shell_allow": []}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -253,13 +208,10 @@ func TestLoad_EmptyPolicyArray_ReplacesDefault(t *testing.T) {
 func TestLoad_NullPolicyArray_KeepsDefault(t *testing.T) {
 	// Null/missing array should keep defaults
 	configJSON := `{"policy": {"shell_deny": ["rm"]}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -271,13 +223,10 @@ func TestLoad_NullPolicyArray_KeepsDefault(t *testing.T) {
 func TestLoad_VeryLargeValues_Accepted(t *testing.T) {
 	// Extreme values should be accepted (no validation in loader)
 	configJSON := `{"orchestrator": {"max_turns": 999999999}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -288,13 +237,10 @@ func TestLoad_VeryLargeValues_Accepted(t *testing.T) {
 func TestLoad_NegativeValues_Rejected(t *testing.T) {
 	// Negative values should be rejected by validation
 	configJSON := `{"tools": {"default_shell_timeout": -1}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -306,13 +252,10 @@ func TestLoad_NegativeValues_Rejected(t *testing.T) {
 func TestLoad_UnknownFields_Ignored(t *testing.T) {
 	// Unknown fields in JSON should be silently ignored
 	configJSON := `{"orchestrator": {"max_turns": 100}, "unknown_field": "ignored"}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
@@ -323,93 +266,13 @@ func TestLoad_UnknownFields_Ignored(t *testing.T) {
 func TestLoad_UnicodeInStrings_Handled(t *testing.T) {
 	// Unicode characters in string fields
 	configJSON := `{"policy": {"shell_allow": ["👾"]}}`
-	fs := &MockFileSystem{
-		HomeDir: "/home/user",
-		Files: map[string][]byte{
-			"/home/user/.config/iav/config.json": []byte(configJSON),
-		},
-	}
-	loader := NewLoaderWithFS(fs)
+	fs := createMockFS(map[string][]byte{
+		"/home/user/.config/iav/config.json": []byte(configJSON),
+	})
+	loader := config.NewLoaderWithFS(fs)
 
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"👾"}, cfg.Policy.ShellAllow)
-}
-
-// --- DEFAULT CONFIG TESTS ---
-
-func TestDefaultConfig_AllFieldsInitialized(t *testing.T) {
-	cfg := DefaultConfig()
-
-	// Verify no nil slices
-	assert.NotNil(t, cfg.Policy.ShellAllow)
-	assert.NotNil(t, cfg.Policy.ShellDeny)
-	assert.NotNil(t, cfg.Policy.ToolsAllow)
-	assert.NotNil(t, cfg.Policy.ToolsDeny)
-
-	// Verify critical defaults
-	assert.Greater(t, cfg.Orchestrator.MaxTurns, 0)
-	assert.Greater(t, cfg.Provider.FallbackMaxOutputTokens, 0)
-	assert.Greater(t, cfg.Tools.MaxFileSize, int64(0))
-}
-
-func TestMergeConfig_SearchContentLimits(t *testing.T) {
-	t.Run("override DefaultSearchContentLimit", func(t *testing.T) {
-		dst := DefaultConfig()
-		src := &Config{Tools: ToolsConfig{DefaultSearchContentLimit: 50}}
-		mergeConfig(dst, src)
-		if dst.Tools.DefaultSearchContentLimit != 50 {
-			t.Errorf("expected 50, got %d", dst.Tools.DefaultSearchContentLimit)
-		}
-	})
-
-	t.Run("override MaxSearchContentLimit", func(t *testing.T) {
-		dst := DefaultConfig()
-		src := &Config{Tools: ToolsConfig{MaxSearchContentLimit: 500}}
-		mergeConfig(dst, src)
-		if dst.Tools.MaxSearchContentLimit != 500 {
-			t.Errorf("expected 500, got %d", dst.Tools.MaxSearchContentLimit)
-		}
-	})
-
-	t.Run("zero values do not override", func(t *testing.T) {
-		dst := DefaultConfig()
-		originalDefault := dst.Tools.DefaultSearchContentLimit
-		src := &Config{Tools: ToolsConfig{DefaultSearchContentLimit: 0}}
-		mergeConfig(dst, src)
-		if dst.Tools.DefaultSearchContentLimit != originalDefault {
-			t.Errorf("zero should not override, expected %d, got %d", originalDefault, dst.Tools.DefaultSearchContentLimit)
-		}
-	})
-}
-
-func TestMergeConfig_FindFileLimits(t *testing.T) {
-	t.Run("override DefaultFindFileLimit", func(t *testing.T) {
-		dst := DefaultConfig()
-		src := &Config{Tools: ToolsConfig{DefaultFindFileLimit: 50}}
-		mergeConfig(dst, src)
-		if dst.Tools.DefaultFindFileLimit != 50 {
-			t.Errorf("expected 50, got %d", dst.Tools.DefaultFindFileLimit)
-		}
-	})
-
-	t.Run("override MaxFindFileLimit", func(t *testing.T) {
-		dst := DefaultConfig()
-		src := &Config{Tools: ToolsConfig{MaxFindFileLimit: 500}}
-		mergeConfig(dst, src)
-		if dst.Tools.MaxFindFileLimit != 500 {
-			t.Errorf("expected 500, got %d", dst.Tools.MaxFindFileLimit)
-		}
-	})
-
-	t.Run("zero values do not override", func(t *testing.T) {
-		dst := DefaultConfig()
-		originalDefault := dst.Tools.DefaultFindFileLimit
-		src := &Config{Tools: ToolsConfig{DefaultFindFileLimit: 0}}
-		mergeConfig(dst, src)
-		if dst.Tools.DefaultFindFileLimit != originalDefault {
-			t.Errorf("zero should not override")
-		}
-	})
 }

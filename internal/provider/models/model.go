@@ -130,3 +130,10 @@ type Capabilities struct {
 	MaxContextTokens int
 	MaxOutputTokens  int
 }
+
+// ModelInfo contains metadata about a model.
+type ModelInfo struct {
+	Name             string
+	InputTokenLimit  int
+	OutputTokenLimit int
+}
