@@ -37,18 +37,13 @@ func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Rea
 	}
 
 	// Derive offset and limit
+	// Derive offset and limit
 	var actualOffset, actualLimit int64
 	if req.Offset != nil {
 		actualOffset = *req.Offset
-		if actualOffset < 0 {
-			return nil, models.ErrInvalidOffset
-		}
 	}
 	if req.Limit != nil {
 		actualLimit = *req.Limit
-		if actualLimit < 0 {
-			return nil, models.ErrInvalidLimit
-		}
 	}
 
 	// Read the file range (single open+read syscall)

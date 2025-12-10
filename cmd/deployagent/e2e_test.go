@@ -12,7 +12,7 @@ import (
 	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
 	providermodels "github.com/Cyclone1070/iav/internal/provider/models"
 	"github.com/Cyclone1070/iav/internal/testing/testhelpers"
-	"github.com/Cyclone1070/iav/internal/ui"
+	uimodels "github.com/Cyclone1070/iav/internal/ui/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -174,7 +174,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	modelListChan := make(chan []string, 1)
 
 	startBlocker := make(chan struct{})
-	commandChan := make(chan ui.UICommand, 1)
+	commandChan := make(chan uimodels.UICommand, 1)
 
 	mockUI := &testhelpers.MockUI{
 		StartBlocker: startBlocker,
@@ -208,7 +208,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	// Send list_models command
-	commandChan <- ui.UICommand{Type: "list_models"}
+	commandChan <- uimodels.UICommand{Type: "list_models"}
 
 	// Wait for response
 	select {
@@ -255,7 +255,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 	}
 
 	startBlocker := make(chan struct{})
-	commandChan := make(chan ui.UICommand, 1)
+	commandChan := make(chan uimodels.UICommand, 1)
 
 	mockUI := &testhelpers.MockUI{
 		StartBlocker: startBlocker,
@@ -285,7 +285,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 
 	// Send switch_model command
 	targetModel := "gemini-1.5-flash"
-	commandChan <- ui.UICommand{
+	commandChan <- uimodels.UICommand{
 		Type: "switch_model",
 		Args: map[string]string{"model": targetModel},
 	}

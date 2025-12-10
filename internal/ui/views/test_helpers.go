@@ -1,22 +1,14 @@
 package views
 
 import (
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 )
 
-// MockMarkdownRenderer for testing
-type MockMarkdownRenderer struct {
-	RenderFunc func(string, int) (string, error)
-}
-
-func (m *MockMarkdownRenderer) Render(content string, width int) (string, error) {
-	if m.RenderFunc != nil {
-		return m.RenderFunc(content, width)
-	}
-	return content, nil
-}
+// Re-export for package compatibility
+type MockMarkdownRenderer = mocks.MockMarkdownRenderer
 
 // MockSpinner for testing
 type MockSpinner struct {

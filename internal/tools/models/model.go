@@ -4,6 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/Cyclone1070/iav/internal/config"
 )
 
 // Operation represents a single edit operation for EditFile.
@@ -70,7 +74,7 @@ type SearchContentRequest struct {
 // ReadTodosRequest contains parameters for ReadTodos operation
 type ReadTodosRequest struct{}
 
-func (r ReadTodosRequest) Validate() error {
+func (r ReadTodosRequest) Validate(cfg *config.Config) error {
 	return nil // No fields to validate
 }
 
@@ -79,7 +83,7 @@ type WriteTodosRequest struct {
 	Todos []Todo `json:"todos"`
 }
 
-func (r WriteTodosRequest) Validate() error {
+func (r WriteTodosRequest) Validate(cfg *config.Config) error {
 	// Check for empty todos array (questionable but allow it - might be clearing all todos)
 	// But validate each todo if present
 	for i, todo := range r.Todos {
@@ -101,57 +105,111 @@ func (r WriteTodosRequest) Validate() error {
 
 // Validate methods for request structs
 
-func (r ReadFileRequest) Validate() error {
+func (r ReadFileRequest) Validate(cfg *config.Config) error {
 	if r.Path == "" {
 		return fmt.Errorf("path is required")
+	}
+	if r.Offset != nil && *r.Offset < 0 {
+		return fmt.Errorf("offset cannot be negative")
+	}
+	if r.Limit != nil && *r.Limit < 0 {
+		return fmt.Errorf("limit cannot be negative")
 	}
 	return nil
 }
 
-func (r WriteFileRequest) Validate() error {
+func (r WriteFileRequest) Validate(cfg *config.Config) error {
 	if r.Path == "" {
 		return fmt.Errorf("path is required")
 	}
 	if r.Content == "" {
 		return fmt.Errorf("content is required")
 	}
+	if r.Perm != nil && *r.Perm&^os.FileMode(0777) != 0 {
+		return fmt.Errorf("invalid permissions: only standard bits (0-0777) allowed")
+	}
 	return nil
 }
 
-func (r EditFileRequest) Validate() error {
+func (r EditFileRequest) Validate(cfg *config.Config) error {
 	if r.Path == "" {
 		return fmt.Errorf("path is required")
 	}
 	if len(r.Operations) == 0 {
 		return fmt.Errorf("operations cannot be empty")
 	}
+	for i, op := range r.Operations {
+		if op.Before == "" {
+			return fmt.Errorf("operation %d: Before must be non-empty", i+1)
+		}
+		if op.ExpectedReplacements < 0 {
+			return fmt.Errorf("operation %d: ExpectedReplacements cannot be negative", i+1)
+		}
+	}
 	return nil
 }
 
-func (r ShellRequest) Validate() error {
+func (r ShellRequest) Validate(cfg *config.Config) error {
 	if len(r.Command) == 0 {
 		return fmt.Errorf("command cannot be empty")
 	}
+	if r.TimeoutSeconds < 0 {
+		return fmt.Errorf("timeout_seconds cannot be negative")
+	}
 	return nil
 }
 
-func (r FindFileRequest) Validate() error {
+func (r FindFileRequest) Validate(cfg *config.Config) error {
 	if r.Pattern == "" {
 		return fmt.Errorf("pattern is required")
 	}
-	return nil
-}
+	// Check for path traversal or absolute path in pattern
+	if strings.Contains(r.Pattern, "..") || filepath.IsAbs(r.Pattern) {
+		return fmt.Errorf("invalid pattern: traversal or absolute path not allowed")
+	}
 
-func (r SearchContentRequest) Validate() error {
-	if r.Query == "" {
-		return fmt.Errorf("query is required")
+	// Simple check for path traversal in search path if provided
+	if r.SearchPath != "" && (r.SearchPath == ".." || r.SearchPath == "/" || r.SearchPath == "\\") {
+		return fmt.Errorf("invalid search path: traversal not allowed")
+	}
+	if r.Offset < 0 {
+		return fmt.Errorf("offset cannot be negative")
+	}
+	if r.Limit < 0 {
+		return fmt.Errorf("limit cannot be negative")
+	}
+	if r.Limit > cfg.Tools.MaxFindFileLimit {
+		return fmt.Errorf("limit %d exceeds maximum %d", r.Limit, cfg.Tools.MaxFindFileLimit)
 	}
 	return nil
 }
 
-func (r ListDirectoryRequest) Validate() error {
-	if r.Path == "" {
-		return fmt.Errorf("path is required")
+func (r SearchContentRequest) Validate(cfg *config.Config) error {
+	if r.Query == "" {
+		return fmt.Errorf("query is required")
+	}
+	if r.Offset < 0 {
+		return fmt.Errorf("offset cannot be negative")
+	}
+	if r.Limit < 0 {
+		return fmt.Errorf("limit cannot be negative")
+	}
+	if r.Limit > cfg.Tools.MaxSearchContentLimit {
+		return fmt.Errorf("limit %d exceeds maximum %d", r.Limit, cfg.Tools.MaxSearchContentLimit)
+	}
+	return nil
+}
+
+func (r ListDirectoryRequest) Validate(cfg *config.Config) error {
+	// Path is optional - defaults to "." (workspace root) in tool
+	if r.Offset < 0 {
+		return fmt.Errorf("offset cannot be negative")
+	}
+	if r.Limit < 0 {
+		return fmt.Errorf("limit cannot be negative")
+	}
+	if r.Limit > cfg.Tools.MaxListDirectoryLimit {
+		return fmt.Errorf("limit %d exceeds maximum %d", r.Limit, cfg.Tools.MaxListDirectoryLimit)
 	}
 	return nil
 }
@@ -190,12 +248,13 @@ type DirectoryEntry struct {
 
 // ListDirectoryResponse contains the result of a ListDirectory operation
 type ListDirectoryResponse struct {
-	DirectoryPath string
-	Entries       []DirectoryEntry
-	Offset        int
-	Limit         int
-	TotalCount    int  // Total entries before pagination
-	Truncated     bool // True if more entries exist beyond offset+limit
+	DirectoryPath    string
+	Entries          []DirectoryEntry
+	Offset           int
+	Limit            int
+	TotalCount       int    `json:"total_count"` // Total entries before pagination
+	Truncated        bool   `json:"truncated"`   // True if more entries exist beyond offset+limit
+	TruncationReason string `json:"truncation_reason,omitempty"`
 }
 
 // FindFileResponse contains the result of a FindFile operation
@@ -236,7 +295,7 @@ var (
 	ErrInvalidOffset                = errors.New("offset must be >= 0")
 	ErrInvalidLimit                 = errors.New("limit must be >= 0")
 	ErrInvalidPaginationOffset      = errors.New("offset must be >= 0")
-	ErrInvalidPaginationLimit       = errors.New("limit must be between 1 and MaxListDirectoryLimit")
+	ErrInvalidPaginationLimit       = errors.New("limit must be between 1 and the configured maximum")
 
 	// Shell Sentinel Errors
 	ErrShellTimeout                    = errors.New("shell command timed out")

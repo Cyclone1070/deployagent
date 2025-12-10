@@ -49,10 +49,6 @@ func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Wr
 
 	filePerm := os.FileMode(0644)
 	if req.Perm != nil {
-		// Only allow standard permission bits (owner/group/other rwx)
-		if *req.Perm&^os.FileMode(0777) != 0 {
-			return nil, fmt.Errorf("invalid file permissions: only standard permission bits (0-0777) allowed, got %o", *req.Perm)
-		}
 		filePerm = *req.Perm & 0777
 	}
 

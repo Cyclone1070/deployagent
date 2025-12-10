@@ -13,24 +13,19 @@ func NewWorkspaceContext(cfg *config.Config, workspaceRoot string) (*models.Work
 	if cfg == nil {
 		cfg = config.DefaultConfig()
 	}
-	return NewWorkspaceContextWithOptions(cfg, workspaceRoot, cfg.Tools.MaxFileSize)
-}
 
-// NewWorkspaceContextWithOptions creates a workspace context with custom max file size.
-func NewWorkspaceContextWithOptions(cfg *config.Config, workspaceRoot string, maxFileSize int64) (*models.WorkspaceContext, error) {
 	canonicalRoot, err := services.CanonicaliseRoot(workspaceRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	fs := services.NewOSFileSystem(maxFileSize)
+	fs := services.NewOSFileSystem(cfg.Tools.MaxFileSize)
 
 	// Initialize gitignore service (handles missing .gitignore gracefully)
 	gitignoreSvc, err := services.NewGitignoreService(canonicalRoot, fs)
 	if err != nil {
-		// Log warning but continue with no-op service
-		// In production code, you might want to use a proper logger here
-		// For now, we just ignore the error as missing .gitignore is common
+		// MVP DEFERRAL: Intentionally silent fallback for now.
+		// TODO(logging): Add slog.Warn("gitignore initialization failed", "error", err) when logging is set up.
 		gitignoreSvc = &services.NoOpGitignoreService{}
 	}
 
@@ -47,7 +42,7 @@ func NewWorkspaceContextWithOptions(cfg *config.Config, workspaceRoot string, ma
 		TodoStore: NewInMemoryTodoStore(),
 		DockerConfig: models.DockerConfig{
 			CheckCommand: []string{"docker", "info"},
-			// TODO(MVP): MacOS-specific. Linux uses systemd, Windows uses different command.
+			// TODO(cross-platform): MacOS-specific Docker commands. Linux uses systemctl, Windows uses Start-Service.
 			StartCommand: []string{"docker", "desktop", "start"},
 		},
 	}, nil

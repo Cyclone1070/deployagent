@@ -6,22 +6,14 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/ui/models"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/stretchr/testify/assert"
 )
 
 // Mock dependencies
-type MockMarkdownRenderer struct {
-	RenderFunc func(string, int) (string, error)
-}
-
-func (m *MockMarkdownRenderer) Render(content string, width int) (string, error) {
-	if m.RenderFunc != nil {
-		return m.RenderFunc(content, width)
-	}
-	return content, nil
-}
+type MockMarkdownRenderer = mocks.MockMarkdownRenderer
 
 func mockSpinnerFactory() spinner.Model {
 	return spinner.New()
@@ -83,7 +75,7 @@ func TestReadPermission_Allow(t *testing.T) {
 				t.Error("Expected preview to be passed")
 			}
 			// Send response
-			channels.PermResp <- DecisionAllow
+			channels.PermResp <- models.DecisionAllow
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("Timeout waiting for permission request")
 		}
@@ -91,7 +83,7 @@ func TestReadPermission_Allow(t *testing.T) {
 
 	decision, err := ui.ReadPermission(ctx, prompt, preview)
 	assert.NoError(t, err)
-	assert.Equal(t, DecisionAllow, decision)
+	assert.Equal(t, models.DecisionAllow, decision)
 }
 
 func TestWriteStatus(t *testing.T) {
@@ -150,7 +142,7 @@ func TestCommands_ReturnsValidChannel(t *testing.T) {
 
 	// Verify we can send/receive
 	go func() {
-		channels.CommandChan <- UICommand{Type: "test"}
+		channels.CommandChan <- models.UICommand{Type: "test"}
 	}()
 
 	select {

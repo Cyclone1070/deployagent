@@ -152,27 +152,6 @@ func TestShellTool_Run_Env(t *testing.T) {
 	}
 }
 
-func TestShellTool_Run_EmptyCommand(t *testing.T) {
-	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
-	mockFS.CreateDir("/workspace")
-
-	wCtx := &models.WorkspaceContext{
-		WorkspaceRoot:   "/workspace",
-		FS:              mockFS,
-		BinaryDetector:  &services.MockBinaryDetector{SampleSize: config.DefaultConfig().Tools.BinaryDetectionSampleSize},
-		CommandExecutor: &services.MockCommandExecutor{},
-		Config:          *config.DefaultConfig(),
-	}
-
-	tool := &ShellTool{CommandExecutor: &services.MockCommandExecutor{}}
-	req := models.ShellRequest{Command: []string{}}
-
-	_, err := tool.Run(context.Background(), wCtx, req)
-	if err == nil {
-		t.Error("Expected error for empty command, got nil")
-	}
-}
-
 func TestShellTool_Run_EnvFiles(t *testing.T) {
 	mockFS := services.NewMockFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	mockFS.CreateDir("/workspace")

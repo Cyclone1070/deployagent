@@ -128,48 +128,6 @@ func TestReadFile(t *testing.T) {
 		}
 	})
 
-	t.Run("negative offset", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
-		checksumManager := services.NewChecksumManager()
-		content := []byte("test content")
-		fs.CreateFile("/workspace/test.txt", content, 0644)
-
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
-			ChecksumManager: checksumManager,
-			WorkspaceRoot:   workspaceRoot,
-			Config:          *config.DefaultConfig(),
-		}
-
-		offset := int64(-1)
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt", Offset: &offset})
-		if err != models.ErrInvalidOffset {
-			t.Errorf("expected ErrInvalidOffset, got %v", err)
-		}
-	})
-
-	t.Run("negative limit", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
-		checksumManager := services.NewChecksumManager()
-		content := []byte("test content")
-		fs.CreateFile("/workspace/test.txt", content, 0644)
-
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
-			ChecksumManager: checksumManager,
-			WorkspaceRoot:   workspaceRoot,
-			Config:          *config.DefaultConfig(),
-		}
-
-		limit := int64(-1)
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt", Limit: &limit})
-		if err != models.ErrInvalidLimit {
-			t.Errorf("expected ErrInvalidLimit, got %v", err)
-		}
-	})
-
 	t.Run("offset beyond EOF", func(t *testing.T) {
 		fs := services.NewMockFileSystem(maxFileSize)
 		checksumManager := services.NewChecksumManager()

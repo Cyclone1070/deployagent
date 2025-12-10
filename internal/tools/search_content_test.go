@@ -120,50 +120,6 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 	}
 }
 
-func TestSearchContent_EmptyQuery(t *testing.T) {
-	workspaceRoot := "/workspace"
-	maxFileSize := int64(1024 * 1024)
-
-	fs := services.NewMockFileSystem(maxFileSize)
-	fs.CreateDir("/workspace")
-
-	ctx := &models.WorkspaceContext{
-		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
-		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.MockCommandExecutor{},
-		Config:          *config.DefaultConfig(),
-	}
-
-	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err == nil {
-		t.Fatal("expected error for empty query, got nil")
-	}
-}
-
-func TestSearchContent_HugeLimit(t *testing.T) {
-	workspaceRoot := "/workspace"
-	maxFileSize := int64(1024 * 1024)
-
-	fs := services.NewMockFileSystem(maxFileSize)
-	fs.CreateDir("/workspace")
-
-	ctx := &models.WorkspaceContext{
-		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
-		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.MockCommandExecutor{},
-		Config:          *config.DefaultConfig(),
-	}
-
-	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 1000000})
-	if err != models.ErrInvalidPaginationLimit {
-		t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-	}
-}
-
 func TestSearchContent_VeryLongLine(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
@@ -572,43 +528,6 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("limit exceeds max returns error", func(t *testing.T) {
-		cfg := config.DefaultConfig()
-		cfg.Tools.MaxSearchContentLimit = 100
-
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			WorkspaceRoot:   workspaceRoot,
-			CommandExecutor: mockRunner,
-			Config:          *cfg,
-		}
-
-		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
-			Query: "test",
-			Limit: 101, // Exceeds max
-		})
-		if err != models.ErrInvalidPaginationLimit {
-			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-		}
-	})
-
-	t.Run("negative limit returns error", func(t *testing.T) {
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			WorkspaceRoot:   workspaceRoot,
-			CommandExecutor: mockRunner,
-			Config:          *config.DefaultConfig(),
-		}
-
-		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
-			Query: "test",
-			Limit: -1,
-		})
-		if err != models.ErrInvalidPaginationLimit {
-			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-		}
-	})
-
 	t.Run("custom config limits are respected", func(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.DefaultSearchContentLimit = 25
@@ -651,17 +570,6 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
-
-	t.Run("negative offset returns error", func(t *testing.T) {
-		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
-			Query:  "test",
-			Offset: -1,
-			Limit:  10,
-		})
-		if err != models.ErrInvalidPaginationOffset {
-			t.Errorf("expected ErrInvalidPaginationOffset, got %v", err)
-		}
-	})
 
 	t.Run("zero offset is valid", func(t *testing.T) {
 		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{

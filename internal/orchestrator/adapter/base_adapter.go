@@ -10,14 +10,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-// Validator is an interface for request types that support validation
-type Validator interface {
-	Validate() error
-}
-
 // ToolExecutor is a function that executes a tool with typed request/response.
 // The function signature must match: func(context.Context, *WorkspaceContext, RequestType) (ResponseType, error)
-type ToolExecutor[Req, Resp any] func(context.Context, *toolModels.WorkspaceContext, Req) (Resp, error)
+type ToolExecutor[Req toolModels.Request, Resp any] func(context.Context, *toolModels.WorkspaceContext, Req) (Resp, error)
 
 // BaseAdapter provides common adapter functionality using generics.
 // This eliminates duplication across all tool adapters by centralizing:
@@ -27,9 +22,9 @@ type ToolExecutor[Req, Resp any] func(context.Context, *toolModels.WorkspaceCont
 // - Error handling
 //
 // Type Parameters:
-//   - Req: The request type (e.g., toolModels.ReadFileRequest)
+//   - Req: The request type (e.g., toolModels.ReadFileRequest). Must implement toolModels.Request.
 //   - Resp: The response type (e.g., toolModels.ReadFileResponse)
-type BaseAdapter[Req, Resp any] struct {
+type BaseAdapter[Req toolModels.Request, Resp any] struct {
 	name        string
 	description string
 	definition  provider.ToolDefinition
@@ -48,7 +43,7 @@ type BaseAdapter[Req, Resp any] struct {
 //	    workspaceCtx,
 //	    tools.ReadFile,  // Direct function reference
 //	)
-func NewBaseAdapter[Req, Resp any](
+func NewBaseAdapter[Req toolModels.Request, Resp any](
 	name string,
 	description string,
 	paramSchema *provider.Schema,
@@ -87,7 +82,7 @@ func (b *BaseAdapter[Req, Resp]) Definition() provider.ToolDefinition {
 //
 // This method:
 // 1. Decodes the args map into a typed request using mapstructure
-// 2. Validates the request if it implements Validator interface
+// 2. Validates the request using the Request interface
 // 3. Calls the tool executor function with the typed request
 // 4. Marshals the response back to JSON
 //
@@ -100,11 +95,9 @@ func (b *BaseAdapter[Req, Resp]) Execute(ctx context.Context, args map[string]an
 		return "", fmt.Errorf("invalid arguments: %w", err)
 	}
 
-	// Validate request if it implements Validator interface
-	if v, ok := any(req).(Validator); ok {
-		if err := v.Validate(); err != nil {
-			return "", fmt.Errorf("%s validation failed: %w", b.name, err)
-		}
+	// Validate request using the generic constraint interface
+	if err := req.Validate(&b.wCtx.Config); err != nil {
+		return "", fmt.Errorf("%s validation failed: %w", b.name, err)
 	}
 
 	// Execute the tool function with typed request

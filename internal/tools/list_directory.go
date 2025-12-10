@@ -16,13 +16,10 @@ import (
 // It supports optional recursion and pagination, validating that the path is within
 // workspace boundaries, respecting gitignore rules, and returning entries sorted by path.
 func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req models.ListDirectoryRequest) (*models.ListDirectoryResponse, error) {
-	// Validate pagination parameters
-	if req.Offset < 0 {
-		return nil, models.ErrInvalidPaginationOffset
-	}
-	maxLimit := wCtx.Config.Tools.MaxListDirectoryLimit
-	if req.Limit < 1 || req.Limit > maxLimit {
-		return nil, models.ErrInvalidPaginationLimit
+	// Use configured limits - Validate() already checked bounds
+	limit := wCtx.Config.Tools.DefaultListDirectoryLimit
+	if req.Limit != 0 {
+		limit = req.Limit
 	}
 
 	// Default to workspace root if path is empty
@@ -57,7 +54,10 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 
 	// Collect entries recursively
 	visited := make(map[string]bool)
-	directoryEntries, err := listRecursive(ctx, wCtx, abs, 0, maxDepth, visited, req.IncludeIgnored)
+	maxResults := wCtx.Config.Tools.MaxListDirectoryResults
+	var currentCount int
+
+	directoryEntries, capHit, err := listRecursive(ctx, wCtx, abs, 0, maxDepth, visited, req.IncludeIgnored, maxResults, &currentCount)
 	if err != nil {
 		return nil, err
 	}
@@ -76,39 +76,42 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	})
 
 	// Apply pagination
-	start := req.Offset
-	end := req.Offset + req.Limit
-	totalCount := len(directoryEntries)
-	truncated := (req.Offset + req.Limit) < totalCount
+	directoryEntries, pagination := services.ApplyPagination(directoryEntries, req.Offset, limit)
 
-	if start > totalCount {
-		start = totalCount
+	var truncationReason string
+	if capHit {
+		pagination.Truncated = true
+		truncationReason = fmt.Sprintf("Results capped at %d entries.", maxResults)
+	} else if pagination.Truncated {
+		truncationReason = fmt.Sprintf("Page limit reached. More results at offset %d.", req.Offset+limit)
 	}
-	if end > totalCount {
-		end = totalCount
-	}
-
-	directoryEntries = directoryEntries[start:end]
 
 	return &models.ListDirectoryResponse{
-		DirectoryPath: rel,
-		Entries:       directoryEntries,
-		Offset:        req.Offset,
-		Limit:         req.Limit,
-		TotalCount:    totalCount,
-		Truncated:     truncated,
+		DirectoryPath:    rel,
+		Entries:          directoryEntries,
+		Offset:           req.Offset,
+		Limit:            limit,
+		TotalCount:       pagination.TotalCount,
+		Truncated:        pagination.Truncated,
+		TruncationReason: truncationReason,
 	}, nil
 }
 
-// listRecursive recursively lists all entries up to maxDepth (-1 = unlimited, 0 = current level only)
-func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs string, currentDepth int, maxDepth int, visited map[string]bool, includeIgnored bool) ([]models.DirectoryEntry, error) {
+// listRecursive recursively lists all entries up to maxDepth
+// Returns entries, boolean (true if cap hit), error
+func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs string, currentDepth int, maxDepth int, visited map[string]bool, includeIgnored bool, maxResults int, currentCount *int) ([]models.DirectoryEntry, bool, error) {
+	// Check cap
+	if *currentCount >= maxResults {
+		return nil, true, nil
+	}
+
 	// Check cancellation
 	if ctx.Err() != nil {
-		return nil, ctx.Err()
+		return nil, false, ctx.Err()
 	}
 	// Check depth limit (-1 = unlimited, 0 = current level only, 1 = current + 1 level, etc.)
 	if maxDepth >= 0 && currentDepth > maxDepth {
-		return []models.DirectoryEntry{}, nil
+		return []models.DirectoryEntry{}, false, nil
 	}
 
 	// Detect symlink loops using canonical path
@@ -120,7 +123,7 @@ func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs strin
 
 	if visited[canonicalPath] {
 		// Symlink loop detected, skip
-		return []models.DirectoryEntry{}, nil
+		return []models.DirectoryEntry{}, false, nil
 	}
 	visited[canonicalPath] = true
 
@@ -128,20 +131,24 @@ func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs strin
 	if err != nil {
 		// Propagate sentinel errors directly
 		if errors.Is(err, models.ErrOutsideWorkspace) || errors.Is(err, models.ErrFileMissing) {
-			return nil, err
+			return nil, false, err
 		}
 		// Wrap other errors for context
-		return nil, fmt.Errorf("failed to list directory: %w", err)
+		return nil, false, fmt.Errorf("failed to list directory: %w", err)
 	}
 
 	var directoryEntries []models.DirectoryEntry
 	for _, entry := range allEntries {
+		if *currentCount >= maxResults {
+			return directoryEntries, true, nil
+		}
+
 		// Calculate relative path for this entry
 		entryAbs := filepath.Join(abs, entry.Name())
 		entryRel, err := filepath.Rel(wCtx.WorkspaceRoot, entryAbs)
 		if err != nil {
 			// This indicates a bug in path resolution - don't mask it
-			return nil, fmt.Errorf("failed to calculate relative path for entry %s: %w", entry.Name(), err)
+			return nil, false, fmt.Errorf("failed to calculate relative path for entry %s: %w", entry.Name(), err)
 		}
 
 		// Normalize to forward slashes
@@ -160,16 +167,20 @@ func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs strin
 		}
 
 		directoryEntries = append(directoryEntries, directoryEntry)
+		*currentCount++
 
 		// Recurse into subdirectories
 		if entry.IsDir() {
-			subEntries, err := listRecursive(ctx, wCtx, entryAbs, currentDepth+1, maxDepth, visited, includeIgnored)
+			subEntries, capHit, err := listRecursive(ctx, wCtx, entryAbs, currentDepth+1, maxDepth, visited, includeIgnored, maxResults, currentCount)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			directoryEntries = append(directoryEntries, subEntries...)
+			if capHit {
+				return directoryEntries, true, nil
+			}
 		}
 	}
 
-	return directoryEntries, nil
+	return directoryEntries, false, nil
 }

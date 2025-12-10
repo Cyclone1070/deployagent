@@ -66,7 +66,7 @@ func TestUpdate_SlashModels_OpensPopup(t *testing.T) {
 	model.state.Input.SetValue("/models")
 	model.state.CanSubmit = true
 
-	cmdChan := make(chan UICommand, 1)
+	cmdChan := make(chan models.UICommand, 1)
 	model.commandChan = cmdChan
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -100,7 +100,7 @@ func TestUpdate_PermissionYes(t *testing.T) {
 	model := createTestModel()
 	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
 
-	permChan := make(chan PermissionDecision, 1)
+	permChan := make(chan models.PermissionDecision, 1)
 	model.permResp = permChan
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}}
@@ -111,7 +111,7 @@ func TestUpdate_PermissionYes(t *testing.T) {
 
 	select {
 	case decision := <-permChan:
-		assert.Equal(t, DecisionAllow, decision)
+		assert.Equal(t, models.DecisionAllow, decision)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for decision")
 	}
@@ -186,7 +186,7 @@ func TestUpdate_PopupNavigation_Enter(t *testing.T) {
 	model.state.ModelList = []string{"model-a"}
 	model.state.ModelListIndex = 0
 
-	cmdChan := make(chan UICommand, 1)
+	cmdChan := make(chan models.UICommand, 1)
 	model.commandChan = cmdChan
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -208,7 +208,7 @@ func TestUpdate_Permission_Deny(t *testing.T) {
 	model := createTestModel()
 	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
 
-	permChan := make(chan PermissionDecision, 1)
+	permChan := make(chan models.PermissionDecision, 1)
 	model.permResp = permChan
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
@@ -219,7 +219,7 @@ func TestUpdate_Permission_Deny(t *testing.T) {
 
 	select {
 	case decision := <-permChan:
-		assert.Equal(t, DecisionDeny, decision)
+		assert.Equal(t, models.DecisionDeny, decision)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for decision")
 	}
@@ -229,7 +229,7 @@ func TestUpdate_Permission_AllowAlways(t *testing.T) {
 	model := createTestModel()
 	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
 
-	permChan := make(chan PermissionDecision, 1)
+	permChan := make(chan models.PermissionDecision, 1)
 	model.permResp = permChan
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
@@ -240,7 +240,7 @@ func TestUpdate_Permission_AllowAlways(t *testing.T) {
 
 	select {
 	case decision := <-permChan:
-		assert.Equal(t, DecisionAllowAlways, decision)
+		assert.Equal(t, models.DecisionAllowAlways, decision)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for decision")
 	}

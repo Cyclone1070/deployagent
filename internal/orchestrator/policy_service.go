@@ -71,11 +71,11 @@ func (p *policyService) CheckShell(ctx context.Context, command []string) error 
 	}
 
 	switch decision {
-	case ui.DecisionAllow:
+	case uimodels.DecisionAllow:
 		return nil
-	case ui.DecisionDeny:
+	case uimodels.DecisionDeny:
 		return fmt.Errorf("user denied command '%s'", root)
-	case ui.DecisionAllowAlways:
+	case uimodels.DecisionAllowAlways:
 		// Update SessionAllow (write lock)
 		p.mu.Lock()
 		if p.policy.Shell.SessionAllow == nil {
@@ -129,11 +129,11 @@ func (p *policyService) CheckTool(ctx context.Context, toolName string, args map
 	}
 
 	switch decision {
-	case ui.DecisionAllow:
+	case uimodels.DecisionAllow:
 		return nil
-	case ui.DecisionDeny:
+	case uimodels.DecisionDeny:
 		return fmt.Errorf("user denied tool '%s'", toolName)
-	case ui.DecisionAllowAlways:
+	case uimodels.DecisionAllowAlways:
 		// Update SessionAllow (write lock)
 		p.mu.Lock()
 		if p.policy.Tools.SessionAllow == nil {

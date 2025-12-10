@@ -322,7 +322,7 @@ func TestLoad_UnknownFields_Ignored(t *testing.T) {
 
 func TestLoad_UnicodeInStrings_Handled(t *testing.T) {
 	// Unicode characters in string fields
-	configJSON := `{"ui": {"color_primary": "🎨"}}`
+	configJSON := `{"policy": {"shell_allow": ["👾"]}}`
 	fs := &MockFileSystem{
 		HomeDir: "/home/user",
 		Files: map[string][]byte{
@@ -334,7 +334,7 @@ func TestLoad_UnicodeInStrings_Handled(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, "🎨", cfg.UI.ColorPrimary)
+	assert.Equal(t, []string{"👾"}, cfg.Policy.ShellAllow)
 }
 
 // --- DEFAULT CONFIG TESTS ---
@@ -352,4 +352,64 @@ func TestDefaultConfig_AllFieldsInitialized(t *testing.T) {
 	assert.Greater(t, cfg.Orchestrator.MaxTurns, 0)
 	assert.Greater(t, cfg.Provider.FallbackMaxOutputTokens, 0)
 	assert.Greater(t, cfg.Tools.MaxFileSize, int64(0))
+}
+
+func TestMergeConfig_SearchContentLimits(t *testing.T) {
+	t.Run("override DefaultSearchContentLimit", func(t *testing.T) {
+		dst := DefaultConfig()
+		src := &Config{Tools: ToolsConfig{DefaultSearchContentLimit: 50}}
+		mergeConfig(dst, src)
+		if dst.Tools.DefaultSearchContentLimit != 50 {
+			t.Errorf("expected 50, got %d", dst.Tools.DefaultSearchContentLimit)
+		}
+	})
+
+	t.Run("override MaxSearchContentLimit", func(t *testing.T) {
+		dst := DefaultConfig()
+		src := &Config{Tools: ToolsConfig{MaxSearchContentLimit: 500}}
+		mergeConfig(dst, src)
+		if dst.Tools.MaxSearchContentLimit != 500 {
+			t.Errorf("expected 500, got %d", dst.Tools.MaxSearchContentLimit)
+		}
+	})
+
+	t.Run("zero values do not override", func(t *testing.T) {
+		dst := DefaultConfig()
+		originalDefault := dst.Tools.DefaultSearchContentLimit
+		src := &Config{Tools: ToolsConfig{DefaultSearchContentLimit: 0}}
+		mergeConfig(dst, src)
+		if dst.Tools.DefaultSearchContentLimit != originalDefault {
+			t.Errorf("zero should not override, expected %d, got %d", originalDefault, dst.Tools.DefaultSearchContentLimit)
+		}
+	})
+}
+
+func TestMergeConfig_FindFileLimits(t *testing.T) {
+	t.Run("override DefaultFindFileLimit", func(t *testing.T) {
+		dst := DefaultConfig()
+		src := &Config{Tools: ToolsConfig{DefaultFindFileLimit: 50}}
+		mergeConfig(dst, src)
+		if dst.Tools.DefaultFindFileLimit != 50 {
+			t.Errorf("expected 50, got %d", dst.Tools.DefaultFindFileLimit)
+		}
+	})
+
+	t.Run("override MaxFindFileLimit", func(t *testing.T) {
+		dst := DefaultConfig()
+		src := &Config{Tools: ToolsConfig{MaxFindFileLimit: 500}}
+		mergeConfig(dst, src)
+		if dst.Tools.MaxFindFileLimit != 500 {
+			t.Errorf("expected 500, got %d", dst.Tools.MaxFindFileLimit)
+		}
+	})
+
+	t.Run("zero values do not override", func(t *testing.T) {
+		dst := DefaultConfig()
+		originalDefault := dst.Tools.DefaultFindFileLimit
+		src := &Config{Tools: ToolsConfig{DefaultFindFileLimit: 0}}
+		mergeConfig(dst, src)
+		if dst.Tools.DefaultFindFileLimit != originalDefault {
+			t.Errorf("zero should not override")
+		}
+	})
 }

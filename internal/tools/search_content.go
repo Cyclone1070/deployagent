@@ -37,44 +37,17 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 		return nil, fmt.Errorf("search path is not a directory")
 	}
 
-	// Validate query
-	if req.Query == "" {
-		return nil, fmt.Errorf("query cannot be empty")
-	}
-
-	// Use configured limits
+	// Use configured limits - Validate() already checked bounds
 	limit := wCtx.Config.Tools.DefaultSearchContentLimit
-	maxLimit := wCtx.Config.Tools.MaxSearchContentLimit
-
-	if req.Limit < 0 {
-		return nil, models.ErrInvalidPaginationLimit
-	}
-	if req.Limit > 0 {
+	if req.Limit != 0 {
 		limit = req.Limit
-	}
-
-	// Validate limits
-	if limit < 1 || limit > maxLimit {
-		return nil, models.ErrInvalidPaginationLimit
-	}
-
-	// Validate offset
-	if req.Offset < 0 {
-		return nil, models.ErrInvalidPaginationOffset
 	}
 	offset := req.Offset
 
 	maxResults := wCtx.Config.Tools.MaxSearchContentResults
-	// Reject overlimit requests first (total scan cap)
-	if req.Limit > maxResults {
-		return nil, models.ErrInvalidPaginationLimit
-	}
 
 	// Hard limit on line length to avoid memory issues
 	maxLineLength := wCtx.Config.Tools.MaxLineLength
-	if maxLineLength == 0 {
-		maxLineLength = 10000
-	}
 
 	// 10MB default for crazy long lines (minified JS etc)
 	maxScanTokenSize := wCtx.Config.Tools.MaxScanTokenSize
@@ -185,24 +158,13 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	})
 
 	// Apply pagination
-	start := offset
-	end := offset + limit
-	totalCount := len(matches)
-	truncated := (offset + limit) < totalCount
-	if start > totalCount {
-		start = totalCount
-	}
-	if end > totalCount {
-		end = totalCount
-	}
-
-	paginatedMatches := matches[start:end]
+	paginatedMatches, pagination := services.ApplyPagination(matches, offset, limit)
 
 	return &models.SearchContentResponse{
 		Matches:    paginatedMatches,
 		Offset:     offset,
 		Limit:      limit,
-		TotalCount: totalCount,
-		Truncated:  truncated,
+		TotalCount: pagination.TotalCount,
+		Truncated:  pagination.Truncated,
 	}, nil
 }

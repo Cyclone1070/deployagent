@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+
+	"github.com/Cyclone1070/iav/internal/config"
 )
 
 // FileInfo represents file metadata
@@ -127,4 +129,12 @@ type TodoStore interface {
 	// Write replaces the current list of todos with the provided list.
 	// Stores a copy of the slice to ensure isolation.
 	Write(todos []Todo) error
+}
+
+// Request is the interface that all tool request structs must implement.
+// It ensures compile-time safety for validation logic.
+type Request interface {
+	// Validate checks if the request parameters are valid.
+	// It takes the global configuration to enforce limits (e.g., max file size, max depth).
+	Validate(cfg *config.Config) error
 }

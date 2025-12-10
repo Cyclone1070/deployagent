@@ -24,14 +24,14 @@ type BubbleTeaModel struct {
 	inputReq      <-chan InputRequest
 	inputResp     chan<- string
 	permReq       <-chan PermRequest
-	permResp      chan<- PermissionDecision
+	permResp      chan<- models.PermissionDecision
 	statusChan    <-chan StatusMsg
 	messageChan   <-chan string
 	modelListChan <-chan []string
 	setModelChan  <-chan string
 
 	// UI -> Orchestrator
-	commandChan chan<- UICommand
+	commandChan chan<- models.UICommand
 
 	// Ready signal
 	readyChan chan<- struct{}
@@ -54,12 +54,12 @@ func newBubbleTeaModel(
 	inputReq <-chan InputRequest,
 	inputResp chan<- string,
 	permReq <-chan PermRequest,
-	permResp chan<- PermissionDecision,
+	permResp chan<- models.PermissionDecision,
 	statusChan <-chan StatusMsg,
 	messageChan <-chan string,
 	modelListChan <-chan []string,
 	setModelChan <-chan string,
-	commandChan chan<- UICommand,
+	commandChan chan<- models.UICommand,
 	readyChan chan<- struct{},
 	renderer services.MarkdownRenderer,
 	spinnerFactory SpinnerFactory,
@@ -213,7 +213,7 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (BubbleTeaModel, tea.Cmd,
 		case "enter":
 			// Send switch model command
 			if m.state.ModelListIndex < len(m.state.ModelList) {
-				m.commandChan <- UICommand{
+				m.commandChan <- models.UICommand{
 					Type: "switch_model",
 					Args: map[string]string{
 						"model": m.state.ModelList[m.state.ModelListIndex],
@@ -231,13 +231,13 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (BubbleTeaModel, tea.Cmd,
 	if m.state.PendingPermission != nil {
 		switch msg.String() {
 		case "y":
-			m.permResp <- DecisionAllow
+			m.permResp <- models.DecisionAllow
 			m.state.PendingPermission = nil
 		case "n":
-			m.permResp <- DecisionDeny
+			m.permResp <- models.DecisionDeny
 			m.state.PendingPermission = nil
 		case "a":
-			m.permResp <- DecisionAllowAlways
+			m.permResp <- models.DecisionAllowAlways
 			m.state.PendingPermission = nil
 		}
 		return m, nil, true
@@ -287,7 +287,7 @@ func (m BubbleTeaModel) handleCommand(input string) (BubbleTeaModel, tea.Cmd) {
 	switch cmd {
 	case "/models":
 		// Request model list
-		m.commandChan <- UICommand{Type: "list_models"}
+		m.commandChan <- models.UICommand{Type: "list_models"}
 		m.state.Input.SetValue("")
 	case "/help":
 		m.state.Messages = append(m.state.Messages, models.Message{

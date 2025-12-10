@@ -16,10 +16,6 @@ import (
 // FindFile searches for files matching a glob pattern within the workspace using the fd command.
 // It supports pagination, optional ignoring of .gitignore rules, and workspace path validation.
 func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.FindFileRequest) (*models.FindFileResponse, error) {
-	// Validate pattern (reject path traversal attempts)
-	if strings.Contains(req.Pattern, "..") || strings.HasPrefix(req.Pattern, "/") {
-		return nil, fmt.Errorf("invalid pattern: path traversal not allowed")
-	}
 
 	// Resolve search path
 	absSearchPath, _, err := services.Resolve(wCtx, req.SearchPath)
@@ -27,6 +23,7 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 		return nil, err
 	}
 
+	// Validate inputs
 	if req.Pattern == "" {
 		return nil, fmt.Errorf("pattern is required")
 	}
@@ -49,24 +46,10 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 		return nil, fmt.Errorf("search path is not a directory")
 	}
 
-	// Use configured limits
+	// Use configured limits - Validate() already checked bounds
 	limit := wCtx.Config.Tools.DefaultFindFileLimit
-	maxLimit := wCtx.Config.Tools.MaxFindFileLimit
-
-	if req.Limit < 0 {
-		return nil, models.ErrInvalidPaginationLimit
-	}
-	if req.Limit > 0 {
+	if req.Limit != 0 {
 		limit = req.Limit
-	}
-
-	if limit < 1 || limit > maxLimit {
-		return nil, models.ErrInvalidPaginationLimit
-	}
-
-	// Validate offset
-	if req.Offset < 0 {
-		return nil, models.ErrInvalidPaginationOffset
 	}
 	offset := req.Offset
 
@@ -132,25 +115,13 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 	sort.Strings(matches)
 
 	// Apply pagination
-	start := offset
-	end := offset + limit
-	totalCount := len(matches)
-	truncated := (offset + limit) < totalCount
-
-	if start > totalCount {
-		start = totalCount
-	}
-	if end > totalCount {
-		end = totalCount
-	}
-
-	paginatedMatches := matches[start:end]
+	paginatedMatches, pagination := services.ApplyPagination(matches, offset, limit)
 
 	return &models.FindFileResponse{
 		Matches:    paginatedMatches,
 		Offset:     offset,
 		Limit:      limit,
-		TotalCount: totalCount,
-		Truncated:  truncated,
+		TotalCount: pagination.TotalCount,
+		Truncated:  pagination.Truncated,
 	}, nil
 }

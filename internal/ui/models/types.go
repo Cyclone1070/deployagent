@@ -1,5 +1,14 @@
 package models
 
+// PermissionDecision represents the user's choice for a permission request
+type PermissionDecision string
+
+const (
+	DecisionAllow       PermissionDecision = "allow"
+	DecisionDeny        PermissionDecision = "deny"
+	DecisionAllowAlways PermissionDecision = "allow_always"
+)
+
 // Message represents a single chat message
 type Message struct {
 	Role    string // "user" or "assistant"

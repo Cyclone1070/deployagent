@@ -336,39 +336,6 @@ func TestEditFile(t *testing.T) {
 		}
 	})
 
-	t.Run("empty Before string", func(t *testing.T) {
-		fs := services.NewMockFileSystem(maxFileSize)
-		checksumManager := services.NewChecksumManager()
-		content := []byte("test content")
-		fs.CreateFile("/workspace/test.txt", content, 0644)
-
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			BinaryDetector:  services.NewMockBinaryDetector(),
-			ChecksumManager: checksumManager,
-			WorkspaceRoot:   workspaceRoot,
-			Config:          *config.DefaultConfig(),
-		}
-
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
-		if err != nil {
-			t.Fatalf("failed to read file: %v", err)
-		}
-
-		ops := []models.Operation{
-			{
-				Before:               "",
-				After:                "replacement",
-				ExpectedReplacements: 1,
-			},
-		}
-
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err == nil {
-			t.Error("expected error for empty Before string")
-		}
-	})
-
 	t.Run("file not found", func(t *testing.T) {
 		fs := services.NewMockFileSystem(maxFileSize)
 		checksumManager := services.NewChecksumManager()

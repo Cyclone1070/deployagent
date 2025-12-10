@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	"github.com/Cyclone1070/iav/internal/ui"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	uimodels "github.com/Cyclone1070/iav/internal/ui/models"
 )
 
@@ -19,9 +19,9 @@ func TestCheckShell_Concurrency(t *testing.T) {
 		},
 	}
 
-	mockUI := &MockUI{
-		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error) {
-			return ui.DecisionAllowAlways, nil
+	mockUI := &mocks.MockUI{
+		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
+			return uimodels.DecisionAllowAlways, nil
 		},
 	}
 
@@ -66,9 +66,9 @@ func TestCheckTool_Concurrency(t *testing.T) {
 		},
 	}
 
-	mockUI := &MockUI{
-		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (ui.PermissionDecision, error) {
-			return ui.DecisionAllowAlways, nil
+	mockUI := &mocks.MockUI{
+		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
+			return uimodels.DecisionAllowAlways, nil
 		},
 	}
 

@@ -31,6 +31,7 @@ type ToolsConfig struct {
 	// Directory Listing
 	DefaultListDirectoryLimit int `json:"default_list_directory_limit"` // Default: 1000
 	MaxListDirectoryLimit     int `json:"max_list_directory_limit"`     // Default: 10000
+	MaxListDirectoryResults   int `json:"max_list_directory_results"`   // Default: 50000
 
 	// Command Execution
 	DefaultMaxCommandOutputSize int64 `json:"default_max_command_output_size"` // Default: 10 * 1024 * 1024 (10MB)
@@ -109,6 +110,7 @@ func DefaultConfig() *Config {
 			BinaryDetectionSampleSize:   4096,
 			DefaultListDirectoryLimit:   1000,
 			MaxListDirectoryLimit:       10000,
+			MaxListDirectoryResults:     50000,
 			DefaultMaxCommandOutputSize: 10 * 1024 * 1024,
 			DefaultShellTimeout:         600,
 			MaxSearchContentResults:     10000,

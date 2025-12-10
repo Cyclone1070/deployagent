@@ -519,24 +519,14 @@ func TestListDirectory_InvalidPagination(t *testing.T) {
 		Config:          *config.DefaultConfig(),
 	}
 
-	t.Run("negative offset", func(t *testing.T) {
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: -1, Limit: 1000})
-		if err != models.ErrInvalidPaginationOffset {
-			t.Errorf("expected ErrInvalidPaginationOffset, got %v", err)
+	t.Run("zero limit uses default", func(t *testing.T) {
+		// Limit=0 now uses default, should succeed
+		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 0})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
-	})
-
-	t.Run("zero limit", func(t *testing.T) {
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 0})
-		if err != models.ErrInvalidPaginationLimit {
-			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-		}
-	})
-
-	t.Run("limit exceeds maximum", func(t *testing.T) {
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 11000})
-		if err != models.ErrInvalidPaginationLimit {
-			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
+		if resp.Limit != ctx.Config.Tools.DefaultListDirectoryLimit {
+			t.Errorf("expected default limit %d, got %d", ctx.Config.Tools.DefaultListDirectoryLimit, resp.Limit)
 		}
 	})
 }

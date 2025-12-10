@@ -124,6 +124,9 @@ func mergeConfig(dst, src *Config) {
 	if src.Tools.MaxListDirectoryLimit != 0 {
 		dst.Tools.MaxListDirectoryLimit = src.Tools.MaxListDirectoryLimit
 	}
+	if src.Tools.MaxListDirectoryResults != 0 {
+		dst.Tools.MaxListDirectoryResults = src.Tools.MaxListDirectoryResults
+	}
 	if src.Tools.DefaultMaxCommandOutputSize != 0 {
 		dst.Tools.DefaultMaxCommandOutputSize = src.Tools.DefaultMaxCommandOutputSize
 	}

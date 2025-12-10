@@ -6,20 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
 // MockMarkdownRenderer for testing
-type MockMarkdownRenderer struct {
-	RenderFunc func(string, int) (string, error)
-}
-
-func (m *MockMarkdownRenderer) Render(content string, width int) (string, error) {
-	if m.RenderFunc != nil {
-		return m.RenderFunc(content, width)
-	}
-	return content, nil
-}
+type MockMarkdownRenderer = mocks.MockMarkdownRenderer
 
 func TestRenderMarkdown_ValidMarkdown(t *testing.T) {
 	mockRenderer := &MockMarkdownRenderer{

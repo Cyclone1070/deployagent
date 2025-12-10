@@ -29,6 +29,7 @@ func TestToolAdapter_ReadFile(t *testing.T) {
 	// Create workspace context
 	fileSystem := services.NewOSFileSystem(config.DefaultConfig().Tools.MaxFileSize)
 	ctx := &models.WorkspaceContext{
+		Config:          *config.DefaultConfig(),
 		FS:              fileSystem,
 		BinaryDetector:  &services.SystemBinaryDetector{},
 		ChecksumManager: services.NewChecksumManager(),
@@ -70,6 +71,7 @@ func TestToolAdapter_AllTools(t *testing.T) {
 	gitignoreSvc, _ := services.NewGitignoreService(workspaceRoot, fileSystem)
 
 	ctx := &models.WorkspaceContext{
+		Config:           *config.DefaultConfig(),
 		FS:               fileSystem,
 		BinaryDetector:   &services.SystemBinaryDetector{},
 		ChecksumManager:  services.NewChecksumManager(),
@@ -121,6 +123,7 @@ func TestToolAdapter_ErrorHandling(t *testing.T) {
 	// Create workspace context
 	workspaceRoot := t.TempDir()
 	ctx := &models.WorkspaceContext{
+		Config:          *config.DefaultConfig(),
 		FS:              services.NewOSFileSystem(config.DefaultConfig().Tools.MaxFileSize),
 		BinaryDetector:  &services.SystemBinaryDetector{},
 		ChecksumManager: services.NewChecksumManager(),

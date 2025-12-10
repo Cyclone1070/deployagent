@@ -17,14 +17,14 @@ type UI struct {
 	inputReq      chan InputRequest
 	inputResp     chan string
 	permReq       chan PermRequest
-	permResp      chan PermissionDecision
+	permResp      chan models.PermissionDecision
 	statusChan    chan StatusMsg
 	messageChan   chan string
 	modelListChan chan []string
 	setModelChan  chan string
 
 	// UI -> Orchestrator
-	commandChan chan UICommand
+	commandChan chan models.UICommand
 
 	// Ready signal
 	readyChan chan struct{}
@@ -51,12 +51,12 @@ type UIChannels struct {
 	InputReq      chan InputRequest
 	InputResp     chan string
 	PermReq       chan PermRequest
-	PermResp      chan PermissionDecision
+	PermResp      chan models.PermissionDecision
 	StatusChan    chan StatusMsg
 	MessageChan   chan string
 	ModelListChan chan []string
 	SetModelChan  chan string
-	CommandChan   chan UICommand
+	CommandChan   chan models.UICommand
 	ReadyChan     chan struct{} // Signals when UI is ready to accept requests
 }
 
@@ -70,12 +70,12 @@ func NewUIChannels(cfg *config.Config) *UIChannels {
 		InputReq:      make(chan InputRequest),
 		InputResp:     make(chan string),
 		PermReq:       make(chan PermRequest),
-		PermResp:      make(chan PermissionDecision),
+		PermResp:      make(chan models.PermissionDecision),
 		StatusChan:    make(chan StatusMsg, cfg.UI.StatusChannelBuffer),
 		MessageChan:   make(chan string, cfg.UI.MessageChannelBuffer),
 		ModelListChan: make(chan []string),
 		SetModelChan:  make(chan string, cfg.UI.SetModelChannelBuffer),
-		CommandChan:   make(chan UICommand, cfg.UI.CommandChannelBuffer),
+		CommandChan:   make(chan models.UICommand, cfg.UI.CommandChannelBuffer),
 		ReadyChan:     make(chan struct{}),
 	}
 }
@@ -141,14 +141,14 @@ func (u *UI) ReadInput(ctx context.Context, prompt string) (string, error) {
 }
 
 // ReadPermission prompts the user for a permission decision
-func (u *UI) ReadPermission(ctx context.Context, prompt string, preview *models.ToolPreview) (PermissionDecision, error) {
+func (u *UI) ReadPermission(ctx context.Context, prompt string, preview *models.ToolPreview) (models.PermissionDecision, error) {
 	select {
 	case <-ctx.Done():
-		return DecisionDeny, ctx.Err()
+		return models.DecisionDeny, ctx.Err()
 	case u.permReq <- PermRequest{Prompt: prompt, Preview: preview}:
 		select {
 		case <-ctx.Done():
-			return DecisionDeny, ctx.Err()
+			return models.DecisionDeny, ctx.Err()
 		case decision := <-u.permResp:
 			return decision, nil
 		}
@@ -192,7 +192,7 @@ func (u *UI) SetModel(model string) {
 }
 
 // Commands returns the command channel
-func (u *UI) Commands() <-chan UICommand {
+func (u *UI) Commands() <-chan models.UICommand {
 	return u.commandChan
 }
 

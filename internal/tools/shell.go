@@ -20,9 +20,6 @@ type ShellTool struct {
 // environment variable support, timeout handling, and output collection.
 // NOTE: This tool does NOT enforce policy - the caller is responsible for policy checks.
 func (t *ShellTool) Run(ctx context.Context, wCtx *models.WorkspaceContext, req models.ShellRequest) (*models.ShellResponse, error) {
-	if len(req.Command) == 0 {
-		return nil, fmt.Errorf("command cannot be empty")
-	}
 
 	workingDir := req.WorkingDir
 	if workingDir == "" {

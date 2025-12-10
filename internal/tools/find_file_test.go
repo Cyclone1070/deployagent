@@ -184,28 +184,6 @@ func TestFindFile_NonExistentPath(t *testing.T) {
 	}
 }
 
-func TestFindFile_NegativeLimit(t *testing.T) {
-	workspaceRoot := "/workspace"
-	maxFileSize := int64(1024 * 1024)
-
-	fs := services.NewMockFileSystem(maxFileSize)
-	fs.CreateDir("/workspace")
-
-	ctx := &models.WorkspaceContext{
-		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
-		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.MockCommandExecutor{},
-		Config:          *config.DefaultConfig(),
-	}
-
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: -1})
-	if err != models.ErrInvalidPaginationLimit {
-		t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-	}
-}
-
 func TestFindFile_CommandFailure(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
@@ -364,48 +342,6 @@ func TestFindFile_DeeplyNested(t *testing.T) {
 	}
 }
 
-func TestFindFile_PatternTraversal(t *testing.T) {
-	workspaceRoot := "/workspace"
-	maxFileSize := int64(1024 * 1024)
-
-	fs := services.NewMockFileSystem(maxFileSize)
-	fs.CreateDir("/workspace")
-
-	ctx := &models.WorkspaceContext{
-		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
-		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.MockCommandExecutor{},
-	}
-
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "../*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err == nil {
-		t.Fatal("expected error for pattern with path traversal, got nil")
-	}
-}
-
-func TestFindFile_AbsolutePattern(t *testing.T) {
-	workspaceRoot := "/workspace"
-	maxFileSize := int64(1024 * 1024)
-
-	fs := services.NewMockFileSystem(maxFileSize)
-	fs.CreateDir("/workspace")
-
-	ctx := &models.WorkspaceContext{
-		FS:              fs,
-		BinaryDetector:  services.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
-		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.MockCommandExecutor{},
-	}
-
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "/etc/*.conf", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err == nil {
-		t.Fatal("expected error for absolute pattern, got nil")
-	}
-}
-
 func TestFindFile_NoMatches(t *testing.T) {
 	workspaceRoot := "/workspace"
 	maxFileSize := int64(1024 * 1024)
@@ -553,43 +489,6 @@ func TestFindFile_LimitValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("limit exceeds max returns error", func(t *testing.T) {
-		cfg := config.DefaultConfig()
-		cfg.Tools.MaxFindFileLimit = 100
-
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			WorkspaceRoot:   workspaceRoot,
-			CommandExecutor: mockRunner,
-			Config:          *cfg,
-		}
-
-		_, err := FindFile(context.Background(), ctx, models.FindFileRequest{
-			Pattern: "*.go",
-			Limit:   101, // Exceeds max
-		})
-		if err != models.ErrInvalidPaginationLimit {
-			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-		}
-	})
-
-	t.Run("negative limit returns error", func(t *testing.T) {
-		ctx := &models.WorkspaceContext{
-			FS:              fs,
-			WorkspaceRoot:   workspaceRoot,
-			CommandExecutor: mockRunner,
-			Config:          *config.DefaultConfig(),
-		}
-
-		_, err := FindFile(context.Background(), ctx, models.FindFileRequest{
-			Pattern: "*.go",
-			Limit:   -1,
-		})
-		if err != models.ErrInvalidPaginationLimit {
-			t.Errorf("expected ErrInvalidPaginationLimit, got %v", err)
-		}
-	})
-
 	t.Run("custom config limits are respected", func(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.DefaultFindFileLimit = 25
@@ -611,36 +510,6 @@ func TestFindFile_LimitValidation(t *testing.T) {
 		}
 		if resp.Limit != 30 {
 			t.Errorf("expected limit 30, got %d", resp.Limit)
-		}
-	})
-}
-
-func TestFindFile_OffsetValidation(t *testing.T) {
-	workspaceRoot := "/workspace"
-	fs := services.NewMockFileSystem(1024 * 1024)
-	fs.CreateDir("/workspace")
-
-	mockRunner := &services.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &services.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
-		},
-	}
-
-	ctx := &models.WorkspaceContext{
-		FS:              fs,
-		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: mockRunner,
-		Config:          *config.DefaultConfig(),
-	}
-
-	t.Run("negative offset returns error", func(t *testing.T) {
-		_, err := FindFile(context.Background(), ctx, models.FindFileRequest{
-			Pattern: "*.go",
-			Offset:  -1,
-			Limit:   10,
-		})
-		if err != models.ErrInvalidPaginationOffset {
-			t.Errorf("expected ErrInvalidPaginationOffset, got %v", err)
 		}
 	})
 }
