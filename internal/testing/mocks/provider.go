@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"io"
 	"sync"
 
 	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
@@ -113,7 +114,7 @@ func (m *MockProvider) GenerateStream(ctx context.Context, req *models.GenerateR
 	if m.GenerateStreamFunc != nil {
 		return m.GenerateStreamFunc(ctx, req)
 	}
-	return nil, nil // TODO: implement stream mock if needed
+	return &MockResponseStream{}, nil
 }
 
 // CountTokens implements provider.Provider
@@ -185,4 +186,24 @@ func (m *MockProvider) ListModels(ctx context.Context) ([]string, error) {
 		return m.ListModelsFunc(ctx)
 	}
 	return []string{"mock-model", "mock-model-flash"}, nil
+}
+
+// MockResponseStream implements models.ResponseStream
+type MockResponseStream struct {
+	NextFunc  func() (*models.StreamChunk, error)
+	CloseFunc func() error
+}
+
+func (m *MockResponseStream) Next() (*models.StreamChunk, error) {
+	if m.NextFunc != nil {
+		return m.NextFunc()
+	}
+	return nil, io.EOF
+}
+
+func (m *MockResponseStream) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
 }

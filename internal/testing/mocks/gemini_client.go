@@ -17,7 +17,13 @@ type MockGeminiClient struct {
 
 // NewMockGeminiClient creates a new MockGeminiClient with default implementations.
 func NewMockGeminiClient() *MockGeminiClient {
-	return &MockGeminiClient{}
+	return &MockGeminiClient{
+		ListModelsFunc: func(ctx context.Context) ([]models.ModelInfo, error) {
+			return []models.ModelInfo{
+				{Name: "models/gemini-mock", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
+			}, nil
+		},
+	}
 }
 
 // GenerateContent calls the mock function if set, otherwise returns an error.

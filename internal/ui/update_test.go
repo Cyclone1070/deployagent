@@ -24,7 +24,7 @@ func createTestModel() BubbleTeaModel {
 		channels.SetModelChan,
 		channels.CommandChan,
 		channels.ReadyChan,
-		&mocks.MockMarkdownRenderer{},
+		mocks.NewMockMarkdownRenderer(),
 		mockSpinnerFactory,
 	)
 }

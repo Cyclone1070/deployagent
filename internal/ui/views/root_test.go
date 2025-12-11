@@ -10,7 +10,7 @@ import (
 
 func TestRenderRoot_NormalState(t *testing.T) {
 	messages := []models.Message{{Role: "user", Content: "Hi"}}
-	renderer := &mocks.MockMarkdownRenderer{}
+	renderer := mocks.NewMockMarkdownRenderer()
 
 	vp := createTestViewport()
 	vp.SetContent(FormatChatContent(messages, 76, renderer))
@@ -41,7 +41,7 @@ func TestRenderRoot_WithPopup(t *testing.T) {
 		Viewport:      createTestViewport(),
 	}
 
-	result := RenderRoot(state, &mocks.MockMarkdownRenderer{})
+	result := RenderRoot(state, mocks.NewMockMarkdownRenderer())
 
 	assert.Contains(t, result, "Select Model")
 	assert.Contains(t, result, "a")

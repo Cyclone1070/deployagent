@@ -10,7 +10,7 @@ import (
 
 func TestRenderChat_NoMessages(t *testing.T) {
 	state := models.State{Messages: []models.Message{}}
-	result := RenderChat(state, &mocks.MockMarkdownRenderer{})
+	result := RenderChat(state, mocks.NewMockMarkdownRenderer())
 	assert.Contains(t, result, "No messages yet")
 }
 
@@ -24,6 +24,6 @@ func TestRenderChat_WithMessages(t *testing.T) {
 		Viewport: vp,
 	}
 
-	result := RenderChat(state, &mocks.MockMarkdownRenderer{})
+	result := RenderChat(state, mocks.NewMockMarkdownRenderer())
 	assert.Contains(t, result, "Rendered Content")
 }

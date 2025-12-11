@@ -16,13 +16,12 @@ func TestEnsureDockerReady(t *testing.T) {
 	}
 
 	t.Run("Success immediately", func(t *testing.T) {
-		runner := &mocks.MockCommandExecutor{
-			RunFunc: func(ctx context.Context, cmd []string) ([]byte, error) {
-				if cmd[0] == "docker" && cmd[1] == "info" {
-					return nil, nil
-				}
-				return nil, errors.New("unexpected command")
-			},
+		runner := mocks.NewMockCommandExecutor()
+		runner.RunFunc = func(ctx context.Context, cmd []string) ([]byte, error) {
+			if cmd[0] == "docker" && cmd[1] == "info" {
+				return nil, nil
+			}
+			return nil, errors.New("unexpected command")
 		}
 		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
 		if err != nil {
@@ -32,20 +31,19 @@ func TestEnsureDockerReady(t *testing.T) {
 
 	t.Run("Start required and succeeds", func(t *testing.T) {
 		checkCalls := 0
-		runner := &mocks.MockCommandExecutor{
-			RunFunc: func(ctx context.Context, cmd []string) ([]byte, error) {
-				if cmd[0] == "docker" && cmd[1] == "info" {
-					checkCalls++
-					if checkCalls == 1 {
-						return nil, errors.New("docker not running")
-					}
-					return nil, nil // Success on second call
+		runner := mocks.NewMockCommandExecutor()
+		runner.RunFunc = func(ctx context.Context, cmd []string) ([]byte, error) {
+			if cmd[0] == "docker" && cmd[1] == "info" {
+				checkCalls++
+				if checkCalls == 1 {
+					return nil, errors.New("docker not running")
 				}
-				if cmd[0] == "open" {
-					return nil, nil // Start command succeeds
-				}
-				return nil, errors.New("unexpected command")
-			},
+				return nil, nil // Success on second call
+			}
+			if cmd[0] == "open" {
+				return nil, nil // Start command succeeds
+			}
+			return nil, errors.New("unexpected command")
 		}
 
 		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
@@ -58,10 +56,9 @@ func TestEnsureDockerReady(t *testing.T) {
 	})
 
 	t.Run("Start fails", func(t *testing.T) {
-		runner := &mocks.MockCommandExecutor{
-			RunFunc: func(ctx context.Context, cmd []string) ([]byte, error) {
-				return nil, errors.New("command failed")
-			},
+		runner := mocks.NewMockCommandExecutor()
+		runner.RunFunc = func(ctx context.Context, cmd []string) ([]byte, error) {
+			return nil, errors.New("command failed")
 		}
 		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
 		if err == nil {

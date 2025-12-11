@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -500,6 +501,11 @@ func (f *MockFileSystem) ListDir(path string) ([]models.FileInfo, error) {
 		}
 	}
 
+	// Sort entries by name for deterministic output (mimics os.ReadDir)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
 	return entries, nil
 }
 
@@ -523,7 +529,12 @@ type MockCommandExecutor struct {
 
 // NewMockCommandExecutor creates a new MockCommandExecutor with default no-op implementations.
 func NewMockCommandExecutor() *MockCommandExecutor {
-	return &MockCommandExecutor{}
+	return &MockCommandExecutor{
+		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+			// Safe default: return no-op process and empty readers
+			return NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
+		},
+	}
 }
 
 func (m *MockCommandExecutor) Run(ctx context.Context, cmd []string) ([]byte, error) {
@@ -543,6 +554,11 @@ func (m *MockCommandExecutor) Start(ctx context.Context, command []string, opts 
 // MockExitError simulates an exit error with a specific exit code
 type MockExitError struct {
 	Code int
+}
+
+// NewMockExitError creates a new MockExitError with the specified code.
+func NewMockExitError(code int) *MockExitError {
+	return &MockExitError{Code: code}
 }
 
 func (e *MockExitError) Error() string {

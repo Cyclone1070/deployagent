@@ -24,10 +24,9 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 	rgOutput := `{"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func foo()"},"line_number":10}}
 {"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func bar()"},"line_number":20}}`
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -67,15 +66,14 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedCmd = cmd
-			return &mocks.MockProcess{
-				WaitFunc: func() error {
-					return &mocks.MockExitError{Code: 1} // No matches
-				},
-			}, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedCmd = cmd
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			return mocks.NewMockExitError(1) // No matches
+		}
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -108,7 +106,7 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: services.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
@@ -128,10 +126,9 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 	longLine := strings.Repeat("a", 1024*1024)
 	rgOutput := fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"%s"},"line_number":1}}`, longLine)
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -169,15 +166,14 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedCmd = cmd
-			return &mocks.MockProcess{
-				WaitFunc: func() error {
-					return &mocks.MockExitError{Code: 1}
-				},
-			}, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedCmd = cmd
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			return mocks.NewMockExitError(1)
+		}
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -206,15 +202,14 @@ func TestSearchContent_NoMatches(t *testing.T) {
 	fs := mocks.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			// Simulate rg returning exit code 1 (no matches)
-			return &mocks.MockProcess{
-				WaitFunc: func() error {
-					return &mocks.MockExitError{Code: 1}
-				},
-			}, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		// Simulate rg returning exit code 1 (no matches)
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			return mocks.NewMockExitError(1)
+		}
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -253,10 +248,9 @@ func TestSearchContent_Pagination(t *testing.T) {
 `, i, i+1)
 	}
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -303,10 +297,9 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":10}}
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":5}}`
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -351,10 +344,9 @@ func TestSearchContent_InvalidJSON(t *testing.T) {
 invalid json line
 {"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"also valid"},"line_number":2}}`
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -383,14 +375,13 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 	fs := mocks.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{
-				WaitFunc: func() error {
-					return &mocks.MockExitError{Code: 2}
-				},
-			}, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			return mocks.NewMockExitError(2)
+		}
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -414,16 +405,15 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	fs.CreateDir("/workspace")
 
 	// Test with includeIgnored=false (default behavior, should respect gitignore)
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			// Verify --no-ignore is NOT present
-			if slices.Contains(cmd, "--no-ignore") {
-				t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
-			}
-			// Simulate rg output without ignored files
-			output := `{"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-			return &mocks.MockProcess{}, strings.NewReader(output), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		// Verify --no-ignore is NOT present
+		if slices.Contains(cmd, "--no-ignore") {
+			t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
+		}
+		// Simulate rg output without ignored files
+		output := `{"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
+		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{
@@ -453,7 +443,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		// Simulate rg output with ignored files
 		output := `{"type":"match","data":{"path":{"text":"/workspace/ignored.go"},"lines":{"text":"func main()"},"line_number":1}}
 {"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-		return &mocks.MockProcess{}, strings.NewReader(output), strings.NewReader(""), nil
+		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
 	resp, err = SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: true, Offset: 0, Limit: 100})
@@ -491,10 +481,9 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 	fs := mocks.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {
@@ -547,10 +536,9 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 	fs := mocks.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			return &mocks.MockProcess{}, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	mockRunner := mocks.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	ctx := &models.WorkspaceContext{

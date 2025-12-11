@@ -15,11 +15,10 @@ import (
 
 func TestExecuteWithTimeout_Success(t *testing.T) {
 
-	mock := &mocks.MockProcess{
-		WaitFunc: func() error {
-			time.Sleep(10 * time.Millisecond)
-			return nil
-		},
+	mock := mocks.NewMockProcess()
+	mock.WaitFunc = func() error {
+		time.Sleep(10 * time.Millisecond)
+		return nil
 	}
 
 	err := ExecuteWithTimeout(context.Background(), 100*time.Millisecond, 2000, mock)
@@ -30,15 +29,14 @@ func TestExecuteWithTimeout_Success(t *testing.T) {
 
 func TestExecuteWithTimeout_Fail(t *testing.T) {
 	signalCalled := false
-	mock := &mocks.MockProcess{
-		WaitFunc: func() error {
-			time.Sleep(200 * time.Millisecond)
-			return nil
-		},
-		SignalFunc: func(sig os.Signal) error {
-			signalCalled = true
-			return nil
-		},
+	mock := mocks.NewMockProcess()
+	mock.WaitFunc = func() error {
+		time.Sleep(200 * time.Millisecond)
+		return nil
+	}
+	mock.SignalFunc = func(sig os.Signal) error {
+		signalCalled = true
+		return nil
 	}
 
 	err := ExecuteWithTimeout(context.Background(), 50*time.Millisecond, 2000, mock)

@@ -25,22 +25,20 @@ func TestShellTool_Run_SimpleCommand(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			if command[0] != "echo" {
-				return nil, nil, nil, errors.New("unexpected command")
-			}
-			stdout := strings.NewReader("hello\n")
-			stderr := strings.NewReader("")
-			proc := &mocks.MockProcess{
-				WaitFunc: func() error { return nil },
-			}
-			return proc, stdout, stderr, nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		if command[0] != "echo" {
+			return nil, nil, nil, errors.New("unexpected command")
+		}
+		stdout := strings.NewReader("hello\n")
+		stderr := strings.NewReader("")
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, stdout, stderr, nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -69,17 +67,17 @@ func TestShellTool_Run_WorkingDir(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedDir string
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedDir = opts.Dir
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedDir = opts.Dir
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -107,17 +105,17 @@ func TestShellTool_Run_Env(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedEnv []string
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedEnv = opts.Env
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedEnv = opts.Env
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -171,17 +169,17 @@ CACHE_URL=redis://localhost`
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedEnv []string
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedEnv = opts.Env
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedEnv = opts.Env
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -319,11 +317,11 @@ func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	tool := &ShellTool{CommandExecutor: &mocks.MockCommandExecutor{}}
+	tool := &ShellTool{CommandExecutor: mocks.NewMockCommandExecutor()}
 	req := models.ShellRequest{
 		Command:    []string{"ls"},
 		WorkingDir: "../outside",
@@ -343,19 +341,17 @@ func TestShellTool_Run_NonZeroExit(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &mocks.MockProcess{
-				WaitFunc: func() error {
-					return errors.New("exit status 1")
-				},
-			}
-			return proc, strings.NewReader(""), strings.NewReader("error output"), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			return errors.New("exit status 1")
+		}
+		return proc, strings.NewReader(""), strings.NewReader("error output"), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -378,16 +374,16 @@ func TestShellTool_Run_BinaryOutput(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
 	binaryData := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE}
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, bytes.NewReader(binaryData), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, bytes.NewReader(binaryData), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -410,17 +406,17 @@ func TestShellTool_Run_CommandInjection(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedCommand []string
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedCommand = command
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedCommand = command
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -447,7 +443,7 @@ func TestShellTool_Run_HugeOutput(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
@@ -456,11 +452,11 @@ func TestShellTool_Run_HugeOutput(t *testing.T) {
 		hugeData[i] = 'A'
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, bytes.NewReader(hugeData), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, bytes.NewReader(hugeData), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -486,26 +482,24 @@ func TestShellTool_Run_Timeout(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &mocks.MockProcess{
-				WaitFunc: func() error {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(100 * time.Millisecond):
-						return nil
-					}
-				},
-				SignalFunc: func(sig os.Signal) error { return nil },
-				KillFunc:   func() error { return nil },
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+				return nil
 			}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+		}
+		proc.SignalFunc = func(sig os.Signal) error { return nil }
+		proc.KillFunc = func() error { return nil }
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -533,27 +527,26 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager,
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *cfg,
 		DockerConfig: models.DockerConfig{
 			CheckCommand: []string{"docker", "info"},
 		},
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		RunFunc: func(ctx context.Context, command []string) ([]byte, error) {
-			// Handle Docker check command
-			if len(command) >= 2 && command[0] == "docker" && command[1] == "info" {
-				return []byte(""), nil
-			}
-			return nil, errors.New("unexpected command in RunFunc")
-		},
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			if command[0] == "docker" && command[1] == "run" {
-				return &mocks.MockProcess{}, strings.NewReader("container running"), strings.NewReader(""), nil
-			}
-			return nil, nil, nil, errors.New("unexpected command")
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.RunFunc = func(ctx context.Context, command []string) ([]byte, error) {
+		// Handle Docker check command
+		if len(command) >= 2 && command[0] == "docker" && command[1] == "info" {
+			return []byte(""), nil
+		}
+		return nil, errors.New("unexpected command in RunFunc")
+	}
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		if command[0] == "docker" && command[1] == "run" {
+			return mocks.NewMockProcess(), strings.NewReader("container running"), strings.NewReader(""), nil
+		}
+		return nil, nil, nil, errors.New("unexpected command")
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -576,17 +569,17 @@ func TestShellTool_Run_EnvInjection(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
 	var capturedEnv []string
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			capturedEnv = opts.Env
-			proc := &mocks.MockProcess{WaitFunc: func() error { return nil }}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		capturedEnv = opts.Env
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error { return nil }
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -614,20 +607,18 @@ func TestShellTool_Run_ContextCancellation(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &mocks.MockProcess{
-				WaitFunc: func() error {
-					<-ctx.Done()
-					return ctx.Err()
-				},
-			}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			<-ctx.Done()
+			return ctx.Err()
+		}
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
@@ -663,20 +654,18 @@ func TestShellTool_Run_SpecificExitCode(t *testing.T) {
 		WorkspaceRoot:   "/workspace",
 		FS:              mockFS,
 		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		CommandExecutor: &mocks.MockCommandExecutor{},
+		CommandExecutor: mocks.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	factory := &mocks.MockCommandExecutor{
-		StartFunc: func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-			proc := &mocks.MockProcess{
-				WaitFunc: func() error {
-					// Return a specific exit code using the mock error type
-					return &mocks.MockExitError{Code: 42}
-				},
-			}
-			return proc, strings.NewReader(""), strings.NewReader(""), nil
-		},
+	factory := mocks.NewMockCommandExecutor()
+	factory.StartFunc = func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+		proc := mocks.NewMockProcess()
+		proc.WaitFunc = func() error {
+			// Return a specific exit code using the mock error type
+			return mocks.NewMockExitError(42)
+		}
+		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	tool := &ShellTool{CommandExecutor: factory}
