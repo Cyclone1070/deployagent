@@ -33,71 +33,66 @@ func TestHistoryTruncation_BuildsAndTruncates(t *testing.T) {
 	var historyLengthAtTruncation int
 
 	// Mock a tool that responds
-	mockTool := &mocks.MockTool{
-		NameFunc:        func() string { return "test_tool" },
-		DescriptionFunc: func() string { return "test" },
-		DefinitionFunc: func() provider.ToolDefinition {
-			return provider.ToolDefinition{Name: "test_tool", Description: "test"}
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "tool result", nil
-		},
+	mockTool := mocks.NewMockTool("test_tool")
+	mockTool.DescriptionFunc = func() string { return "test" }
+	mockTool.DefinitionFunc = func() provider.ToolDefinition {
+		return provider.ToolDefinition{Name: "test_tool", Description: "test"}
+	}
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "tool result", nil
 	}
 
 	generateCallCount := 0
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			countCalls.Add(1)
-			// After several messages, start exceeding the limit
-			// This forces truncation to kick in
-			if len(messages) >= 5 {
-				historyLengthAtTruncation = len(messages)
-				return 10000, nil // Way over limit
-			}
-			if len(messages) >= 3 {
-				return 5000, nil // Getting close
-			}
-			return 500, nil // Under limit
-		},
-		GetContextWindowFunc: func() int {
-			return 4000 // Context window
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 2000} // Safety margin
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			generateCallCount++
-			// First 3 calls: return tool calls to build up history
-			if generateCallCount <= 3 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "call", Name: "test_tool", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
-			// After that: return text to end
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		countCalls.Add(1)
+		// After several messages, start exceeding the limit
+		// This forces truncation to kick in
+		if len(messages) >= 5 {
+			historyLengthAtTruncation = len(messages)
+			return 10000, nil // Way over limit
+		}
+		if len(messages) >= 3 {
+			return 5000, nil // Getting close
+		}
+		return 500, nil // Under limit
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 4000 // Context window
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 2000} // Safety margin
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		generateCallCount++
+		// First 3 calls: return tool calls to build up history
+		if generateCallCount <= 3 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "call", Name: "test_tool", Args: map[string]any{}},
+					},
 				},
 			}, nil
-		},
+		}
+		// After that: return text to end
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return nil // Allow all tools
-		},
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return nil // Allow all tools
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -138,60 +133,55 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 
 	// Create a mock that builds history then triggers aggressive truncation
 	generateCallCount := 0
-	mockTool := &mocks.MockTool{
-		NameFunc:        func() string { return "test" },
-		DescriptionFunc: func() string { return "test" },
-		DefinitionFunc: func() provider.ToolDefinition {
-			return provider.ToolDefinition{Name: "test", Description: "test"}
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "result", nil
-		},
+	mockTool := mocks.NewMockTool("test")
+	mockTool.DescriptionFunc = func() string { return "test" }
+	mockTool.DefinitionFunc = func() provider.ToolDefinition {
+		return provider.ToolDefinition{Name: "test", Description: "test"}
+	}
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "result", nil
 	}
 
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			// Always say we're over limit to force maximum truncation
-			// But respect when history is minimal
-			if len(messages) <= 1 {
-				return 100, nil // Under limit when only goal
-			}
-			return 999999, nil // Absurdly over limit to force all truncation
-		},
-		GetContextWindowFunc: func() int {
-			return 1000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 500}
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			generateCallCount++
-			if generateCallCount <= 5 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "c", Name: "test", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		// Always say we're over limit to force maximum truncation
+		// But respect when history is minimal
+		if len(messages) <= 1 {
+			return 100, nil // Under limit when only goal
+		}
+		return 999999, nil // Absurdly over limit to force all truncation
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 1000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 500}
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		generateCallCount++
+		if generateCallCount <= 5 {
 			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+				Content: provider.ResponseContent{
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "c", Name: "test", Args: map[string]any{}},
+					},
+				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return nil
-		},
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return nil
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -214,63 +204,58 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 	generateCallCount := 0
 
-	mockTool := &mocks.MockTool{
-		NameFunc:        func() string { return "tool" },
-		DescriptionFunc: func() string { return "test" },
-		DefinitionFunc: func() provider.ToolDefinition {
-			return provider.ToolDefinition{Name: "tool", Description: "test"}
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "result", nil
-		},
+	mockTool := mocks.NewMockTool("tool")
+	mockTool.DescriptionFunc = func() string { return "test" }
+	mockTool.DefinitionFunc = func() provider.ToolDefinition {
+		return provider.ToolDefinition{Name: "tool", Description: "test"}
+	}
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "result", nil
 	}
 
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			// Trigger truncation after building some history
-			if len(messages) >= 7 {
-				return 8000, nil // Over limit
-			}
-			if len(messages) >= 5 {
-				return 4000, nil // Getting close
-			}
-			return 1000, nil
-		},
-		GetContextWindowFunc: func() int {
-			return 5000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 2000}
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			generateCallCount++
-			// Build up several tool call/result pairs
-			if generateCallCount <= 4 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "c", Name: "tool", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		// Trigger truncation after building some history
+		if len(messages) >= 7 {
+			return 8000, nil // Over limit
+		}
+		if len(messages) >= 5 {
+			return 4000, nil // Getting close
+		}
+		return 1000, nil
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 5000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 2000}
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		generateCallCount++
+		// Build up several tool call/result pairs
+		if generateCallCount <= 4 {
 			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+				Content: provider.ResponseContent{
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "c", Name: "tool", Args: map[string]any{}},
+					},
+				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return nil
-		},
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return nil
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -295,24 +280,23 @@ func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 // errors don't cause infinite loops or panics.
 func TestHistoryTruncation_CountTokensError_NoInfiniteLoop(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			callCount++
-			// First call succeeds, subsequent fail (simulates rate limit mid-truncation)
-			if callCount == 1 {
-				return 10000, nil // Over limit, will trigger truncation
-			}
-			return 0, errors.New("rate limit exceeded")
-		},
-		GetContextWindowFunc: func() int {
-			return 1000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 500}
-		},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		callCount++
+		// First call succeeds, subsequent fail (simulates rate limit mid-truncation)
+		if callCount == 1 {
+			return 10000, nil // Over limit, will trigger truncation
+		}
+		return 0, errors.New("rate limit exceeded")
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 1000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 500}
 	}
 
-	orchestrator := newTestOrchestrator(mockProvider, &mocks.MockPolicy{}, &mocks.MockUI{}, []adapter.Tool{})
+	orchestrator := newTestOrchestrator(mockProvider, mocks.NewMockPolicy(), mocks.NewMockUI(), []adapter.Tool{})
 	err := orchestrator.Run(context.Background(), "test goal")
 
 	// Should return error, not hang
@@ -331,60 +315,55 @@ func TestHistoryTruncation_CountTokensError_NoInfiniteLoop(t *testing.T) {
 func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 	generateCallCount := 0
 
-	mockTool := &mocks.MockTool{
-		NameFunc:        func() string { return "test" },
-		DescriptionFunc: func() string { return "test" },
-		DefinitionFunc: func() provider.ToolDefinition {
-			return provider.ToolDefinition{Name: "test", Description: "test"}
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "result", nil
-		},
+	mockTool := mocks.NewMockTool("test")
+	mockTool.DescriptionFunc = func() string { return "test" }
+	mockTool.DefinitionFunc = func() provider.ToolDefinition {
+		return provider.ToolDefinition{Name: "test", Description: "test"}
+	}
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "result", nil
 	}
 
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			// Return token count well under context window
-			// With context=1000 and clamped safety=800, effective limit is 200
-			// So 400 tokens should NOT trigger truncation (400 > 200 but we should clamp better)
-			// Actually, let's use 150 tokens to be safely under any reasonable limit
-			return 150, nil
-		},
-		GetContextWindowFunc: func() int {
-			return 1000 // Small context
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 5000} // Larger than context!
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			generateCallCount++
-			// Build up history with tool calls
-			if generateCallCount <= 2 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "c", Name: "test", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		// Return token count well under context window
+		// With context=1000 and clamped safety=800, effective limit is 200
+		// So 400 tokens should NOT trigger truncation (400 > 200 but we should clamp better)
+		// Actually, let's use 150 tokens to be safely under any reasonable limit
+		return 150, nil
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 1000 // Small context
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 5000} // Larger than context!
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		generateCallCount++
+		// Build up history with tool calls
+		if generateCallCount <= 2 {
 			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+				Content: provider.ResponseContent{
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "c", Name: "test", Args: map[string]any{}},
+					},
+				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return nil
-		},
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return nil
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -406,22 +385,21 @@ func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 // reduce tokens (degenerate case), we don't loop forever.
 func TestHistoryTruncation_TokensNeverDecrease(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			callCount++
-			// Always return same high value regardless of message count
-			// This simulates a broken/malicious token counter
-			return 99999, nil
-		},
-		GetContextWindowFunc: func() int {
-			return 1000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 500}
-		},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		callCount++
+		// Always return same high value regardless of message count
+		// This simulates a broken/malicious token counter
+		return 99999, nil
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 1000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 500}
 	}
 
-	orchestrator := newTestOrchestrator(mockProvider, &mocks.MockPolicy{}, &mocks.MockUI{}, []adapter.Tool{})
+	orchestrator := newTestOrchestrator(mockProvider, mocks.NewMockPolicy(), mocks.NewMockUI(), []adapter.Tool{})
 
 	// Set up minimal history - just goal will be there after Run starts
 	_ = orchestrator.Run(context.Background(), "goal")
@@ -439,62 +417,57 @@ func TestHistoryTruncation_TokensNeverDecrease(t *testing.T) {
 func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 	tokenCountCalls := 0
 
-	mockTool := &mocks.MockTool{
-		NameFunc:        func() string { return "test" },
-		DescriptionFunc: func() string { return "test" },
-		DefinitionFunc: func() provider.ToolDefinition {
-			return provider.ToolDefinition{Name: "test", Description: "test"}
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "result", nil
-		},
+	mockTool := mocks.NewMockTool("test")
+	mockTool.DescriptionFunc = func() string { return "test" }
+	mockTool.DefinitionFunc = func() provider.ToolDefinition {
+		return provider.ToolDefinition{Name: "test", Description: "test"}
+	}
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "result", nil
 	}
 
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			tokenCountCalls++
-			// When we have exactly 3 messages (goal + model + function),
-			// report high token count to force truncation
-			if len(messages) == 3 {
-				return 10000, nil // Way over limit - force truncation
-			}
-			return 100, nil // Under limit after truncation
-		},
-		GetContextWindowFunc: func() int {
-			return 2000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 1000}
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			// First call: return tool call (creates model + function messages)
-			if len(req.History) == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "c", Name: "test", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
-			// After truncation, return text to end
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		tokenCountCalls++
+		// When we have exactly 3 messages (goal + model + function),
+		// report high token count to force truncation
+		if len(messages) == 3 {
+			return 10000, nil // Way over limit - force truncation
+		}
+		return 100, nil // Under limit after truncation
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 2000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 1000}
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		// First call: return tool call (creates model + function messages)
+		if len(req.History) == 1 {
 			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+				Content: provider.ResponseContent{
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "c", Name: "test", Args: map[string]any{}},
+					},
+				},
 			}, nil
-		},
+		}
+		// After truncation, return text to end
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return nil
-		},
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return nil
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -525,60 +498,55 @@ func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 	generateCallCount := 0
 
-	mockTool := &mocks.MockTool{
-		NameFunc:        func() string { return "test" },
-		DescriptionFunc: func() string { return "test" },
-		DefinitionFunc: func() provider.ToolDefinition {
-			return provider.ToolDefinition{Name: "test", Description: "test"}
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "result", nil
-		},
+	mockTool := mocks.NewMockTool("test")
+	mockTool.DescriptionFunc = func() string { return "test" }
+	mockTool.DefinitionFunc = func() provider.ToolDefinition {
+		return provider.ToolDefinition{Name: "test", Description: "test"}
+	}
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "result", nil
 	}
 
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			// Force truncation when we have enough messages
-			if len(messages) >= 6 {
-				return 10000, nil // Way over limit
-			}
-			return 500, nil
-		},
-		GetContextWindowFunc: func() int {
-			return 2000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 1000}
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			generateCallCount++
-			// Build up history with tool calls
-			if generateCallCount <= 3 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "c", Name: "test", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		// Force truncation when we have enough messages
+		if len(messages) >= 6 {
+			return 10000, nil // Way over limit
+		}
+		return 500, nil
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 2000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 1000}
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		generateCallCount++
+		// Build up history with tool calls
+		if generateCallCount <= 3 {
 			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+				Content: provider.ResponseContent{
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "c", Name: "test", Args: map[string]any{}},
+					},
+				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return nil
-		},
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return nil
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -602,34 +570,32 @@ func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 // TestHistoryTruncation_EmptyHistory verifies graceful handling of edge case
 // where somehow history becomes empty (defensive coding).
 func TestHistoryTruncation_EmptyHistory(t *testing.T) {
-	mockProvider := &mocks.MockProvider{
-		CountTokensFunc: func(ctx context.Context, messages []models.Message) (int, error) {
-			// If we're called with empty messages, that's a bug
-			if len(messages) == 0 {
-				t.Error("CountTokens called with empty message list")
-			}
-			return 100, nil
-		},
-		GetContextWindowFunc: func() int {
-			return 1000
-		},
-		GetCapabilitiesFunc: func() provider.Capabilities {
-			return provider.Capabilities{MaxOutputTokens: 500}
-		},
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
-			}, nil
-		},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+		// If we're called with empty messages, that's a bug
+		if len(messages) == 0 {
+			t.Error("CountTokens called with empty message list")
+		}
+		return 100, nil
+	}
+	mockProvider.GetContextWindowFunc = func() int {
+		return 1000
+	}
+	mockProvider.GetCapabilitiesFunc = func() provider.Capabilities {
+		return provider.Capabilities{MaxOutputTokens: 500}
+	}
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{Type: provider.ResponseTypeText, Text: "Done"},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	orchestrator := newTestOrchestrator(mockProvider, &mocks.MockPolicy{}, mockUI, []adapter.Tool{})
+	orchestrator := newTestOrchestrator(mockProvider, mocks.NewMockPolicy(), mockUI, []adapter.Tool{})
 	err := orchestrator.Run(context.Background(), "goal")
 
 	// Should complete without panicking

@@ -3,13 +3,14 @@ package views
 import (
 	"testing"
 
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/ui/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderChat_NoMessages(t *testing.T) {
 	state := models.State{Messages: []models.Message{}}
-	result := RenderChat(state, &MockMarkdownRenderer{})
+	result := RenderChat(state, &mocks.MockMarkdownRenderer{})
 	assert.Contains(t, result, "No messages yet")
 }
 
@@ -23,6 +24,6 @@ func TestRenderChat_WithMessages(t *testing.T) {
 		Viewport: vp,
 	}
 
-	result := RenderChat(state, &MockMarkdownRenderer{})
+	result := RenderChat(state, &mocks.MockMarkdownRenderer{})
 	assert.Contains(t, result, "Rendered Content")
 }

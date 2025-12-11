@@ -19,10 +19,9 @@ func TestCheckShell_Concurrency(t *testing.T) {
 		},
 	}
 
-	mockUI := &mocks.MockUI{
-		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
-			return uimodels.DecisionAllowAlways, nil
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.ReadPermissionFunc = func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
+		return uimodels.DecisionAllowAlways, nil
 	}
 
 	ps := NewPolicyService(policy, mockUI)
@@ -66,10 +65,9 @@ func TestCheckTool_Concurrency(t *testing.T) {
 		},
 	}
 
-	mockUI := &mocks.MockUI{
-		ReadPermissionFunc: func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
-			return uimodels.DecisionAllowAlways, nil
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.ReadPermissionFunc = func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
+		return uimodels.DecisionAllowAlways, nil
 	}
 
 	ps := NewPolicyService(policy, mockUI)

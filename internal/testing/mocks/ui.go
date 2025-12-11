@@ -112,11 +112,6 @@ func (m *MockUI) Start() error {
 	return nil
 }
 
-// Close is likely not needed for MockUI but implemented for compatibility if needed
-func (m *MockUI) Close() {
-	// No-op
-}
-
 // Commands returns the command channel
 func (m *MockUI) Commands() <-chan uimodels.UICommand {
 	return m.CommandsChan

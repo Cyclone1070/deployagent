@@ -21,25 +21,23 @@ func newTestOrchestrator(p provider.Provider, pol models.PolicyService, ui ui.Us
 
 // Test Case 1: Happy Path - Text Response
 func TestRun_HappyPath_TextResponse(t *testing.T) {
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Hello, how can I help?",
-				},
-			}, nil
-		},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Hello, how can I help?",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			// Return error to exit loop after first response
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		// Return error to exit loop after first response
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := New(config.DefaultConfig(), mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 
@@ -69,53 +67,47 @@ func TestRun_HappyPath_TextResponse(t *testing.T) {
 func TestRun_HappyPath_ToolCall(t *testing.T) {
 	toolExecuted := false
 
-	mockTool := &mocks.MockTool{
-		NameFunc: func() string {
-			return "test_tool"
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			toolExecuted = true
-			return "tool result", nil
-		},
+	mockTool := mocks.NewMockTool("test_tool")
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		toolExecuted = true
+		return "tool result", nil
 	}
 
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			t.Logf("Generate called. Count=%d. HistoryLen=%d", callCount, len(req.History))
-			if callCount == 1 {
-				t.Log("Returning ToolCall")
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{
-								ID:   "call_1",
-								Name: "test_tool",
-								Args: map[string]any{"arg": "value"},
-							},
-						},
-					},
-				}, nil
-			}
-			t.Log("Returning Text Done")
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		t.Logf("Generate called. Count=%d. HistoryLen=%d", callCount, len(req.History))
+		if callCount == 1 {
+			t.Log("Returning ToolCall")
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{
+							ID:   "call_1",
+							Name: "test_tool",
+							Args: map[string]any{"arg": "value"},
+						},
+					},
 				},
 			}, nil
-		},
+		}
+		t.Log("Returning Text Done")
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := New(config.DefaultConfig(), mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
 
@@ -153,57 +145,47 @@ func TestRun_MultipleToolCalls(t *testing.T) {
 	tool1Executed := false
 	tool2Executed := false
 
-	mockTool1 := &mocks.MockTool{
-		NameFunc: func() string {
-			return "tool1"
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			tool1Executed = true
-			return "result1", nil
-		},
+	mockTool1 := mocks.NewMockTool("tool1")
+	mockTool1.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		tool1Executed = true
+		return "result1", nil
 	}
 
-	mockTool2 := &mocks.MockTool{
-		NameFunc: func() string {
-			return "tool2"
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			tool2Executed = true
-			return "result2", nil
-		},
+	mockTool2 := mocks.NewMockTool("tool2")
+	mockTool2.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		tool2Executed = true
+		return "result2", nil
 	}
 
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			if callCount == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "call_1", Name: "tool1", Args: map[string]any{}},
-							{ID: "call_2", Name: "tool2", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		if callCount == 1 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "call_1", Name: "tool1", Args: map[string]any{}},
+						{ID: "call_2", Name: "tool2", Args: map[string]any{}},
+					},
 				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := New(config.DefaultConfig(), mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool1, mockTool2})
 
@@ -226,33 +208,31 @@ func TestRun_MultipleToolCalls(t *testing.T) {
 // Test Case 4: Refusal
 func TestRun_Refusal(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			if callCount == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type:          provider.ResponseTypeRefusal,
-						RefusalReason: "Safety violation",
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		if callCount == 1 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type:          provider.ResponseTypeRefusal,
+					RefusalReason: "Safety violation",
 				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 
@@ -276,14 +256,13 @@ func TestRun_Refusal(t *testing.T) {
 
 // Test Case 5: Provider Error
 func TestRun_ProviderError(t *testing.T) {
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			return nil, errors.New("provider error")
-		},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		return nil, errors.New("provider error")
 	}
 
-	mockUI := &mocks.MockUI{}
-	mockPolicy := &mocks.MockPolicy{}
+	mockUI := mocks.NewMockUI()
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 
@@ -296,31 +275,26 @@ func TestRun_ProviderError(t *testing.T) {
 
 // Test Case 6: Max Turns Reached
 func TestRun_MaxTurnsReached(t *testing.T) {
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			// Always return tool call to keep looping
-			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
-						{ID: "call_1", Name: "test_tool", Args: map[string]any{}},
-					},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		// Always return tool call to keep looping
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeToolCall,
+				ToolCalls: []models.ToolCall{
+					{ID: "call_1", Name: "test_tool", Args: map[string]any{}},
 				},
-			}, nil
-		},
+			},
+		}, nil
 	}
 
-	mockTool := &mocks.MockTool{
-		NameFunc: func() string {
-			return "test_tool"
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "result", nil
-		},
+	mockTool := mocks.NewMockTool("test_tool")
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "result", nil
 	}
 
-	mockUI := &mocks.MockUI{}
-	mockPolicy := &mocks.MockPolicy{}
+	mockUI := mocks.NewMockUI()
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
 
@@ -336,9 +310,9 @@ func TestRun_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	mockProvider := &mocks.MockProvider{}
-	mockUI := &mocks.MockUI{}
-	mockPolicy := &mocks.MockPolicy{}
+	mockProvider := mocks.NewMockProvider()
+	mockUI := mocks.NewMockUI()
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 
@@ -352,33 +326,31 @@ func TestRun_ContextCancellation(t *testing.T) {
 // Test Case 8: Empty Tool List
 func TestRun_EmptyToolList(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			if callCount == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type:      provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{}, // Empty!
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		if callCount == 1 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type:      provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{}, // Empty!
 				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 
@@ -397,35 +369,33 @@ func TestRun_EmptyToolList(t *testing.T) {
 // Test Case 9: Unknown Tool
 func TestRun_UnknownTool(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			if callCount == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "call_1", Name: "unknown_tool", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		if callCount == 1 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "call_1", Name: "unknown_tool", Args: map[string]any{}},
+					},
 				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 
@@ -444,44 +414,37 @@ func TestRun_UnknownTool(t *testing.T) {
 // Test Case 10: Policy Denial
 func TestRun_PolicyDenial(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			if callCount == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "call_1", Name: "test_tool", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		if callCount == 1 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "call_1", Name: "test_tool", Args: map[string]any{}},
+					},
 				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockTool := &mocks.MockTool{
-		NameFunc: func() string {
-			return "test_tool"
-		},
+	mockTool := mocks.NewMockTool("test_tool")
+
+	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
+		return errors.New("policy denied")
 	}
 
-	mockPolicy := &mocks.MockPolicy{
-		CheckToolFunc: func(ctx context.Context, toolName string, args map[string]any) error {
-			return errors.New("policy denied")
-		},
-	}
-
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -501,43 +464,37 @@ func TestRun_PolicyDenial(t *testing.T) {
 // Test Case 11: Tool Execution Error
 func TestRun_ToolExecutionError(t *testing.T) {
 	callCount := 0
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			callCount++
-			if callCount == 1 {
-				return &provider.GenerateResponse{
-					Content: provider.ResponseContent{
-						Type: provider.ResponseTypeToolCall,
-						ToolCalls: []models.ToolCall{
-							{ID: "call_1", Name: "test_tool", Args: map[string]any{}},
-						},
-					},
-				}, nil
-			}
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		callCount++
+		if callCount == 1 {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Done",
+					Type: provider.ResponseTypeToolCall,
+					ToolCalls: []models.ToolCall{
+						{ID: "call_1", Name: "test_tool", Args: map[string]any{}},
+					},
 				},
 			}, nil
-		},
+		}
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Done",
+			},
+		}, nil
 	}
 
-	mockTool := &mocks.MockTool{
-		NameFunc: func() string {
-			return "test_tool"
-		},
-		ExecuteFunc: func(ctx context.Context, args map[string]any) (string, error) {
-			return "", errors.New("tool execution failed")
-		},
+	mockTool := mocks.NewMockTool("test_tool")
+	mockTool.ExecuteFunc = func(ctx context.Context, args map[string]any) (string, error) {
+		return "", errors.New("tool execution failed")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("test complete")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("test complete")
 	}
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{mockTool})
@@ -556,24 +513,22 @@ func TestRun_ToolExecutionError(t *testing.T) {
 
 // Test Case 12: User Input Error
 func TestRun_UserInputError(t *testing.T) {
-	mockProvider := &mocks.MockProvider{
-		GenerateFunc: func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
-			return &provider.GenerateResponse{
-				Content: provider.ResponseContent{
-					Type: provider.ResponseTypeText,
-					Text: "Hello",
-				},
-			}, nil
-		},
+	mockProvider := mocks.NewMockProvider()
+	mockProvider.GenerateFunc = func(ctx context.Context, req *provider.GenerateRequest) (*provider.GenerateResponse, error) {
+		return &provider.GenerateResponse{
+			Content: provider.ResponseContent{
+				Type: provider.ResponseTypeText,
+				Text: "Hello, how can I help?",
+			},
+		}, nil
 	}
 
-	mockUI := &mocks.MockUI{
-		InputFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "", errors.New("input error")
-		},
+	mockUI := mocks.NewMockUI()
+	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
+		return "", errors.New("input error")
 	}
 
-	mockPolicy := &mocks.MockPolicy{}
+	mockPolicy := mocks.NewMockPolicy()
 
 	orchestrator := newTestOrchestrator(mockProvider, mockPolicy, mockUI, []adapter.Tool{})
 

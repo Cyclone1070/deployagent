@@ -212,6 +212,11 @@ func (f *MockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte
 	f.Mu.RLock()
 	defer f.Mu.RUnlock()
 
+	// Check operation-level errors first (for system-wide failure simulation)
+	if err, ok := f.OpErrors["ReadFileRange"]; ok {
+		return nil, err
+	}
+
 	if err, ok := f.Errors[path]; ok {
 		return nil, err
 	}
@@ -264,7 +269,7 @@ func (f *MockFileSystem) ReadFile(path string) ([]byte, error) {
 
 	content, ok := f.Files[path]
 	if !ok {
-		return nil, os.ErrNotExist
+		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
 	}
 
 	return content, nil
@@ -516,6 +521,11 @@ type MockCommandExecutor struct {
 	StartFunc func(ctx context.Context, command []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error)
 }
 
+// NewMockCommandExecutor creates a new MockCommandExecutor with default no-op implementations.
+func NewMockCommandExecutor() *MockCommandExecutor {
+	return &MockCommandExecutor{}
+}
+
 func (m *MockCommandExecutor) Run(ctx context.Context, cmd []string) ([]byte, error) {
 	if m.RunFunc != nil {
 		return m.RunFunc(ctx, cmd)
@@ -548,6 +558,11 @@ type MockProcess struct {
 	WaitFunc   func() error
 	KillFunc   func() error
 	SignalFunc func(sig os.Signal) error
+}
+
+// NewMockProcess creates a new MockProcess with default no-op implementations.
+func NewMockProcess() *MockProcess {
+	return &MockProcess{}
 }
 
 func (p *MockProcess) Wait() error {

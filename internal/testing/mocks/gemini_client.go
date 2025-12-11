@@ -15,6 +15,11 @@ type MockGeminiClient struct {
 	ListModelsFunc      func(ctx context.Context) ([]models.ModelInfo, error)
 }
 
+// NewMockGeminiClient creates a new MockGeminiClient with default implementations.
+func NewMockGeminiClient() *MockGeminiClient {
+	return &MockGeminiClient{}
+}
+
 // GenerateContent calls the mock function if set, otherwise returns an error.
 func (m *MockGeminiClient) GenerateContent(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 	if m.GenerateContentFunc != nil {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/ui/models"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +24,7 @@ func createTestModel() BubbleTeaModel {
 		channels.SetModelChan,
 		channels.CommandChan,
 		channels.ReadyChan,
-		&MockMarkdownRenderer{},
+		&mocks.MockMarkdownRenderer{},
 		mockSpinnerFactory,
 	)
 }

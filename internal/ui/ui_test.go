@@ -12,16 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Mock dependencies
-type MockMarkdownRenderer = mocks.MockMarkdownRenderer
-
 func mockSpinnerFactory() spinner.Model {
 	return spinner.New()
 }
 
 func TestReadInput_ReturnsUserInput(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 	ctx := context.Background()
 	expected := "hello world"
 	prompt := "You: "
@@ -47,7 +44,7 @@ func TestReadInput_ReturnsUserInput(t *testing.T) {
 
 func TestReadInput_ContextCancelled(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -59,7 +56,7 @@ func TestReadInput_ContextCancelled(t *testing.T) {
 
 func TestReadPermission_Allow(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 	ctx := context.Background()
 	prompt := "Allow?"
 	var preview *models.ToolPreview = nil
@@ -88,7 +85,7 @@ func TestReadPermission_Allow(t *testing.T) {
 
 func TestWriteStatus(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 
 	go func() {
 		// Verify status update
@@ -110,7 +107,7 @@ func TestWriteStatus(t *testing.T) {
 
 func TestWriteMessage_AddsMessage(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 
 	go func() {
 		msg := <-channels.MessageChan
@@ -122,7 +119,7 @@ func TestWriteMessage_AddsMessage(t *testing.T) {
 
 func TestWriteModelList_SendsList(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 	models := []string{"a", "b"}
 
 	go func() {
@@ -135,7 +132,7 @@ func TestWriteModelList_SendsList(t *testing.T) {
 
 func TestCommands_ReturnsValidChannel(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, &MockMarkdownRenderer{}, mockSpinnerFactory)
+	ui := NewUI(channels, &mocks.MockMarkdownRenderer{}, mockSpinnerFactory)
 
 	ch := ui.Commands()
 	assert.NotNil(t, ch)

@@ -10,11 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// MockMarkdownRenderer for testing
-type MockMarkdownRenderer = mocks.MockMarkdownRenderer
-
 func TestRenderMarkdown_ValidMarkdown(t *testing.T) {
-	mockRenderer := &MockMarkdownRenderer{
+	mockRenderer := &mocks.MockMarkdownRenderer{
 		RenderFunc: func(s string, w int) (string, error) {
 			return "**RENDERED**: " + s, nil
 		},
@@ -28,7 +25,7 @@ func TestRenderMarkdown_ValidMarkdown(t *testing.T) {
 }
 
 func TestRenderMarkdown_Error(t *testing.T) {
-	mockRenderer := &MockMarkdownRenderer{
+	mockRenderer := &mocks.MockMarkdownRenderer{
 		RenderFunc: func(s string, w int) (string, error) {
 			return "", errors.New("render error")
 		},
@@ -43,7 +40,7 @@ func TestRenderMarkdown_Error(t *testing.T) {
 
 func TestRenderMarkdown_HugeInput(t *testing.T) {
 	// Performance test with mock
-	mockRenderer := &MockMarkdownRenderer{
+	mockRenderer := &mocks.MockMarkdownRenderer{
 		RenderFunc: func(s string, w int) (string, error) {
 			time.Sleep(10 * time.Millisecond) // Simulate work
 			return s, nil

@@ -3,13 +3,14 @@ package views
 import (
 	"testing"
 
+	"github.com/Cyclone1070/iav/internal/testing/mocks"
 	"github.com/Cyclone1070/iav/internal/ui/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderRoot_NormalState(t *testing.T) {
 	messages := []models.Message{{Role: "user", Content: "Hi"}}
-	renderer := &MockMarkdownRenderer{}
+	renderer := &mocks.MockMarkdownRenderer{}
 
 	vp := createTestViewport()
 	vp.SetContent(FormatChatContent(messages, 76, renderer))
@@ -40,7 +41,7 @@ func TestRenderRoot_WithPopup(t *testing.T) {
 		Viewport:      createTestViewport(),
 	}
 
-	result := RenderRoot(state, &MockMarkdownRenderer{})
+	result := RenderRoot(state, &mocks.MockMarkdownRenderer{})
 
 	assert.Contains(t, result, "Select Model")
 	assert.Contains(t, result, "a")
