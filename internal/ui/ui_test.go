@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/ui/models"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/ui/model"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,7 +18,7 @@ func mockSpinnerFactory() spinner.Model {
 
 func TestReadInput_ReturnsUserInput(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 	ctx := context.Background()
 	expected := "hello world"
 	prompt := "You: "
@@ -44,7 +44,7 @@ func TestReadInput_ReturnsUserInput(t *testing.T) {
 
 func TestReadInput_ContextCancelled(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -56,10 +56,10 @@ func TestReadInput_ContextCancelled(t *testing.T) {
 
 func TestReadPermission_Allow(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 	ctx := context.Background()
 	prompt := "Allow?"
-	var preview *models.ToolPreview = nil
+	var preview *model.ToolPreview = nil
 
 	go func() {
 		// Verify request sent
@@ -72,7 +72,7 @@ func TestReadPermission_Allow(t *testing.T) {
 				t.Error("Expected preview to be passed")
 			}
 			// Send response
-			channels.PermResp <- models.DecisionAllow
+			channels.PermResp <- model.DecisionAllow
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("Timeout waiting for permission request")
 		}
@@ -80,12 +80,12 @@ func TestReadPermission_Allow(t *testing.T) {
 
 	decision, err := ui.ReadPermission(ctx, prompt, preview)
 	assert.NoError(t, err)
-	assert.Equal(t, models.DecisionAllow, decision)
+	assert.Equal(t, model.DecisionAllow, decision)
 }
 
 func TestWriteStatus(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 
 	go func() {
 		// Verify status update
@@ -107,7 +107,7 @@ func TestWriteStatus(t *testing.T) {
 
 func TestWriteMessage_AddsMessage(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 
 	go func() {
 		msg := <-channels.MessageChan
@@ -119,7 +119,7 @@ func TestWriteMessage_AddsMessage(t *testing.T) {
 
 func TestWriteModelList_SendsList(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 	models := []string{"a", "b"}
 
 	go func() {
@@ -132,14 +132,14 @@ func TestWriteModelList_SendsList(t *testing.T) {
 
 func TestCommands_ReturnsValidChannel(t *testing.T) {
 	channels := NewUIChannels(config.DefaultConfig())
-	ui := NewUI(channels, mocks.NewMockMarkdownRenderer(), mockSpinnerFactory)
+	ui := NewUI(channels, mock.NewMockMarkdownRenderer(), mockSpinnerFactory)
 
 	ch := ui.Commands()
 	assert.NotNil(t, ch)
 
 	// Verify we can send/receive
 	go func() {
-		channels.CommandChan <- models.UICommand{Type: "test"}
+		channels.CommandChan <- model.UICommand{Type: "test"}
 	}()
 
 	select {

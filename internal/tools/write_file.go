@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 // WriteFile creates a new file in the workspace with the specified content and permissions.
@@ -16,9 +16,9 @@ import (
 // Returns an error if the file already exists, is binary, too large, or outside the workspace.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.WriteFileRequest) (*models.WriteFileResponse, error) {
+func WriteFile(ctx context.Context, wCtx *model.WorkspaceContext, req model.WriteFileRequest) (*model.WriteFileResponse, error) {
 	// Resolve path
-	abs, rel, err := services.Resolve(wCtx, req.Path)
+	abs, rel, err := service.Resolve(wCtx, req.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Wr
 	// Check if file already exists
 	_, err = wCtx.FS.Stat(abs)
 	if err == nil {
-		return nil, models.ErrFileExists
+		return nil, model.ErrFileExists
 	}
 	if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to check if file exists: %w", err)
@@ -40,13 +40,13 @@ func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Wr
 	contentBytes := []byte(req.Content)
 
 	if wCtx.BinaryDetector.IsBinaryContent(contentBytes) {
-		return nil, models.ErrBinaryFile
+		return nil, model.ErrBinaryFile
 	}
 
 	maxFileSize := wCtx.Config.Tools.MaxFileSize
 
 	if int64(len(contentBytes)) > maxFileSize {
-		return nil, models.ErrTooLarge
+		return nil, model.ErrTooLarge
 	}
 
 	filePerm := os.FileMode(0644)
@@ -63,7 +63,7 @@ func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Wr
 	checksum := wCtx.ChecksumManager.Compute(contentBytes)
 	wCtx.ChecksumManager.Update(abs, checksum)
 
-	return &models.WriteFileResponse{
+	return &model.WriteFileResponse{
 		AbsolutePath: abs,
 		RelativePath: rel,
 		BytesWritten: len(contentBytes),
@@ -74,7 +74,7 @@ func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Wr
 // writeFileAtomic writes content to a file atomically using temp file + rename pattern.
 // This ensures that if the process crashes mid-write, the original file remains intact.
 // The temp file is created in the same directory as the target to ensure atomic rename.
-func writeFileAtomic(ctx *models.WorkspaceContext, path string, content []byte, perm os.FileMode) error {
+func writeFileAtomic(ctx *model.WorkspaceContext, path string, content []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 
 	tmpPath, tmpFile, err := ctx.FS.CreateTemp(dir, ".tmp-*")

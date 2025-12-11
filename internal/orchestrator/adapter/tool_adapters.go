@@ -3,9 +3,9 @@ package adapter
 import (
 	"context"
 
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"github.com/Cyclone1070/iav/internal/tools"
-	toolModels "github.com/Cyclone1070/iav/internal/tools/models"
+	toolModels "github.com/Cyclone1070/iav/internal/tools/model"
 )
 
 // This file consolidates all tool adapters using the BaseAdapter pattern.

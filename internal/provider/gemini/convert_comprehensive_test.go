@@ -3,8 +3,8 @@ package gemini
 import (
 	"testing"
 
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"google.golang.org/genai"
 )
 
@@ -12,19 +12,19 @@ func TestToGeminiContents(t *testing.T) {
 	tests := []struct {
 		name     string
 		prompt   string
-		history  []models.Message
+		history  []model.Message
 		expected int // Expected number of contents
 	}{
 		{
 			name:     "Empty history with prompt",
 			prompt:   "Hello",
-			history:  []models.Message{},
+			history:  []model.Message{},
 			expected: 1,
 		},
 		{
 			name:   "User and assistant messages",
 			prompt: "",
-			history: []models.Message{
+			history: []model.Message{
 				{Role: "user", Content: "Hi"},
 				{Role: "assistant", Content: "Hello"},
 			},
@@ -33,10 +33,10 @@ func TestToGeminiContents(t *testing.T) {
 		{
 			name:   "Model message with tool calls",
 			prompt: "",
-			history: []models.Message{
+			history: []model.Message{
 				{
 					Role: "model",
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "1", Name: "test_tool", Args: map[string]any{"arg": "value"}},
 					},
 				},
@@ -46,10 +46,10 @@ func TestToGeminiContents(t *testing.T) {
 		{
 			name:   "Function message with tool results",
 			prompt: "",
-			history: []models.Message{
+			history: []model.Message{
 				{
 					Role: "function",
-					ToolResults: []models.ToolResult{
+					ToolResults: []model.ToolResult{
 						{ID: "1", Name: "test_tool", Content: "result"},
 					},
 				},

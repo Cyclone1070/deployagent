@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 func TestEditFile(t *testing.T) {
@@ -21,23 +21,23 @@ func TestEditFile(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	t.Run("conflict detection when cache checksum differs", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		originalContent := []byte("original content")
 		fs.CreateFile("/workspace/test.txt", originalContent, 0o644)
 
 		// Read file to populate cache
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
@@ -47,7 +47,7 @@ func TestEditFile(t *testing.T) {
 		fs.CreateFile("/workspace/test.txt", modifiedContent, 0o644)
 
 		// Try to edit - should fail with conflict
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "original content",
 				After:                "new content",
@@ -55,33 +55,33 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != models.ErrEditConflict {
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
+		if err != model.ErrEditConflict {
 			t.Errorf("expected ErrEditConflict, got %v", err)
 		}
 	})
 
 	t.Run("multiple operations", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("line1\nline2\nline3")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		// Read first to populate cache
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "line1",
 				After:                "modified1",
@@ -94,7 +94,7 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		resp, err := EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
+		resp, err := EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -116,25 +116,25 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("snippet not found", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "nonexistent",
 				After:                "replacement",
@@ -142,32 +142,32 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != models.ErrSnippetNotFound {
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
+		if err != model.ErrSnippetNotFound {
 			t.Errorf("expected ErrSnippetNotFound, got %v", err)
 		}
 	})
 
 	t.Run("expected replacements mismatch", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test test test")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "test",
 				After:                "replaced",
@@ -175,32 +175,32 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != models.ErrExpectedReplacementsMismatch {
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
+		if err != model.ErrExpectedReplacementsMismatch {
 			t.Errorf("expected ErrExpectedReplacementsMismatch, got %v", err)
 		}
 	})
 
 	t.Run("default ExpectedReplacements to 1 when omitted", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("replace me")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "replace me",
 				After:                "replaced",
@@ -208,7 +208,7 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		resp, err := EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
+		resp, err := EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -230,25 +230,25 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("default ExpectedReplacements fails on multiple matches", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test test")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "test",
 				After:                "replaced",
@@ -256,16 +256,16 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != models.ErrExpectedReplacementsMismatch {
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
+		if err != model.ErrExpectedReplacementsMismatch {
 			t.Errorf("expected ErrExpectedReplacementsMismatch, got %v", err)
 		}
 	})
 
 	t.Run("binary file rejection", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
-		detector := mocks.NewMockBinaryDetector()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
+		detector := mock.NewMockBinaryDetector()
 		detector.IsBinaryContentFunc = func(content []byte) bool {
 			return true
 		}
@@ -274,7 +274,7 @@ func TestEditFile(t *testing.T) {
 		content := []byte{0x00, 0x01, 0x02, 't', 'e', 's', 't'}
 		fs.CreateFile("/workspace/binary.bin", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
 			BinaryDetector:  detector,
 			ChecksumManager: checksumManager,
@@ -282,7 +282,7 @@ func TestEditFile(t *testing.T) {
 			Config:          *config.DefaultConfig(),
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "test",
 				After:                "replaced",
@@ -290,33 +290,33 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err := EditFile(context.Background(), ctx, models.EditFileRequest{Path: "binary.bin", Operations: ops})
-		if err != models.ErrBinaryFile {
+		_, err := EditFile(context.Background(), ctx, model.EditFileRequest{Path: "binary.bin", Operations: ops})
+		if err != model.ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
 	t.Run("permission preservation", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		originalPerm := os.FileMode(0755)
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, originalPerm)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "test",
 				After:                "modified",
@@ -324,7 +324,7 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -341,17 +341,17 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("file not found", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
-		ctx := &models.WorkspaceContext{
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "test",
 				After:                "replacement",
@@ -359,15 +359,15 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err := EditFile(context.Background(), ctx, models.EditFileRequest{Path: "nonexistent.txt", Operations: ops})
-		if err != models.ErrFileMissing {
+		_, err := EditFile(context.Background(), ctx, model.EditFileRequest{Path: "nonexistent.txt", Operations: ops})
+		if err != model.ErrFileMissing {
 			t.Errorf("expected ErrFileMissing, got %v", err)
 		}
 	})
 
 	t.Run("large content after edit", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		// Create file with unique marker just under limit
 		prefix := []byte("UNIQUE_MARKER_12345")
 		middle := make([]byte, int(maxFileSize)-100-len(prefix))
@@ -379,15 +379,15 @@ func TestEditFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
@@ -398,7 +398,7 @@ func TestEditFile(t *testing.T) {
 			largeReplacement[i] = 'B'
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               string(prefix),
 				After:                string(largeReplacement),
@@ -406,28 +406,28 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != models.ErrTooLarge {
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
+		if err != model.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})
 
 	t.Run("race condition detection - file modified between read and write", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		originalContent := []byte("original content")
 		fs.CreateFile("/workspace/test.txt", originalContent, 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		// Read file to populate cache
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
@@ -437,7 +437,7 @@ func TestEditFile(t *testing.T) {
 		fs.CreateFile("/workspace/test.txt", modifiedContent, 0o644)
 
 		// Try to edit - should fail with conflict due to revalidation
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "original content",
 				After:                "new content",
@@ -445,36 +445,36 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		_, err = EditFile(context.Background(), ctx, models.EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != models.ErrEditConflict {
+		_, err = EditFile(context.Background(), ctx, model.EditFileRequest{Path: "test.txt", Operations: ops})
+		if err != model.ErrEditConflict {
 			t.Errorf("expected ErrEditConflict due to race condition, got %v", err)
 		}
 	})
 
 	t.Run("edit through symlink chain inside workspace", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		// Create symlink chain: link1 -> link2 -> target.txt
 		fs.CreateSymlink("/workspace/link1", "/workspace/link2")
 		fs.CreateSymlink("/workspace/link2", "/workspace/target.txt")
 		content := []byte("original content")
 		fs.CreateFile("/workspace/target.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		// Read first to populate cache
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "link1"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "link1"})
 		if err != nil {
 			t.Fatalf("failed to read file through symlink chain: %v", err)
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "original content",
 				After:                "modified content",
@@ -482,7 +482,7 @@ func TestEditFile(t *testing.T) {
 			},
 		}
 
-		resp, err := EditFile(context.Background(), ctx, models.EditFileRequest{Path: "link1", Operations: ops})
+		resp, err := EditFile(context.Background(), ctx, model.EditFileRequest{Path: "link1", Operations: ops})
 		if err != nil {
 			t.Fatalf("unexpected error editing through symlink chain: %v", err)
 		}
@@ -503,23 +503,23 @@ func TestEditFile(t *testing.T) {
 	})
 
 	t.Run("edit through symlink chain escaping workspace", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		// Create chain: link1 -> link2 -> /tmp/outside/file.txt
 		fs.CreateSymlink("/workspace/link1", "/workspace/link2")
 		fs.CreateSymlink("/workspace/link2", "/tmp/outside/file.txt")
 		fs.CreateDir("/tmp/outside")
 		fs.CreateFile("/tmp/outside/file.txt", []byte("content"), 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		ops := []models.Operation{
+		ops := []model.Operation{
 			{
 				Before:               "content",
 				After:                "modified",
@@ -528,8 +528,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		// Try to edit through escaping chain - should fail
-		_, err := EditFile(context.Background(), ctx, models.EditFileRequest{Path: "link1", Operations: ops})
-		if err != models.ErrOutsideWorkspace {
+		_, err := EditFile(context.Background(), ctx, model.EditFileRequest{Path: "link1", Operations: ops})
+		if err != model.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
 		}
 	})

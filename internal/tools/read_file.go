@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 // ReadFile reads a file from the workspace with optional offset and limit for partial reads.
@@ -14,9 +14,9 @@ import (
 // Returns an error if the file is binary, too large, or outside the workspace.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.ReadFileRequest) (*models.ReadFileResponse, error) {
+func ReadFile(ctx context.Context, wCtx *model.WorkspaceContext, req model.ReadFileRequest) (*model.ReadFileResponse, error) {
 	// Resolve path
-	abs, rel, err := services.Resolve(wCtx, req.Path)
+	abs, rel, err := service.Resolve(wCtx, req.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Rea
 	// Enforce size limit
 	maxFileSize := wCtx.Config.Tools.MaxFileSize
 	if info.Size() > maxFileSize {
-		return nil, models.ErrTooLarge
+		return nil, model.ErrTooLarge
 	}
 
 	// Derive offset and limit
@@ -55,7 +55,7 @@ func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Rea
 
 	// Check for binary using content we already read
 	if wCtx.BinaryDetector.IsBinaryContent(contentBytes) {
-		return nil, models.ErrBinaryFile
+		return nil, model.ErrBinaryFile
 	}
 
 	// Convert to string
@@ -69,7 +69,7 @@ func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Rea
 		wCtx.ChecksumManager.Update(abs, checksum)
 	}
 
-	return &models.ReadFileResponse{
+	return &model.ReadFileResponse{
 		AbsolutePath: abs,
 		RelativePath: rel,
 		Size:         info.Size(),

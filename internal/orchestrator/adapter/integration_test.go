@@ -12,8 +12,8 @@ import (
 	"github.com/Cyclone1070/iav/internal/config"
 	orchadapter "github.com/Cyclone1070/iav/internal/orchestrator/adapter"
 	"github.com/Cyclone1070/iav/internal/tools"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,14 +27,14 @@ func TestToolAdapter_ReadFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Create workspace context
-	fileSystem := services.NewOSFileSystem()
-	ctx := &models.WorkspaceContext{
+	fileSystem := service.NewOSFileSystem()
+	ctx := &model.WorkspaceContext{
 		Config:          *config.DefaultConfig(),
 		FS:              fileSystem,
-		BinaryDetector:  &services.SystemBinaryDetector{},
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  &service.SystemBinaryDetector{},
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.OSCommandExecutor{},
+		CommandExecutor: &service.OSCommandExecutor{},
 	}
 
 	// Create adapter
@@ -49,7 +49,7 @@ func TestToolAdapter_ReadFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Result is valid JSON
-	var response models.ReadFileResponse
+	var response model.ReadFileResponse
 	assert.NoError(t, json.Unmarshal([]byte(result), &response))
 
 	// Content matches
@@ -67,17 +67,17 @@ func TestToolAdapter_AllTools(t *testing.T) {
 
 	// Create workspace context
 	workspaceRoot := t.TempDir()
-	fileSystem := services.NewOSFileSystem()
-	gitignoreSvc, _ := services.NewGitignoreService(workspaceRoot, fileSystem)
+	fileSystem := service.NewOSFileSystem()
+	gitignoreSvc, _ := service.NewGitignoreService(workspaceRoot, fileSystem)
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		Config:           *config.DefaultConfig(),
 		FS:               fileSystem,
-		BinaryDetector:   &services.SystemBinaryDetector{},
-		ChecksumManager:  services.NewChecksumManager(),
+		BinaryDetector:   &service.SystemBinaryDetector{},
+		ChecksumManager:  service.NewChecksumManager(),
 		WorkspaceRoot:    workspaceRoot,
 		GitignoreService: gitignoreSvc,
-		CommandExecutor:  &services.OSCommandExecutor{},
+		CommandExecutor:  &service.OSCommandExecutor{},
 	}
 
 	// Create all adapters
@@ -122,13 +122,13 @@ func TestToolAdapter_ErrorHandling(t *testing.T) {
 
 	// Create workspace context
 	workspaceRoot := t.TempDir()
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		Config:          *config.DefaultConfig(),
-		FS:              services.NewOSFileSystem(),
-		BinaryDetector:  &services.SystemBinaryDetector{},
-		ChecksumManager: services.NewChecksumManager(),
+		FS:              service.NewOSFileSystem(),
+		BinaryDetector:  &service.SystemBinaryDetector{},
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: &services.OSCommandExecutor{},
+		CommandExecutor: &service.OSCommandExecutor{},
 	}
 
 	// Create adapter

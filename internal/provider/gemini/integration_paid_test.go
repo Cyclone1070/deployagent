@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
-	"github.com/Cyclone1070/iav/internal/provider/models"
+	orchmodel "github.com/Cyclone1070/iav/internal/orchestrator/model"
+	"github.com/Cyclone1070/iav/internal/provider/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
@@ -30,9 +30,9 @@ func TestGeminiProvider_RealAPI_TextGeneration(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Generate text (short prompt to minimize cost)
-	req := &models.GenerateRequest{
+	req := &model.GenerateRequest{
 		Prompt: "Say hello",
-		History: []orchmodels.Message{
+		History: []orchmodel.Message{
 			{Role: "user", Content: "Say hello"},
 		},
 	}
@@ -42,7 +42,7 @@ func TestGeminiProvider_RealAPI_TextGeneration(t *testing.T) {
 	require.NotNil(t, resp)
 
 	// Should get a text response
-	assert.Equal(t, models.ResponseTypeText, resp.Content.Type)
+	assert.Equal(t, model.ResponseTypeText, resp.Content.Type)
 	assert.NotEmpty(t, resp.Content.Text)
 }
 
@@ -62,7 +62,7 @@ func TestGeminiProvider_RealAPI_TokenCounting(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Count tokens for a short message
-	history := []orchmodels.Message{
+	history := []orchmodel.Message{
 		{Role: "user", Content: "Hello world"},
 	}
 

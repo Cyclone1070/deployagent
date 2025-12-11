@@ -6,16 +6,16 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
 	"google.golang.org/genai"
 )
 
 // TestGenerate_HappyPath_TextResponse tests successful text generation.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_HappyPath_TextResponse(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		return &genai.GenerateContentResponse{
 			Candidates: []*genai.Candidate{
@@ -43,7 +43,7 @@ func TestGenerate_HappyPath_TextResponse(t *testing.T) {
 
 	req := &provider.GenerateRequest{
 		Prompt:  "Hello",
-		History: []models.Message{},
+		History: []model.Message{},
 	}
 
 	resp, err := p.Generate(context.Background(), req)
@@ -68,7 +68,7 @@ func TestGenerate_HappyPath_TextResponse(t *testing.T) {
 // TestGenerate_HappyPath_ToolCall tests successful tool call generation.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_HappyPath_ToolCall(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		return &genai.GenerateContentResponse{
 			Candidates: []*genai.Candidate{
@@ -129,7 +129,7 @@ func TestGenerate_HappyPath_ToolCall(t *testing.T) {
 // TestCountTokens_HappyPath tests successful token counting.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestCountTokens_HappyPath(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.CountTokensFunc = func(ctx context.Context, model string, contents []*genai.Content) (*genai.CountTokensResponse, error) {
 		return &genai.CountTokensResponse{
 			TotalTokens: 150,
@@ -141,7 +141,7 @@ func TestCountTokens_HappyPath(t *testing.T) {
 
 	p, _ := NewGeminiProvider(context.Background(), config.DefaultConfig(), mockClient, "gemini-mock")
 
-	messages := []models.Message{
+	messages := []model.Message{
 		{Role: "user", Content: "Hello"},
 		{Role: "assistant", Content: "Hi there"},
 		{Role: "user", Content: "How are you?"},
@@ -161,7 +161,7 @@ func TestCountTokens_HappyPath(t *testing.T) {
 // TestSetModel_GetModel tests model switching.
 // Uses mock model names since this test doesn't verify version parsing or sorting logic.
 func TestSetModel_GetModel(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.ListModelsFunc = func(ctx context.Context) ([]provider.ModelInfo, error) {
 		return []provider.ModelInfo{
 			{Name: "models/gemini-mock-1", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
@@ -187,7 +187,7 @@ func TestSetModel_GetModel(t *testing.T) {
 // TestGenerate_UnhappyPath_RateLimit tests rate limit error handling.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_UnhappyPath_RateLimit(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		return nil, &genai.APIError{
 			Code:    429,
@@ -227,7 +227,7 @@ func TestGenerate_UnhappyPath_RateLimit(t *testing.T) {
 // TestGenerate_UnhappyPath_AuthFailure tests authentication error handling.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_UnhappyPath_AuthFailure(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		return nil, &genai.APIError{
 			Code:    401,
@@ -267,7 +267,7 @@ func TestGenerate_UnhappyPath_AuthFailure(t *testing.T) {
 // TestGenerate_EdgeCase_EmptyResponse tests handling of empty candidate list.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_EmptyResponse(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		return &genai.GenerateContentResponse{
 			Candidates: []*genai.Candidate{},
@@ -302,7 +302,7 @@ func TestGenerate_EdgeCase_EmptyResponse(t *testing.T) {
 // TestGenerate_EdgeCase_SafetyBlock tests content blocked by safety filters.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_SafetyBlock(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		return &genai.GenerateContentResponse{
 			Candidates: []*genai.Candidate{
@@ -346,7 +346,7 @@ func TestGenerate_EdgeCase_SafetyBlock(t *testing.T) {
 // TestGenerate_EdgeCase_NilConfig tests handling of nil config.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_NilConfig(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		// Verify safety settings are still applied
 		// The config parameter is no longer passed to the mock,
@@ -386,7 +386,7 @@ func TestGenerate_EdgeCase_NilConfig(t *testing.T) {
 // TestGenerate_EdgeCase_NilHistory tests handling of nil history.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestGenerate_EdgeCase_NilHistory(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		// Should only have the prompt
 		if len(contents) != 1 {
@@ -426,7 +426,7 @@ func TestGenerate_EdgeCase_NilHistory(t *testing.T) {
 // TestGetCapabilities tests capability reporting.
 // Uses real model name with version to verify GetCapabilities correctly looks up cached provider.ModelInfo.
 func TestGetCapabilities(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.ListModelsFunc = func(ctx context.Context) ([]provider.ModelInfo, error) {
 		return []provider.ModelInfo{{Name: "models/gemini-1.5-pro", InputTokenLimit: 2_000_000, OutputTokenLimit: 8192}}, nil
 	}
@@ -450,7 +450,7 @@ func TestGetCapabilities(t *testing.T) {
 // TestDefineTools tests tool definition registration.
 // Uses mock model name since this test doesn't verify version parsing or sorting logic.
 func TestDefineTools(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.GenerateContentFunc = func(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		// Verify tools are passed
 		if len(config.Tools) == 0 {
@@ -696,7 +696,7 @@ func TestNewGeminiProviderWithLatest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := mocks.NewMockGeminiClient()
+			mockClient := mock.NewMockGeminiClient()
 			mockClient.ListModelsFunc = func(ctx context.Context) ([]provider.ModelInfo, error) {
 				return tt.models, nil
 			}
@@ -732,7 +732,7 @@ func TestNewGeminiProviderWithLatest(t *testing.T) {
 // TestNewGeminiProvider_InvalidModel tests validation of model names.
 // Uses real model names to verify validation logic works with actual model name patterns.
 func TestNewGeminiProvider_InvalidModel(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.ListModelsFunc = func(ctx context.Context) ([]provider.ModelInfo, error) {
 		return []provider.ModelInfo{
 			{Name: "models/gemini-1.5-flash", InputTokenLimit: 1_000_000, OutputTokenLimit: 8192},
@@ -752,7 +752,7 @@ func TestNewGeminiProvider_InvalidModel(t *testing.T) {
 
 // TestNewGeminiProvider_ListModelsError tests error handling when ListModels fails.
 func TestNewGeminiProvider_ListModelsError(t *testing.T) {
-	mockClient := mocks.NewMockGeminiClient()
+	mockClient := mock.NewMockGeminiClient()
 	mockClient.ListModelsFunc = func(ctx context.Context) ([]provider.ModelInfo, error) {
 		return nil, errors.New("API error")
 	}

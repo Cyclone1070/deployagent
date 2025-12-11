@@ -6,8 +6,8 @@ import (
 
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/orchestrator/adapter"
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"github.com/Cyclone1070/iav/internal/ui"
 )
 
@@ -15,14 +15,14 @@ import (
 type Orchestrator struct {
 	config   *config.Config
 	provider provider.Provider
-	policy   models.PolicyService
+	policy   model.PolicyService
 	ui       ui.UserInterface
 	tools    map[string]adapter.Tool
-	history  []models.Message
+	history  []model.Message
 }
 
 // New creates a new Orchestrator instance
-func New(cfg *config.Config, p provider.Provider, pol models.PolicyService, userInterface ui.UserInterface, tools []adapter.Tool) *Orchestrator {
+func New(cfg *config.Config, p provider.Provider, pol model.PolicyService, userInterface ui.UserInterface, tools []adapter.Tool) *Orchestrator {
 	if cfg == nil {
 		cfg = config.DefaultConfig()
 	}
@@ -38,7 +38,7 @@ func New(cfg *config.Config, p provider.Provider, pol models.PolicyService, user
 		policy:   pol,
 		ui:       userInterface,
 		tools:    toolMap,
-		history:  make([]models.Message, 0),
+		history:  make([]model.Message, 0),
 	}
 }
 
@@ -47,7 +47,7 @@ func (o *Orchestrator) Run(ctx context.Context, goal string) error {
 	maxTurns := o.config.Orchestrator.MaxTurns
 
 	// Initialize conversation with the goal
-	o.history = []models.Message{
+	o.history = []model.Message{
 		{
 			Role:    "user",
 			Content: goal,
@@ -96,7 +96,7 @@ func (o *Orchestrator) Run(ctx context.Context, goal string) error {
 		case provider.ResponseTypeRefusal:
 			o.handleRefusalResponse(response)
 		default:
-			o.history = append(o.history, models.Message{
+			o.history = append(o.history, model.Message{
 				Role:    "system",
 				Content: fmt.Sprintf("Error: unknown response type %v", response.Content.Type),
 			})
@@ -107,11 +107,11 @@ func (o *Orchestrator) Run(ctx context.Context, goal string) error {
 }
 
 // executeToolCall executes a single tool call and returns the result
-func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.ToolCall) models.ToolResult {
+func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall model.ToolCall) model.ToolResult {
 	// Check if tool exists
 	tool, exists := o.tools[toolCall.Name]
 	if !exists {
-		return models.ToolResult{
+		return model.ToolResult{
 			ID:      toolCall.ID,
 			Name:    toolCall.Name,
 			Content: "",
@@ -121,7 +121,7 @@ func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.Tool
 
 	// Policy check
 	if err := o.policy.CheckTool(ctx, toolCall.Name, toolCall.Args); err != nil {
-		return models.ToolResult{
+		return model.ToolResult{
 			ID:      toolCall.ID,
 			Name:    toolCall.Name,
 			Content: "",
@@ -133,7 +133,7 @@ func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.Tool
 	o.ui.WriteStatus("executing", fmt.Sprintf("Running %s...", toolCall.Name))
 	result, err := tool.Execute(ctx, toolCall.Args)
 	if err != nil {
-		return models.ToolResult{
+		return model.ToolResult{
 			ID:      toolCall.ID,
 			Name:    toolCall.Name,
 			Content: "",
@@ -141,7 +141,7 @@ func (o *Orchestrator) executeToolCall(ctx context.Context, toolCall models.Tool
 		}
 	}
 
-	return models.ToolResult{
+	return model.ToolResult{
 		ID:      toolCall.ID,
 		Name:    toolCall.Name,
 		Content: result,
@@ -236,7 +236,7 @@ func (o *Orchestrator) checkAndTruncateHistory(ctx context.Context) error {
 func (o *Orchestrator) handleToolCallResponse(ctx context.Context, response *provider.GenerateResponse) error {
 	// Validate tool calls
 	if len(response.Content.ToolCalls) == 0 {
-		o.history = append(o.history, models.Message{
+		o.history = append(o.history, model.Message{
 			Role:    "system",
 			Content: "Error: empty tool call list",
 		})
@@ -244,20 +244,20 @@ func (o *Orchestrator) handleToolCallResponse(ctx context.Context, response *pro
 	}
 
 	// Add model message with tool calls to history
-	o.history = append(o.history, models.Message{
+	o.history = append(o.history, model.Message{
 		Role:      "model",
 		ToolCalls: response.Content.ToolCalls,
 	})
 
 	// Execute ALL tool calls
-	toolResults := make([]models.ToolResult, 0, len(response.Content.ToolCalls))
+	toolResults := make([]model.ToolResult, 0, len(response.Content.ToolCalls))
 	for _, toolCall := range response.Content.ToolCalls {
 		result := o.executeToolCall(ctx, toolCall)
 		toolResults = append(toolResults, result)
 	}
 
 	// Add function message with all results to history
-	o.history = append(o.history, models.Message{
+	o.history = append(o.history, model.Message{
 		Role:        "function",
 		ToolResults: toolResults,
 	})
@@ -269,7 +269,7 @@ func (o *Orchestrator) handleToolCallResponse(ctx context.Context, response *pro
 func (o *Orchestrator) handleTextResponse(ctx context.Context, response *provider.GenerateResponse) error {
 	// Display text to user
 	o.ui.WriteMessage(response.Content.Text)
-	o.history = append(o.history, models.Message{
+	o.history = append(o.history, model.Message{
 		Role:    "assistant",
 		Content: response.Content.Text,
 	})
@@ -280,7 +280,7 @@ func (o *Orchestrator) handleTextResponse(ctx context.Context, response *provide
 		return fmt.Errorf("failed to read user input: %w", err)
 	}
 
-	o.history = append(o.history, models.Message{
+	o.history = append(o.history, model.Message{
 		Role:    "user",
 		Content: userInput,
 	})
@@ -291,7 +291,7 @@ func (o *Orchestrator) handleTextResponse(ctx context.Context, response *provide
 // handleRefusalResponse processes a refusal response from the provider
 func (o *Orchestrator) handleRefusalResponse(response *provider.GenerateResponse) {
 	o.ui.WriteStatus("blocked", "Model refused to generate")
-	o.history = append(o.history, models.Message{
+	o.history = append(o.history, model.Message{
 		Role:    "system",
 		Content: fmt.Sprintf("Model refused: %s", response.Content.RefusalReason),
 	})

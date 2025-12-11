@@ -9,34 +9,34 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 func TestFindFile_BasicGlob(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Simulate fd output
 		output := "/workspace/a/b/file.go\n/workspace/a/file.go\n"
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestFindFile_BasicGlob(t *testing.T) {
 func TestFindFile_Pagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Simulate 10 files
@@ -66,22 +66,22 @@ func TestFindFile_Pagination(t *testing.T) {
 		output += fmt.Sprintf("/workspace/file%d.txt\n", i)
 	}
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
 	// Request offset=2, limit=2
-	resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.txt", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 2, Limit: 2})
+	resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.txt", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 2, Limit: 2})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -107,29 +107,29 @@ func TestFindFile_Pagination(t *testing.T) {
 func TestFindFile_InvalidGlob(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Simulate fd error for invalid glob
-		proc := mocks.NewMockProcess()
+		proc := mock.NewMockProcess()
 		proc.WaitFunc = func() error {
-			return mocks.NewMockExitError(2)
+			return mock.NewMockExitError(2)
 		}
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "[", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	_, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "[", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err == nil {
 		t.Fatal("expected error for invalid glob, got nil")
 	}
@@ -138,20 +138,20 @@ func TestFindFile_InvalidGlob(t *testing.T) {
 func TestFindFile_PathOutsideWorkspace(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: mocks.NewMockCommandExecutor(),
+		CommandExecutor: mock.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "../outside", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err != models.ErrOutsideWorkspace {
+	_, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.go", SearchPath: "../outside", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	if err != model.ErrOutsideWorkspace {
 		t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 	}
 }
@@ -159,20 +159,20 @@ func TestFindFile_PathOutsideWorkspace(t *testing.T) {
 func TestFindFile_NonExistentPath(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: mocks.NewMockCommandExecutor(),
+		CommandExecutor: mock.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "nonexistent/dir", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err != models.ErrFileMissing {
+	_, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.go", SearchPath: "nonexistent/dir", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	if err != model.ErrFileMissing {
 		t.Errorf("expected ErrFileMissing, got %v", err)
 	}
 }
@@ -180,28 +180,28 @@ func TestFindFile_NonExistentPath(t *testing.T) {
 func TestFindFile_CommandFailure(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		proc := mocks.NewMockProcess()
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		proc := mock.NewMockProcess()
 		proc.WaitFunc = func() error {
-			return mocks.NewMockExitError(2)
+			return mock.NewMockExitError(2)
 		}
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	_, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err == nil {
 		t.Fatal("expected error for command failure, got nil")
 	}
@@ -210,27 +210,27 @@ func TestFindFile_CommandFailure(t *testing.T) {
 func TestFindFile_ShellInjection(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		capturedCmd = cmd
-		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
 	pattern := "*.go; rm -rf /"
-	_, _ = FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: pattern, SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	_, _ = FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: pattern, SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 
 	// Verify pattern is passed as literal argument, not shell-interpreted
 	found := slices.Contains(capturedCmd, pattern)
@@ -243,25 +243,25 @@ func TestFindFile_ShellInjection(t *testing.T) {
 func TestFindFile_UnicodeFilenames(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		output := "/workspace/🚀.txt\n/workspace/文件.txt\n"
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.txt", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.txt", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestFindFile_UnicodeFilenames(t *testing.T) {
 func TestFindFile_DeeplyNested(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Simulate path with 100 segments
@@ -303,21 +303,21 @@ func TestFindFile_DeeplyNested(t *testing.T) {
 	}
 	deepPath += "/file.txt"
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(deepPath + "\n"), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(deepPath + "\n"), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.txt", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.txt", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -330,25 +330,25 @@ func TestFindFile_DeeplyNested(t *testing.T) {
 func TestFindFile_NoMatches(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Simulate fd returning exit code 0 (no matches, empty output)
-		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.nonexistent", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.nonexistent", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -364,31 +364,31 @@ func TestFindFile_NoMatches(t *testing.T) {
 func TestFindFile_IncludeIgnored(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Test with includeIgnored=false (default behavior, should respect gitignore)
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Verify --no-ignore is NOT present
 		if slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
 		}
 		// Simulate fd output without ignored files
 		output := "/workspace/visible.go\n"
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -398,17 +398,17 @@ func TestFindFile_IncludeIgnored(t *testing.T) {
 	}
 
 	// Test with includeIgnored=true (should include ignored files)
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Verify --no-ignore IS present
 		if !slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to be present when includeIgnored=true")
 		}
 		// Simulate fd output with ignored files
 		output := "/workspace/ignored.go\n/workspace/visible.go\n"
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	resp, err = FindFile(context.Background(), ctx, models.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: true, Offset: 0, Limit: 100})
+	resp, err = FindFile(context.Background(), ctx, model.FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: true, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -440,23 +440,23 @@ func TestFindFile_IncludeIgnored(t *testing.T) {
 func TestFindFile_LimitValidation(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
 			WorkspaceRoot:   workspaceRoot,
 			CommandExecutor: mockRunner,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{
+		resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{
 			Pattern: "*.go",
 			Limit:   0, // Should use DefaultFindFileLimit
 		})
@@ -473,14 +473,14 @@ func TestFindFile_LimitValidation(t *testing.T) {
 		cfg.Tools.DefaultFindFileLimit = 25
 		cfg.Tools.MaxFindFileLimit = 50
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
 			WorkspaceRoot:   workspaceRoot,
 			CommandExecutor: mockRunner,
 			Config:          *cfg,
 		}
 
-		resp, err := FindFile(context.Background(), ctx, models.FindFileRequest{
+		resp, err := FindFile(context.Background(), ctx, model.FindFileRequest{
 			Pattern: "*.go",
 			Limit:   30,
 		})

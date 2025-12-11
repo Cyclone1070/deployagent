@@ -9,16 +9,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 // FindFile searches for files matching a glob pattern within the workspace using the fd command.
 // It supports pagination, optional ignoring of .gitignore rules, and workspace path validation.
-func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.FindFileRequest) (*models.FindFileResponse, error) {
+func FindFile(ctx context.Context, wCtx *model.WorkspaceContext, req model.FindFileRequest) (*model.FindFileResponse, error) {
 
 	// Resolve search path
-	absSearchPath, _, err := services.Resolve(wCtx, req.SearchPath)
+	absSearchPath, _, err := service.Resolve(wCtx, req.SearchPath)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 	info, err := wCtx.FS.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, models.ErrFileMissing
+			return nil, model.ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat search path: %w", err)
 	}
@@ -67,7 +67,7 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 	}
 
 	// Execute command with streaming
-	proc, stdout, _, err := wCtx.CommandExecutor.Start(ctx, cmd, models.ProcessOptions{Dir: absSearchPath})
+	proc, stdout, _, err := wCtx.CommandExecutor.Start(ctx, cmd, model.ProcessOptions{Dir: absSearchPath})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start fd command: %w", err)
 	}
@@ -115,9 +115,9 @@ func FindFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Fin
 	sort.Strings(matches)
 
 	// Apply pagination
-	paginatedMatches, pagination := services.ApplyPagination(matches, offset, limit)
+	paginatedMatches, pagination := service.ApplyPagination(matches, offset, limit)
 
-	return &models.FindFileResponse{
+	return &model.FindFileResponse{
 		Matches:    paginatedMatches,
 		Offset:     offset,
 		Limit:      limit,

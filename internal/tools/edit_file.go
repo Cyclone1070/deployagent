@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 // EditFile applies edit operations to an existing file in the workspace.
@@ -18,9 +18,9 @@ import (
 // For guaranteed conflict-free edits, external file locking would be required.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.EditFileRequest) (*models.EditFileResponse, error) {
+func EditFile(ctx context.Context, wCtx *model.WorkspaceContext, req model.EditFileRequest) (*model.EditFileResponse, error) {
 	// Resolve path
-	abs, rel, err := services.Resolve(wCtx, req.Path)
+	abs, rel, err := service.Resolve(wCtx, req.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 	info, err := wCtx.FS.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, models.ErrFileMissing
+			return nil, model.ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat file: %w", err)
 	}
@@ -42,7 +42,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 
 	// Check for binary using content we already read
 	if wCtx.BinaryDetector.IsBinaryContent(contentBytes) {
-		return nil, models.ErrBinaryFile
+		return nil, model.ErrBinaryFile
 	}
 
 	content := string(contentBytes)
@@ -53,7 +53,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 	// Check for conflicts with cached version
 	priorChecksum, ok := wCtx.ChecksumManager.Get(abs)
 	if ok && priorChecksum != currentChecksum {
-		return nil, models.ErrEditConflict
+		return nil, model.ErrEditConflict
 	}
 
 	// Preserve original permissions
@@ -70,11 +70,11 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 		count := strings.Count(content, op.Before)
 
 		if count == 0 {
-			return nil, models.ErrSnippetNotFound
+			return nil, model.ErrSnippetNotFound
 		}
 
 		if count != op.ExpectedReplacements {
-			return nil, models.ErrExpectedReplacementsMismatch
+			return nil, model.ErrExpectedReplacementsMismatch
 		}
 
 		content = strings.Replace(content, op.Before, op.After, op.ExpectedReplacements)
@@ -86,7 +86,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 	// Check size limit
 	maxFileSize := wCtx.Config.Tools.MaxFileSize
 	if int64(len(newContentBytes)) > maxFileSize {
-		return nil, models.ErrTooLarge
+		return nil, model.ErrTooLarge
 	}
 
 	// Only revalidate if we had a cached checksum to check against
@@ -98,7 +98,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 		}
 		revalidationChecksum := wCtx.ChecksumManager.Compute(revalidationBytes)
 		if revalidationChecksum != currentChecksum {
-			return nil, models.ErrEditConflict
+			return nil, model.ErrEditConflict
 		}
 	}
 
@@ -111,7 +111,7 @@ func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.Edi
 	newChecksum := wCtx.ChecksumManager.Compute(newContentBytes)
 	wCtx.ChecksumManager.Update(abs, newChecksum)
 
-	return &models.EditFileResponse{
+	return &model.EditFileResponse{
 		AbsolutePath:      abs,
 		RelativePath:      rel,
 		OperationsApplied: operationsApplied,

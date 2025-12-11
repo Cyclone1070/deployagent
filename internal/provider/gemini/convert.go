@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"google.golang.org/genai"
 )
 
 // toGeminiContents converts a prompt and history to Gemini Content format.
-func toGeminiContents(prompt string, history []models.Message) []*genai.Content {
+func toGeminiContents(prompt string, history []model.Message) []*genai.Content {
 	contents := make([]*genai.Content, 0, len(history)+1)
 
 	// Add history
@@ -35,7 +35,7 @@ func toGeminiContents(prompt string, history []models.Message) []*genai.Content 
 }
 
 // messageToGeminiContent converts a single message to Gemini Content format.
-func messageToGeminiContent(msg models.Message) *genai.Content {
+func messageToGeminiContent(msg model.Message) *genai.Content {
 	// Determine role
 	role := "user"
 	if msg.Role == "assistant" || msg.Role == "model" {
@@ -93,7 +93,7 @@ func messageToGeminiContent(msg models.Message) *genai.Content {
 }
 
 // messagesToGeminiContents converts messages to Gemini Content format.
-func messagesToGeminiContents(messages []models.Message) []*genai.Content {
+func messagesToGeminiContents(messages []model.Message) []*genai.Content {
 	contents := make([]*genai.Content, 0, len(messages))
 
 	for _, msg := range messages {
@@ -301,11 +301,11 @@ func buildResponse(candidate *genai.Candidate, usage *genai.GenerateContentRespo
 
 // buildToolCallResponse builds a tool call response from a candidate.
 func buildToolCallResponse(candidate *genai.Candidate, usage *genai.GenerateContentResponseUsageMetadata, modelUsed string) *provider.GenerateResponse {
-	toolCalls := make([]models.ToolCall, 0)
+	toolCalls := make([]model.ToolCall, 0)
 
 	for _, part := range candidate.Content.Parts {
 		if part.FunctionCall != nil {
-			toolCalls = append(toolCalls, models.ToolCall{
+			toolCalls = append(toolCalls, model.ToolCall{
 				// TODO: Gemini doesn't provide IDs. Consider generating synthetic IDs
 				// if future features require correlating tool calls with results.
 				ID:   "", // Gemini doesn't provide IDs

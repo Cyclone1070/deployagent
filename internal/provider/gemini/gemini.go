@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 )
 
 // versionRegex is compiled once at package initialization for performance
@@ -181,7 +181,7 @@ func NewGeminiProviderWithLatest(ctx context.Context, cfg *config.Config, client
 }
 
 // NewGeminiProvider creates a new Gemini provider with the given client and model.
-// It validates that the provided model exists in the filtered list of available gemini-* models.
+// It validates that the provided model exists in the filtered list of available gemini-* model.
 // The model parameter can be provided with or without the "models/" prefix.
 func NewGeminiProvider(ctx context.Context, cfg *config.Config, client GeminiClient, model string) (*GeminiProvider, error) {
 	if cfg == nil {
@@ -265,7 +265,7 @@ func (p *GeminiProvider) GenerateStream(ctx context.Context, req *provider.Gener
 }
 
 // CountTokens counts the number of tokens in the given messages.
-func (p *GeminiProvider) CountTokens(ctx context.Context, messages []models.Message) (int, error) {
+func (p *GeminiProvider) CountTokens(ctx context.Context, messages []model.Message) (int, error) {
 	p.mu.RLock()
 	model := p.model
 	p.mu.RUnlock()

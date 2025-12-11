@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/ui/models"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	uimodel "github.com/Cyclone1070/iav/internal/ui/model"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,7 +24,7 @@ func createTestModel() BubbleTeaModel {
 		channels.SetModelChan,
 		channels.CommandChan,
 		channels.ReadyChan,
-		mocks.NewMockMarkdownRenderer(),
+		mock.NewMockMarkdownRenderer(),
 		mockSpinnerFactory,
 	)
 }
@@ -67,7 +67,7 @@ func TestUpdate_SlashModels_OpensPopup(t *testing.T) {
 	model.state.Input.SetValue("/models")
 	model.state.CanSubmit = true
 
-	cmdChan := make(chan models.UICommand, 1)
+	cmdChan := make(chan uimodel.UICommand, 1)
 	model.commandChan = cmdChan
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -99,9 +99,9 @@ func TestUpdate_PopupNavigation_Down(t *testing.T) {
 
 func TestUpdate_PermissionYes(t *testing.T) {
 	model := createTestModel()
-	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
+	model.state.PendingPermission = &uimodel.PermissionRequest{Prompt: "Allow?"}
 
-	permChan := make(chan models.PermissionDecision, 1)
+	permChan := make(chan uimodel.PermissionDecision, 1)
 	model.permResp = permChan
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}}
@@ -112,7 +112,7 @@ func TestUpdate_PermissionYes(t *testing.T) {
 
 	select {
 	case decision := <-permChan:
-		assert.Equal(t, models.DecisionAllow, decision)
+		assert.Equal(t, uimodel.DecisionAllow, decision)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for decision")
 	}
@@ -187,7 +187,7 @@ func TestUpdate_PopupNavigation_Enter(t *testing.T) {
 	model.state.ModelList = []string{"model-a"}
 	model.state.ModelListIndex = 0
 
-	cmdChan := make(chan models.UICommand, 1)
+	cmdChan := make(chan uimodel.UICommand, 1)
 	model.commandChan = cmdChan
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -207,9 +207,9 @@ func TestUpdate_PopupNavigation_Enter(t *testing.T) {
 
 func TestUpdate_Permission_Deny(t *testing.T) {
 	model := createTestModel()
-	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
+	model.state.PendingPermission = &uimodel.PermissionRequest{Prompt: "Allow?"}
 
-	permChan := make(chan models.PermissionDecision, 1)
+	permChan := make(chan uimodel.PermissionDecision, 1)
 	model.permResp = permChan
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
@@ -220,7 +220,7 @@ func TestUpdate_Permission_Deny(t *testing.T) {
 
 	select {
 	case decision := <-permChan:
-		assert.Equal(t, models.DecisionDeny, decision)
+		assert.Equal(t, uimodel.DecisionDeny, decision)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for decision")
 	}
@@ -228,9 +228,9 @@ func TestUpdate_Permission_Deny(t *testing.T) {
 
 func TestUpdate_Permission_AllowAlways(t *testing.T) {
 	model := createTestModel()
-	model.state.PendingPermission = &models.PermissionRequest{Prompt: "Allow?"}
+	model.state.PendingPermission = &uimodel.PermissionRequest{Prompt: "Allow?"}
 
-	permChan := make(chan models.PermissionDecision, 1)
+	permChan := make(chan uimodel.PermissionDecision, 1)
 	model.permResp = permChan
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
@@ -241,7 +241,7 @@ func TestUpdate_Permission_AllowAlways(t *testing.T) {
 
 	select {
 	case decision := <-permChan:
-		assert.Equal(t, models.DecisionAllowAlways, decision)
+		assert.Equal(t, uimodel.DecisionAllowAlways, decision)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for decision")
 	}

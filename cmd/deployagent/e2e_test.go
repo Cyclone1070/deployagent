@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
-	providermodels "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	uimodels "github.com/Cyclone1070/iav/internal/ui/models"
+	orchmodel "github.com/Cyclone1070/iav/internal/orchestrator/model"
+	providermodel "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	uimodel "github.com/Cyclone1070/iav/internal/ui/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +29,7 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 
 	// Create Mock UI
 	var inputCount int
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		inputCount++
 		if inputCount > 1 {
@@ -43,12 +43,12 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 	}
 
 	// Track what orchestrator sends to provider
-	var allProviderCalls []providermodels.GenerateRequest
+	var allProviderCalls []providermodel.GenerateRequest
 	var mu sync.Mutex
 
 	// Create mock provider
-	mockProvider := mocks.NewMockProvider().
-		WithToolCallResponse([]orchmodels.ToolCall{
+	mockProvider := mock.NewMockProvider().
+		WithToolCallResponse([]orchmodel.ToolCall{
 			{
 				ID:   "call_1",
 				Name: "list_directory",
@@ -63,13 +63,13 @@ func TestInteractiveMode_FullFlow(t *testing.T) {
 		WithTextResponse("Found files in current directory")
 
 	// Capture provider inputs
-	mockProvider.OnGenerateCalled = func(req *providermodels.GenerateRequest) {
+	mockProvider.OnGenerateCalled = func(req *providermodel.GenerateRequest) {
 		mu.Lock()
 		defer mu.Unlock()
 		allProviderCalls = append(allProviderCalls, *req)
 	}
 
-	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
+	providerFactory := func(ctx context.Context) (providermodel.Provider, error) {
 		return mockProvider, nil
 	}
 
@@ -183,7 +183,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	var mu sync.Mutex
 
 	// Create mock provider with ListModels implementation
-	mockProvider := mocks.NewMockProvider()
+	mockProvider := mock.NewMockProvider()
 	mockProvider.ListModelsFunc = func(ctx context.Context) ([]string, error) {
 		mu.Lock()
 		listModelsCalled = true
@@ -191,7 +191,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 		return expectedModels, nil
 	}
 
-	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
+	providerFactory := func(ctx context.Context) (providermodel.Provider, error) {
 		return mockProvider, nil
 	}
 
@@ -203,10 +203,10 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	readyChan := make(chan struct{})
 
 	startBlocker := make(chan struct{})
-	commandChan := make(chan uimodels.UICommand, 1)
+	commandChan := make(chan uimodel.UICommand, 1)
 
 	// Create Mock UI using constructor
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.StartBlocker = startBlocker
 	mockUI.CommandsChan = commandChan
 	mockUI.OnModelListWritten = func(models []string) {
@@ -245,7 +245,7 @@ func TestInteractiveMode_ListModelsFromProvider(t *testing.T) {
 	}
 
 	// Send list_models command
-	commandChan <- uimodels.UICommand{Type: "list_models"}
+	commandChan <- uimodel.UICommand{Type: "list_models"}
 
 	// Wait for response
 	select {
@@ -281,7 +281,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 	var setModelArg string
 	var mu sync.Mutex
 
-	mockProvider := mocks.NewMockProvider()
+	mockProvider := mock.NewMockProvider()
 	mockProvider.SetModelFunc = func(model string) error {
 		mu.Lock()
 		setModelCalled = true
@@ -290,7 +290,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 		return nil
 	}
 
-	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
+	providerFactory := func(ctx context.Context) (providermodel.Provider, error) {
 		return mockProvider, nil
 	}
 
@@ -298,10 +298,10 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 	readyChan := make(chan struct{})
 
 	startBlocker := make(chan struct{})
-	commandChan := make(chan uimodels.UICommand, 1)
+	commandChan := make(chan uimodel.UICommand, 1)
 
 	// Create Mock UI using constructor
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.StartBlocker = startBlocker
 	mockUI.CommandsChan = commandChan
 	mockUI.OnReadyCalled = func() {
@@ -336,7 +336,7 @@ func TestInteractiveMode_SwitchModelCallsProvider(t *testing.T) {
 
 	// Send switch_model command
 	targetModel := "gemini-1.5-flash"
-	commandChan <- uimodels.UICommand{
+	commandChan <- uimodel.UICommand{
 		Type: "switch_model",
 		Args: map[string]string{"model": targetModel},
 	}

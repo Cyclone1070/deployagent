@@ -7,20 +7,20 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
 	"github.com/Cyclone1070/iav/internal/ui"
-	uimodels "github.com/Cyclone1070/iav/internal/ui/models"
+	uimodel "github.com/Cyclone1070/iav/internal/ui/model"
 )
 
-// policyService implements models.PolicyService
+// policyService implements model.PolicyService
 type policyService struct {
-	policy *models.Policy
+	policy *model.Policy
 	ui     ui.UserInterface
 	mu     sync.RWMutex // Protects SessionAllow maps
 }
 
 // NewPolicyService creates a new PolicyService instance
-func NewPolicyService(policy *models.Policy, userInterface ui.UserInterface) models.PolicyService {
+func NewPolicyService(policy *model.Policy, userInterface ui.UserInterface) model.PolicyService {
 	return &policyService{
 		policy: policy,
 		ui:     userInterface,
@@ -58,7 +58,7 @@ func (p *policyService) CheckShell(ctx context.Context, command []string) error 
 	prompt := fmt.Sprintf("Agent wants to execute shell command: %s\nAllow this command?", root)
 
 	// Create preview
-	preview := &uimodels.ToolPreview{
+	preview := &uimodel.ToolPreview{
 		Type: "shell_command",
 		Data: map[string]any{
 			"command": command,
@@ -71,11 +71,11 @@ func (p *policyService) CheckShell(ctx context.Context, command []string) error 
 	}
 
 	switch decision {
-	case uimodels.DecisionAllow:
+	case uimodel.DecisionAllow:
 		return nil
-	case uimodels.DecisionDeny:
+	case uimodel.DecisionDeny:
 		return fmt.Errorf("user denied command '%s'", root)
-	case uimodels.DecisionAllowAlways:
+	case uimodel.DecisionAllowAlways:
 		// Update SessionAllow (write lock)
 		p.mu.Lock()
 		if p.policy.Shell.SessionAllow == nil {
@@ -115,9 +115,9 @@ func (p *policyService) CheckTool(ctx context.Context, toolName string, args map
 	prompt := fmt.Sprintf("Agent wants to use tool: %s\nAllow this tool?", toolName)
 
 	// Create preview if applicable
-	var preview *uimodels.ToolPreview
+	var preview *uimodel.ToolPreview
 	if toolName == "edit_file" {
-		preview = &uimodels.ToolPreview{
+		preview = &uimodel.ToolPreview{
 			Type: "edit_operations",
 			Data: args,
 		}
@@ -129,11 +129,11 @@ func (p *policyService) CheckTool(ctx context.Context, toolName string, args map
 	}
 
 	switch decision {
-	case uimodels.DecisionAllow:
+	case uimodel.DecisionAllow:
 		return nil
-	case uimodels.DecisionDeny:
+	case uimodel.DecisionDeny:
 		return fmt.Errorf("user denied tool '%s'", toolName)
-	case uimodels.DecisionAllowAlways:
+	case uimodel.DecisionAllowAlways:
 		// Update SessionAllow (write lock)
 		p.mu.Lock()
 		if p.policy.Tools.SessionAllow == nil {

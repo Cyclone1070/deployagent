@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"google.golang.org/genai"
 )
 

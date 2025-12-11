@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Cyclone1070/iav/internal/ui/models"
-	"github.com/Cyclone1070/iav/internal/ui/services"
-	"github.com/Cyclone1070/iav/internal/ui/views"
+	"github.com/Cyclone1070/iav/internal/ui/model"
+	"github.com/Cyclone1070/iav/internal/ui/service"
+	"github.com/Cyclone1070/iav/internal/ui/view"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -15,23 +15,23 @@ import (
 
 // BubbleTeaModel implements tea.Model
 type BubbleTeaModel struct {
-	state models.State
+	state model.State
 
 	// Dependencies
-	renderer services.MarkdownRenderer
+	renderer service.MarkdownRenderer
 
 	// Channels for communication with orchestrator
 	inputReq      <-chan InputRequest
 	inputResp     chan<- string
 	permReq       <-chan PermRequest
-	permResp      chan<- models.PermissionDecision
+	permResp      chan<- model.PermissionDecision
 	statusChan    <-chan StatusMsg
 	messageChan   <-chan string
 	modelListChan <-chan []string
 	setModelChan  <-chan string
 
 	// UI -> Orchestrator
-	commandChan chan<- models.UICommand
+	commandChan chan<- model.UICommand
 
 	// Ready signal
 	readyChan chan<- struct{}
@@ -41,7 +41,7 @@ type BubbleTeaModel struct {
 
 // View renders the UI
 func (m BubbleTeaModel) View() string {
-	return views.RenderRoot(m.state, m.renderer)
+	return view.RenderRoot(m.state, m.renderer)
 }
 
 // ... (helpers)
@@ -54,14 +54,14 @@ func newBubbleTeaModel(
 	inputReq <-chan InputRequest,
 	inputResp chan<- string,
 	permReq <-chan PermRequest,
-	permResp chan<- models.PermissionDecision,
+	permResp chan<- model.PermissionDecision,
 	statusChan <-chan StatusMsg,
 	messageChan <-chan string,
 	modelListChan <-chan []string,
 	setModelChan <-chan string,
-	commandChan chan<- models.UICommand,
+	commandChan chan<- model.UICommand,
 	readyChan chan<- struct{},
-	renderer services.MarkdownRenderer,
+	renderer service.MarkdownRenderer,
 	spinnerFactory SpinnerFactory,
 ) BubbleTeaModel {
 	// Initialize components
@@ -74,11 +74,11 @@ func newBubbleTeaModel(
 	sp := spinnerFactory()
 
 	return BubbleTeaModel{
-		state: models.State{
+		state: model.State{
 			Input:    ti,
 			Viewport: vp,
 			Spinner:  sp,
-			Messages: []models.Message{},
+			Messages: []model.Message{},
 		},
 		renderer:      renderer,
 		inputReq:      inputReq,
@@ -159,7 +159,7 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, listenForInputRequests(m.inputReq)
 
 	case permRequestMsg:
-		m.state.PendingPermission = &models.PermissionRequest{
+		m.state.PendingPermission = &model.PermissionRequest{
 			Prompt:  msg.Prompt,
 			Preview: msg.Preview,
 		}
@@ -171,7 +171,7 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, listenForStatus(m.statusChan)
 
 	case messageReceivedMsg:
-		m.state.Messages = append(m.state.Messages, models.Message{
+		m.state.Messages = append(m.state.Messages, model.Message{
 			Role:    "assistant",
 			Content: string(msg),
 		})
@@ -213,7 +213,7 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (BubbleTeaModel, tea.Cmd,
 		case "enter":
 			// Send switch model command
 			if m.state.ModelListIndex < len(m.state.ModelList) {
-				m.commandChan <- models.UICommand{
+				m.commandChan <- model.UICommand{
 					Type: "switch_model",
 					Args: map[string]string{
 						"model": m.state.ModelList[m.state.ModelListIndex],
@@ -231,13 +231,13 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (BubbleTeaModel, tea.Cmd,
 	if m.state.PendingPermission != nil {
 		switch msg.String() {
 		case "y":
-			m.permResp <- models.DecisionAllow
+			m.permResp <- model.DecisionAllow
 			m.state.PendingPermission = nil
 		case "n":
-			m.permResp <- models.DecisionDeny
+			m.permResp <- model.DecisionDeny
 			m.state.PendingPermission = nil
 		case "a":
-			m.permResp <- models.DecisionAllowAlways
+			m.permResp <- model.DecisionAllowAlways
 			m.state.PendingPermission = nil
 		}
 		return m, nil, true
@@ -259,7 +259,7 @@ func (m BubbleTeaModel) handleKeyPress(msg tea.KeyMsg) (BubbleTeaModel, tea.Cmd,
 			}
 
 			// Send user message
-			m.state.Messages = append(m.state.Messages, models.Message{
+			m.state.Messages = append(m.state.Messages, model.Message{
 				Role:    "user",
 				Content: input,
 			})
@@ -287,10 +287,10 @@ func (m BubbleTeaModel) handleCommand(input string) (BubbleTeaModel, tea.Cmd) {
 	switch cmd {
 	case "/models":
 		// Request model list
-		m.commandChan <- models.UICommand{Type: "list_models"}
+		m.commandChan <- model.UICommand{Type: "list_models"}
 		m.state.Input.SetValue("")
 	case "/help":
-		m.state.Messages = append(m.state.Messages, models.Message{
+		m.state.Messages = append(m.state.Messages, model.Message{
 			Role:    "assistant",
 			Content: "Available commands:\n- /models - List and switch models\n- /help - Show this help",
 		})
@@ -303,7 +303,7 @@ func (m BubbleTeaModel) handleCommand(input string) (BubbleTeaModel, tea.Cmd) {
 
 // updateViewport updates the viewport content
 func (m *BubbleTeaModel) updateViewport() {
-	content := views.FormatChatContent(m.state.Messages, m.state.Width-4, m.renderer)
+	content := view.FormatChatContent(m.state.Messages, m.state.Width-4, m.renderer)
 	m.state.Viewport.SetContent(content)
 	m.state.Viewport.GotoBottom()
 }

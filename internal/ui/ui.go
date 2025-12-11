@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/ui/models"
-	"github.com/Cyclone1070/iav/internal/ui/services"
+	"github.com/Cyclone1070/iav/internal/ui/model"
+	"github.com/Cyclone1070/iav/internal/ui/service"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -17,14 +17,14 @@ type UI struct {
 	inputReq      chan InputRequest
 	inputResp     chan string
 	permReq       chan PermRequest
-	permResp      chan models.PermissionDecision
+	permResp      chan model.PermissionDecision
 	statusChan    chan StatusMsg
 	messageChan   chan string
 	modelListChan chan []string
 	setModelChan  chan string
 
 	// UI -> Orchestrator
-	commandChan chan models.UICommand
+	commandChan chan model.UICommand
 
 	// Ready signal
 	readyChan chan struct{}
@@ -38,7 +38,7 @@ type InputRequest struct {
 
 type PermRequest struct {
 	Prompt  string
-	Preview *models.ToolPreview
+	Preview *model.ToolPreview
 }
 
 type StatusMsg struct {
@@ -51,12 +51,12 @@ type UIChannels struct {
 	InputReq      chan InputRequest
 	InputResp     chan string
 	PermReq       chan PermRequest
-	PermResp      chan models.PermissionDecision
+	PermResp      chan model.PermissionDecision
 	StatusChan    chan StatusMsg
 	MessageChan   chan string
 	ModelListChan chan []string
 	SetModelChan  chan string
-	CommandChan   chan models.UICommand
+	CommandChan   chan model.UICommand
 	ReadyChan     chan struct{} // Signals when UI is ready to accept requests
 }
 
@@ -70,12 +70,12 @@ func NewUIChannels(cfg *config.Config) *UIChannels {
 		InputReq:      make(chan InputRequest),
 		InputResp:     make(chan string),
 		PermReq:       make(chan PermRequest),
-		PermResp:      make(chan models.PermissionDecision),
+		PermResp:      make(chan model.PermissionDecision),
 		StatusChan:    make(chan StatusMsg, cfg.UI.StatusChannelBuffer),
 		MessageChan:   make(chan string, cfg.UI.MessageChannelBuffer),
 		ModelListChan: make(chan []string),
 		SetModelChan:  make(chan string, cfg.UI.SetModelChannelBuffer),
-		CommandChan:   make(chan models.UICommand, cfg.UI.CommandChannelBuffer),
+		CommandChan:   make(chan model.UICommand, cfg.UI.CommandChannelBuffer),
 		ReadyChan:     make(chan struct{}),
 	}
 }
@@ -83,7 +83,7 @@ func NewUIChannels(cfg *config.Config) *UIChannels {
 // NewUI creates a new Bubble Tea UI
 func NewUI(
 	channels *UIChannels,
-	renderer services.MarkdownRenderer,
+	renderer service.MarkdownRenderer,
 	spinnerFactory SpinnerFactory,
 ) *UI {
 	ui := &UI{
@@ -141,14 +141,14 @@ func (u *UI) ReadInput(ctx context.Context, prompt string) (string, error) {
 }
 
 // ReadPermission prompts the user for a permission decision
-func (u *UI) ReadPermission(ctx context.Context, prompt string, preview *models.ToolPreview) (models.PermissionDecision, error) {
+func (u *UI) ReadPermission(ctx context.Context, prompt string, preview *model.ToolPreview) (model.PermissionDecision, error) {
 	select {
 	case <-ctx.Done():
-		return models.DecisionDeny, ctx.Err()
+		return model.DecisionDeny, ctx.Err()
 	case u.permReq <- PermRequest{Prompt: prompt, Preview: preview}:
 		select {
 		case <-ctx.Done():
-			return models.DecisionDeny, ctx.Err()
+			return model.DecisionDeny, ctx.Err()
 		case decision := <-u.permResp:
 			return decision, nil
 		}
@@ -192,7 +192,7 @@ func (u *UI) SetModel(model string) {
 }
 
 // Commands returns the command channel
-func (u *UI) Commands() <-chan models.UICommand {
+func (u *UI) Commands() <-chan model.UICommand {
 	return u.commandChan
 }
 

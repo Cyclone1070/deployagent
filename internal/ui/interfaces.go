@@ -3,7 +3,7 @@ package ui
 import (
 	"context"
 
-	"github.com/Cyclone1070/iav/internal/ui/models"
+	"github.com/Cyclone1070/iav/internal/ui/model"
 )
 
 // UserInterface defines the contract for all user interactions.
@@ -18,7 +18,7 @@ type UserInterface interface {
 	ReadInput(ctx context.Context, prompt string) (string, error)
 
 	// ReadPermission prompts the user for a yes/no/always permission decision
-	ReadPermission(ctx context.Context, prompt string, preview *models.ToolPreview) (models.PermissionDecision, error)
+	ReadPermission(ctx context.Context, prompt string, preview *model.ToolPreview) (model.PermissionDecision, error)
 
 	// WriteStatus displays ephemeral status updates (e.g., "Thinking...")
 	WriteStatus(phase string, message string)
@@ -33,7 +33,7 @@ type UserInterface interface {
 	SetModel(model string)
 
 	// Commands returns a channel for UI-initiated commands (e.g., /models)
-	Commands() <-chan models.UICommand
+	Commands() <-chan model.UICommand
 
 	// Start starts the UI loop (blocking)
 	Start() error

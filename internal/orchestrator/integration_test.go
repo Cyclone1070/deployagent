@@ -10,13 +10,13 @@ import (
 	"testing"
 
 	orchadapter "github.com/Cyclone1070/iav/internal/orchestrator/adapter"
-	orchmodels "github.com/Cyclone1070/iav/internal/orchestrator/models"
-	pmodels "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	orchmodel "github.com/Cyclone1070/iav/internal/orchestrator/model"
+	pmodel "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 	"github.com/Cyclone1070/iav/internal/ui"
-	uiservices "github.com/Cyclone1070/iav/internal/ui/services"
+	uiservices "github.com/Cyclone1070/iav/internal/ui/service"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,19 +26,19 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 
 	// Create workspace context
 	workspaceRoot := t.TempDir()
-	fileSystem := services.NewOSFileSystem()
-	binaryDetector := &services.SystemBinaryDetector{}
-	checksumMgr := services.NewChecksumManager()
-	gitignoreSvc, _ := services.NewGitignoreService(workspaceRoot, fileSystem)
+	fileSystem := service.NewOSFileSystem()
+	binaryDetector := &service.SystemBinaryDetector{}
+	checksumMgr := service.NewChecksumManager()
+	gitignoreSvc, _ := service.NewGitignoreService(workspaceRoot, fileSystem)
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:               fileSystem,
 		BinaryDetector:   binaryDetector,
 		ChecksumManager:  checksumMgr,
 		WorkspaceRoot:    workspaceRoot,
 		GitignoreService: gitignoreSvc,
-		CommandExecutor:  &services.OSCommandExecutor{},
-		DockerConfig: models.DockerConfig{
+		CommandExecutor:  &service.OSCommandExecutor{},
+		DockerConfig: model.DockerConfig{
 			CheckCommand: []string{"docker", "info"},
 			StartCommand: []string{"docker", "desktop", "start"},
 		},
@@ -98,12 +98,12 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 	}
 
 	// Track what orchestrator sends to provider
-	var allHistories [][]orchmodels.Message
+	var allHistories [][]orchmodel.Message
 	var mu sync.Mutex
 
 	// Create mock provider
-	mockProvider := mocks.NewMockProvider().
-		WithToolCallResponse([]orchmodels.ToolCall{
+	mockProvider := mock.NewMockProvider().
+		WithToolCallResponse([]orchmodel.ToolCall{
 			{
 				ID:   "call_1",
 				Name: "list_directory",
@@ -118,21 +118,21 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 		WithTextResponse("Found 0 files")
 
 	// Capture provider inputs
-	mockProvider.OnGenerateCalled = func(req *pmodels.GenerateRequest) {
+	mockProvider.OnGenerateCalled = func(req *pmodel.GenerateRequest) {
 		mu.Lock()
 		defer mu.Unlock()
 		// Capture history
-		historyCopy := make([]orchmodels.Message, len(req.History))
+		historyCopy := make([]orchmodel.Message, len(req.History))
 		copy(historyCopy, req.History)
 		allHistories = append(allHistories, historyCopy)
 	}
 
 	// Create policy
-	policy := &orchmodels.Policy{
-		Shell: orchmodels.ShellPolicy{
+	policy := &orchmodel.Policy{
+		Shell: orchmodel.ShellPolicy{
 			SessionAllow: make(map[string]bool),
 		},
-		Tools: orchmodels.ToolPolicy{
+		Tools: orchmodel.ToolPolicy{
 			Allow:        []string{"list_directory"},
 			SessionAllow: make(map[string]bool),
 		},
@@ -210,33 +210,33 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	t.Parallel()
 
 	// Create small context window provider
-	mockProvider := mocks.NewMockProvider().
+	mockProvider := mock.NewMockProvider().
 		WithContextWindow(200) // Very small window
 
 	// Track history sent to provider
-	var lastHistory []orchmodels.Message
+	var lastHistory []orchmodel.Message
 	var mu sync.Mutex
 
-	mockProvider.OnGenerateCalled = func(req *pmodels.GenerateRequest) {
+	mockProvider.OnGenerateCalled = func(req *pmodel.GenerateRequest) {
 		mu.Lock()
 		defer mu.Unlock()
-		lastHistory = make([]orchmodels.Message, len(req.History))
+		lastHistory = make([]orchmodel.Message, len(req.History))
 		copy(lastHistory, req.History)
 	}
 
 	// Create workspace context
 	workspaceRoot := t.TempDir()
-	fileSystem := services.NewOSFileSystem()
+	fileSystem := service.NewOSFileSystem()
 	if err := fileSystem.EnsureDirs(workspaceRoot); err != nil {
 		t.Fatalf("Failed to create workspace: %v", err)
 	}
 
-	wCtx := &models.WorkspaceContext{
+	wCtx := &model.WorkspaceContext{
 		WorkspaceRoot:   workspaceRoot,
 		FS:              fileSystem,
-		BinaryDetector:  &services.SystemBinaryDetector{SampleSize: 4096},
-		ChecksumManager: services.NewChecksumManager(),
-		CommandExecutor: &services.OSCommandExecutor{},
+		BinaryDetector:  &service.SystemBinaryDetector{SampleSize: 4096},
+		ChecksumManager: service.NewChecksumManager(),
+		CommandExecutor: &service.OSCommandExecutor{},
 	}
 
 	// Create UI
@@ -258,9 +258,9 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	}()
 
 	// Create policy
-	policy := &orchmodels.Policy{
-		Shell: orchmodels.ShellPolicy{SessionAllow: make(map[string]bool)},
-		Tools: orchmodels.ToolPolicy{SessionAllow: make(map[string]bool)},
+	policy := &orchmodel.Policy{
+		Shell: orchmodel.ShellPolicy{SessionAllow: make(map[string]bool)},
+		Tools: orchmodel.ToolPolicy{SessionAllow: make(map[string]bool)},
 	}
 	policyService := NewPolicyService(policy, userInterface)
 
@@ -272,7 +272,7 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	orch := New(nil, mockProvider, policyService, userInterface, toolList)
 
 	// Set a clear goal message
-	goalMsg := orchmodels.Message{
+	goalMsg := orchmodel.Message{
 		Role:    "user",
 		Content: "GOAL: This is the critical goal message that must be preserved.",
 	}
@@ -281,11 +281,11 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 	// Build large history to force truncation
 	// Add enough messages to definitely exceed 200 tokens
 	for i := 0; i < 20; i++ {
-		orch.history = append(orch.history, orchmodels.Message{
+		orch.history = append(orch.history, orchmodel.Message{
 			Role:    "user",
 			Content: "This is filler message " + strings.Repeat("long content ", 5),
 		})
-		orch.history = append(orch.history, orchmodels.Message{
+		orch.history = append(orch.history, orchmodel.Message{
 			Role:    "model",
 			Content: "This is filler response " + strings.Repeat("long content ", 5),
 		})
@@ -307,7 +307,7 @@ func TestOrchestratorProvider_ContextTruncation(t *testing.T) {
 
 	// Verify what provider sees (black-box via OnGenerateCalled)
 	// We need to trigger a Generate call to see what the provider gets
-	_, err = mockProvider.Generate(context.Background(), &pmodels.GenerateRequest{
+	_, err = mockProvider.Generate(context.Background(), &pmodel.GenerateRequest{
 		History: orch.history,
 	})
 	assert.NoError(t, err)

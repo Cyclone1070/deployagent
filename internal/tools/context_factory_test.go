@@ -5,31 +5,31 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 func TestMultiContextIsolation(t *testing.T) {
 
 	// Create two separate contexts with different workspace roots
-	fs1 := mocks.NewMockFileSystem()
-	checksumManager1 := services.NewChecksumManager()
+	fs1 := mock.NewMockFileSystem()
+	checksumManager1 := service.NewChecksumManager()
 
-	fs2 := mocks.NewMockFileSystem()
-	checksumManager2 := services.NewChecksumManager()
+	fs2 := mock.NewMockFileSystem()
+	checksumManager2 := service.NewChecksumManager()
 
-	ctx1 := &models.WorkspaceContext{
+	ctx1 := &model.WorkspaceContext{
 		FS:              fs1,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager1,
 		WorkspaceRoot:   "/workspace1",
 		Config:          *config.DefaultConfig(),
 	}
 
-	ctx2 := &models.WorkspaceContext{
+	ctx2 := &model.WorkspaceContext{
 		FS:              fs2,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
 		ChecksumManager: checksumManager2,
 		WorkspaceRoot:   "/workspace2",
 		Config:          *config.DefaultConfig(),
@@ -39,12 +39,12 @@ func TestMultiContextIsolation(t *testing.T) {
 	content1 := "content1"
 	content2 := "content2"
 
-	resp1, err := WriteFile(context.Background(), ctx1, models.WriteFileRequest{Path: "file.txt", Content: content1})
+	resp1, err := WriteFile(context.Background(), ctx1, model.WriteFileRequest{Path: "file.txt", Content: content1})
 	if err != nil {
 		t.Fatalf("failed to write file in ctx1: %v", err)
 	}
 
-	resp2, err := WriteFile(context.Background(), ctx2, models.WriteFileRequest{Path: "file.txt", Content: content2})
+	resp2, err := WriteFile(context.Background(), ctx2, model.WriteFileRequest{Path: "file.txt", Content: content2})
 	if err != nil {
 		t.Fatalf("failed to write file in ctx2: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestMultiContextIsolation(t *testing.T) {
 	}
 
 	// Verify filesystems are isolated
-	read1, err := ReadFile(context.Background(), ctx1, models.ReadFileRequest{Path: "file.txt"})
+	read1, err := ReadFile(context.Background(), ctx1, model.ReadFileRequest{Path: "file.txt"})
 	if err != nil {
 		t.Fatalf("failed to read file from ctx1: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestMultiContextIsolation(t *testing.T) {
 		t.Errorf("ctx1 should read its own content, got %q", read1.Content)
 	}
 
-	read2, err := ReadFile(context.Background(), ctx2, models.ReadFileRequest{Path: "file.txt"})
+	read2, err := ReadFile(context.Background(), ctx2, model.ReadFileRequest{Path: "file.txt"})
 	if err != nil {
 		t.Fatalf("failed to read file from ctx2: %v", err)
 	}
@@ -102,14 +102,14 @@ func TestCustomFileSizeLimit(t *testing.T) {
 	largeLimit := int64(10 * 1024 * 1024) // 10MB
 
 	t.Run("small limit enforced", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = smallLimit
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
@@ -121,21 +121,21 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			largeContent[i] = 'A'
 		}
 
-		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "large.txt", Content: string(largeContent)})
-		if err != models.ErrTooLarge {
+		_, err := WriteFile(context.Background(), ctx, model.WriteFileRequest{Path: "large.txt", Content: string(largeContent)})
+		if err != model.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge for content exceeding limit, got %v", err)
 		}
 	})
 
 	t.Run("large limit allows bigger files", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = largeLimit
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
@@ -147,24 +147,24 @@ func TestCustomFileSizeLimit(t *testing.T) {
 			content[i] = 'A'
 		}
 
-		_, err := WriteFile(context.Background(), ctx, models.WriteFileRequest{Path: "large.txt", Content: string(content)})
+		_, err := WriteFile(context.Background(), ctx, model.WriteFileRequest{Path: "large.txt", Content: string(content)})
 		if err != nil {
 			t.Errorf("expected success with large limit, got %v", err)
 		}
 	})
 
 	t.Run("different limits in different contexts", func(t *testing.T) {
-		fs1 := mocks.NewMockFileSystem()
-		checksumManager1 := services.NewChecksumManager()
+		fs1 := mock.NewMockFileSystem()
+		checksumManager1 := service.NewChecksumManager()
 
-		fs2 := mocks.NewMockFileSystem()
-		checksumManager2 := services.NewChecksumManager()
+		fs2 := mock.NewMockFileSystem()
+		checksumManager2 := service.NewChecksumManager()
 
 		cfg1 := config.DefaultConfig()
 		cfg1.Tools.MaxFileSize = smallLimit
-		ctx1 := &models.WorkspaceContext{
+		ctx1 := &model.WorkspaceContext{
 			FS:              fs1,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager1,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg1,
@@ -172,9 +172,9 @@ func TestCustomFileSizeLimit(t *testing.T) {
 
 		cfg2 := config.DefaultConfig()
 		cfg2.Tools.MaxFileSize = largeLimit
-		ctx2 := &models.WorkspaceContext{
+		ctx2 := &model.WorkspaceContext{
 			FS:              fs2,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager2,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg2,
@@ -187,13 +187,13 @@ func TestCustomFileSizeLimit(t *testing.T) {
 		}
 
 		// Should fail in ctx1
-		_, err := WriteFile(context.Background(), ctx1, models.WriteFileRequest{Path: "file.txt", Content: string(content)})
-		if err != models.ErrTooLarge {
+		_, err := WriteFile(context.Background(), ctx1, model.WriteFileRequest{Path: "file.txt", Content: string(content)})
+		if err != model.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge in ctx1, got %v", err)
 		}
 
 		// Should succeed in ctx2
-		_, err = WriteFile(context.Background(), ctx2, models.WriteFileRequest{Path: "file.txt", Content: string(content)})
+		_, err = WriteFile(context.Background(), ctx2, model.WriteFileRequest{Path: "file.txt", Content: string(content)})
 		if err != nil {
 			t.Errorf("expected success in ctx2, got %v", err)
 		}

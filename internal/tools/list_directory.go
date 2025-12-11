@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 // ListDirectory lists the contents of a directory within the workspace.
 // It supports optional recursion and pagination, validating that the path is within
 // workspace boundaries, respecting gitignore rules, and returning entries sorted by path.
-func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req models.ListDirectoryRequest) (*models.ListDirectoryResponse, error) {
+func ListDirectory(ctx context.Context, wCtx *model.WorkspaceContext, req model.ListDirectoryRequest) (*model.ListDirectoryResponse, error) {
 	// Use configured limits - Validate() already checked bounds
 	limit := wCtx.Config.Tools.DefaultListDirectoryLimit
 	if req.Limit != 0 {
@@ -28,7 +28,7 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	}
 
 	// Resolve path
-	abs, rel, err := services.Resolve(wCtx, req.Path)
+	abs, rel, err := service.Resolve(wCtx, req.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	info, err := wCtx.FS.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, models.ErrFileMissing
+			return nil, model.ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat path: %w", err)
 	}
@@ -76,7 +76,7 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	})
 
 	// Apply pagination
-	directoryEntries, pagination := services.ApplyPagination(directoryEntries, req.Offset, limit)
+	directoryEntries, pagination := service.ApplyPagination(directoryEntries, req.Offset, limit)
 
 	var truncationReason string
 	if capHit {
@@ -86,7 +86,7 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 		truncationReason = fmt.Sprintf("Page limit reached. More results at offset %d.", req.Offset+limit)
 	}
 
-	return &models.ListDirectoryResponse{
+	return &model.ListDirectoryResponse{
 		DirectoryPath:    rel,
 		Entries:          directoryEntries,
 		Offset:           req.Offset,
@@ -99,7 +99,7 @@ func ListDirectory(ctx context.Context, wCtx *models.WorkspaceContext, req model
 
 // listRecursive recursively lists all entries up to maxDepth
 // Returns entries, boolean (true if cap hit), error
-func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs string, currentDepth int, maxDepth int, visited map[string]bool, includeIgnored bool, maxResults int, currentCount *int) ([]models.DirectoryEntry, bool, error) {
+func listRecursive(ctx context.Context, wCtx *model.WorkspaceContext, abs string, currentDepth int, maxDepth int, visited map[string]bool, includeIgnored bool, maxResults int, currentCount *int) ([]model.DirectoryEntry, bool, error) {
 	// Check cap
 	if *currentCount >= maxResults {
 		return nil, true, nil
@@ -111,7 +111,7 @@ func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs strin
 	}
 	// Check depth limit (-1 = unlimited, 0 = current level only, 1 = current + 1 level, etc.)
 	if maxDepth >= 0 && currentDepth > maxDepth {
-		return []models.DirectoryEntry{}, false, nil
+		return []model.DirectoryEntry{}, false, nil
 	}
 
 	// Detect symlink loops using canonical path
@@ -123,21 +123,21 @@ func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs strin
 
 	if visited[canonicalPath] {
 		// Symlink loop detected, skip
-		return []models.DirectoryEntry{}, false, nil
+		return []model.DirectoryEntry{}, false, nil
 	}
 	visited[canonicalPath] = true
 
 	allEntries, err := wCtx.FS.ListDir(abs)
 	if err != nil {
 		// Propagate sentinel errors directly
-		if errors.Is(err, models.ErrOutsideWorkspace) || errors.Is(err, models.ErrFileMissing) {
+		if errors.Is(err, model.ErrOutsideWorkspace) || errors.Is(err, model.ErrFileMissing) {
 			return nil, false, err
 		}
 		// Wrap other errors for context
 		return nil, false, fmt.Errorf("failed to list directory: %w", err)
 	}
 
-	var directoryEntries []models.DirectoryEntry
+	var directoryEntries []model.DirectoryEntry
 	for _, entry := range allEntries {
 		if *currentCount >= maxResults {
 			return directoryEntries, true, nil
@@ -161,7 +161,7 @@ func listRecursive(ctx context.Context, wCtx *models.WorkspaceContext, abs strin
 			}
 		}
 
-		directoryEntry := models.DirectoryEntry{
+		directoryEntry := model.DirectoryEntry{
 			RelativePath: entryRel,
 			IsDir:        entry.IsDir(),
 		}

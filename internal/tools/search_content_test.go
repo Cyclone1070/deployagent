@@ -9,36 +9,36 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 func TestSearchContent_BasicRegex(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Simulate rg JSON output
 	rgOutput := `{"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func foo()"},"line_number":10}}
 {"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func bar()"},"line_number":20}}`
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func .*", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "func .*", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -62,30 +62,30 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 func TestSearchContent_CaseInsensitive(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		capturedCmd = cmd
-		proc := mocks.NewMockProcess()
+		proc := mock.NewMockProcess()
 		proc.WaitFunc = func() error {
-			return mocks.NewMockExitError(1) // No matches
+			return mock.NewMockExitError(1) // No matches
 		}
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, _ = SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: false, IncludeIgnored: false, Offset: 0, Limit: 100})
+	_, _ = SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: false, IncludeIgnored: false, Offset: 0, Limit: 100})
 
 	// Verify -i flag is present
 	foundFlag := slices.Contains(capturedCmd, "-i")
@@ -98,20 +98,20 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
-		CommandExecutor: mocks.NewMockCommandExecutor(),
+		CommandExecutor: mock.NewMockCommandExecutor(),
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "../outside", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err != models.ErrOutsideWorkspace {
+	_, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "../outside", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	if err != model.ErrOutsideWorkspace {
 		t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 	}
 }
@@ -119,28 +119,28 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 func TestSearchContent_VeryLongLine(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Create a very long line (1MB)
 	longLine := strings.Repeat("a", 1024*1024)
 	rgOutput := fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"%s"},"line_number":1}}`, longLine)
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -162,31 +162,31 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 func TestSearchContent_CommandInjection(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	var capturedCmd []string
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		capturedCmd = cmd
-		proc := mocks.NewMockProcess()
+		proc := mock.NewMockProcess()
 		proc.WaitFunc = func() error {
-			return mocks.NewMockExitError(1)
+			return mock.NewMockExitError(1)
 		}
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
 	query := "foo; rm -rf /"
-	_, _ = SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: query, SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	_, _ = SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: query, SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 
 	// Verify query is passed as literal argument
 	found := slices.Contains(capturedCmd, query)
@@ -199,29 +199,29 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 func TestSearchContent_NoMatches(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Simulate rg returning exit code 1 (no matches)
-		proc := mocks.NewMockProcess()
+		proc := mock.NewMockProcess()
 		proc.WaitFunc = func() error {
-			return mocks.NewMockExitError(1)
+			return mock.NewMockExitError(1)
 		}
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "nonexistent", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "nonexistent", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestSearchContent_NoMatches(t *testing.T) {
 func TestSearchContent_Pagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Simulate 10 matches
@@ -248,22 +248,22 @@ func TestSearchContent_Pagination(t *testing.T) {
 `, i, i+1)
 	}
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
 	// Request offset=2, limit=2
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 2, Limit: 2})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 2, Limit: 2})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 func TestSearchContent_MultipleFiles(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Simulate matches from multiple files
@@ -297,21 +297,21 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":10}}
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":5}}`
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 func TestSearchContent_InvalidJSON(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Mix valid and invalid JSON
@@ -344,21 +344,21 @@ func TestSearchContent_InvalidJSON(t *testing.T) {
 invalid json line
 {"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"also valid"},"line_number":2}}`
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -372,28 +372,28 @@ invalid json line
 func TestSearchContent_CommandFailure(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		proc := mocks.NewMockProcess()
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		proc := mock.NewMockProcess()
 		proc.WaitFunc = func() error {
-			return mocks.NewMockExitError(2)
+			return mock.NewMockExitError(2)
 		}
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	_, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err == nil {
 		t.Fatal("expected error for command failure, got nil")
 	}
@@ -401,31 +401,31 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 func TestSearchContent_IncludeIgnored(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Test with includeIgnored=false (default behavior, should respect gitignore)
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Verify --no-ignore is NOT present
 		if slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
 		}
 		// Simulate rg output without ignored files
 		output := `{"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
+	resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	}
 
 	// Test with includeIgnored=true (should include ignored files)
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
 		// Verify --no-ignore IS present
 		if !slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to be present when includeIgnored=true")
@@ -443,10 +443,10 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		// Simulate rg output with ignored files
 		output := `{"type":"match","data":{"path":{"text":"/workspace/ignored.go"},"lines":{"text":"func main()"},"line_number":1}}
 {"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-		return mocks.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
+		return mock.NewMockProcess(), strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	resp, err = SearchContent(context.Background(), ctx, models.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: true, Offset: 0, Limit: 100})
+	resp, err = SearchContent(context.Background(), ctx, model.SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: true, Offset: 0, Limit: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -478,23 +478,23 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 func TestSearchContent_LimitValidation(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
 			WorkspaceRoot:   workspaceRoot,
 			CommandExecutor: mockRunner,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+		resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{
 			Query: "test",
 			Limit: 0, // Should use DefaultSearchContentLimit
 		})
@@ -511,14 +511,14 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 		cfg.Tools.DefaultSearchContentLimit = 25
 		cfg.Tools.MaxSearchContentLimit = 50
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
 			WorkspaceRoot:   workspaceRoot,
 			CommandExecutor: mockRunner,
 			Config:          *cfg,
 		}
 
-		resp, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+		resp, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{
 			Query: "test",
 			Limit: 30,
 		})
@@ -533,15 +533,15 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 
 func TestSearchContent_OffsetValidation(t *testing.T) {
 	workspaceRoot := "/workspace"
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	mockRunner := mocks.NewMockCommandExecutor()
-	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts models.ProcessOptions) (models.Process, io.Reader, io.Reader, error) {
-		return mocks.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner := mock.NewMockCommandExecutor()
+	mockRunner.StartFunc = func(ctx context.Context, cmd []string, opts model.ProcessOptions) (model.Process, io.Reader, io.Reader, error) {
+		return mock.NewMockProcess(), strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
 		WorkspaceRoot:   workspaceRoot,
 		CommandExecutor: mockRunner,
@@ -549,7 +549,7 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 	}
 
 	t.Run("zero offset is valid", func(t *testing.T) {
-		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+		_, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{
 			Query:  "test",
 			Offset: 0,
 			Limit:  10,
@@ -560,7 +560,7 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 	})
 
 	t.Run("positive offset is valid", func(t *testing.T) {
-		_, err := SearchContent(context.Background(), ctx, models.SearchContentRequest{
+		_, err := SearchContent(context.Background(), ctx, model.SearchContentRequest{
 			Query:  "test",
 			Offset: 100,
 			Limit:  10,

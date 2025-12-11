@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // createMockFS helper to reduce boilerplate
-func createMockFS(files map[string][]byte) *mocks.MockFileSystem {
-	fs := mocks.NewMockFileSystem()
+func createMockFS(files map[string][]byte) *mock.MockFileSystem {
+	fs := mock.NewMockFileSystem()
 	if files != nil {
 		fs.Files = files
 	}

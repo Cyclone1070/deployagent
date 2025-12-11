@@ -1,0 +1,139 @@
+package model
+
+import (
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+)
+
+// GenerateRequest encapsulates all parameters for a generation request.
+type GenerateRequest struct {
+	// Prompt is the user's input for this turn
+	Prompt string
+
+	// History contains the conversation history
+	History []model.Message
+
+	// Config contains optional generation parameters
+	Config *GenerateConfig
+
+	// Tools contains tool definitions for native tool calling
+	Tools []ToolDefinition
+}
+
+// GenerateConfig contains optional generation parameters.
+// All fields are pointers to distinguish between "not set" and "zero value".
+type GenerateConfig struct {
+	// Generation parameters
+	Temperature   *float32
+	TopP          *float32
+	TopK          *int
+	StopSequences []string
+}
+
+// GenerateResponse contains the model's response and metadata.
+type GenerateResponse struct {
+	// Content contains the generated response
+	Content ResponseContent
+
+	// Metadata contains information about the generation
+	Metadata ResponseMetadata
+}
+
+// ResponseContent is a union type representing different response types.
+type ResponseContent struct {
+	// Type indicates what the model produced
+	Type ResponseType
+
+	// For Type = ResponseTypeText
+	Text string
+
+	// For Type = ResponseTypeToolCall
+	ToolCalls []model.ToolCall
+
+	// For Type = ResponseTypeRefusal (safety block, policy violation)
+	RefusalReason string
+}
+
+// ResponseType indicates the type of response from the model.
+type ResponseType string
+
+const (
+	ResponseTypeText     ResponseType = "text"
+	ResponseTypeToolCall ResponseType = "tool_call"
+	ResponseTypeRefusal  ResponseType = "refusal"
+)
+
+// ResponseMetadata contains information about the generation.
+type ResponseMetadata struct {
+	// Token usage
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+
+	// Cost estimation (per 1M tokens)
+	EstimatedCost *float64
+
+	// Model used
+	ModelUsed string
+
+	// Performance
+	LatencyMs int64
+}
+
+// ResponseStream provides access to streaming response chunks.
+type ResponseStream interface {
+	// Next returns the next chunk, or io.EOF when done
+	Next() (*StreamChunk, error)
+
+	// Close releases resources
+	Close() error
+}
+
+// StreamChunk represents a single chunk in a streaming response.
+type StreamChunk struct {
+	// Delta is the incremental text
+	Delta string
+
+	// ToolCallDelta is the incremental tool call (if applicable)
+	ToolCallDelta *model.ToolCall
+
+	// Done indicates this is the final chunk
+	Done bool
+}
+
+// ToolDefinition defines a tool that the model can invoke.
+type ToolDefinition struct {
+	Name        string
+	Description string
+	Parameters  *Schema // Pointer to allow nil (no params)
+}
+
+// Schema defines the structure of tool parameters using JSON Schema format.
+// This is a recursive type that fully supports nested objects and arrays,
+// following the OpenAPI 3.0 specification.
+type Schema struct {
+	Type        string            `json:"type"`
+	Description string            `json:"description,omitempty"`
+	Properties  map[string]Schema `json:"properties,omitempty"` // For object types - recursive
+	Required    []string          `json:"required,omitempty"`   // For object types
+	Items       *Schema           `json:"items,omitempty"`      // For array types - recursive
+	Enum        []string          `json:"enum,omitempty"`       // For enumerated values
+}
+
+// Capabilities describes what features a provider supports.
+type Capabilities struct {
+	// Feature support
+	SupportsStreaming   bool
+	SupportsToolCalling bool
+	SupportsJSONMode    bool
+
+	// Model limits
+	MaxContextTokens int
+	MaxOutputTokens  int
+}
+
+// ModelInfo contains metadata about a model.
+type ModelInfo struct {
+	Name             string
+	InputTokenLimit  int
+	OutputTokenLimit int
+}

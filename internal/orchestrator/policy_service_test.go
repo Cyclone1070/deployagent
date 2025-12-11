@@ -5,23 +5,23 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	uimodels "github.com/Cyclone1070/iav/internal/ui/models"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	uimodel "github.com/Cyclone1070/iav/internal/ui/model"
 )
 
 func TestCheckShell_Concurrency(t *testing.T) {
-	policy := &models.Policy{
-		Shell: models.ShellPolicy{
+	policy := &model.Policy{
+		Shell: model.ShellPolicy{
 			Allow:        []string{},
 			Deny:         []string{},
 			SessionAllow: make(map[string]bool),
 		},
 	}
 
-	mockUI := mocks.NewMockUI()
-	mockUI.ReadPermissionFunc = func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
-		return uimodels.DecisionAllowAlways, nil
+	mockUI := mock.NewMockUI()
+	mockUI.ReadPermissionFunc = func(ctx context.Context, prompt string, preview *uimodel.ToolPreview) (uimodel.PermissionDecision, error) {
+		return uimodel.DecisionAllowAlways, nil
 	}
 
 	ps := NewPolicyService(policy, mockUI)
@@ -57,17 +57,17 @@ func TestCheckShell_Concurrency(t *testing.T) {
 }
 
 func TestCheckTool_Concurrency(t *testing.T) {
-	policy := &models.Policy{
-		Tools: models.ToolPolicy{
+	policy := &model.Policy{
+		Tools: model.ToolPolicy{
 			Allow:        []string{},
 			Deny:         []string{},
 			SessionAllow: make(map[string]bool),
 		},
 	}
 
-	mockUI := mocks.NewMockUI()
-	mockUI.ReadPermissionFunc = func(ctx context.Context, prompt string, preview *uimodels.ToolPreview) (uimodels.PermissionDecision, error) {
-		return uimodels.DecisionAllowAlways, nil
+	mockUI := mock.NewMockUI()
+	mockUI.ReadPermissionFunc = func(ctx context.Context, prompt string, preview *uimodel.ToolPreview) (uimodel.PermissionDecision, error) {
+		return uimodel.DecisionAllowAlways, nil
 	}
 
 	ps := NewPolicyService(policy, mockUI)

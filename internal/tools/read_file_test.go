@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 func TestReadFile(t *testing.T) {
@@ -15,22 +15,22 @@ func TestReadFile(t *testing.T) {
 	maxFileSize := int64(1024 * 1024) // 1MB
 
 	t.Run("full read caches checksum", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
 		}
 
-		resp, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt"})
+		resp, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -50,21 +50,21 @@ func TestReadFile(t *testing.T) {
 	})
 
 	t.Run("partial read skips cache update", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		offset := int64(5)
-		resp, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt", Offset: &offset})
+		resp, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt", Offset: &offset})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -82,9 +82,9 @@ func TestReadFile(t *testing.T) {
 	})
 
 	t.Run("binary detection rejection", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
-		detector := mocks.NewMockBinaryDetector()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
+		detector := mock.NewMockBinaryDetector()
 		detector.IsBinaryContentFunc = func(content []byte) bool {
 			return true
 		}
@@ -95,7 +95,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
 			BinaryDetector:  detector,
 			ChecksumManager: checksumManager,
@@ -103,51 +103,51 @@ func TestReadFile(t *testing.T) {
 			Config:          *cfg,
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "binary.bin"})
-		if err != models.ErrBinaryFile {
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "binary.bin"})
+		if err != model.ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
 	t.Run("size limit enforcement", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		// Create file larger than limit
 		largeContent := make([]byte, maxFileSize+1)
 		fs.CreateFile("/workspace/large.txt", largeContent, 0644)
 
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *cfg,
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "large.txt"})
-		if err != models.ErrTooLarge {
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "large.txt"})
+		if err != model.ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})
 
 	t.Run("offset beyond EOF", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		offset := int64(10000)
-		resp, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt", Offset: &offset})
+		resp, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt", Offset: &offset})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -157,57 +157,57 @@ func TestReadFile(t *testing.T) {
 	})
 
 	t.Run("directory rejection", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		fs.CreateDir("/workspace/subdir")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "subdir"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "subdir"})
 		if err == nil {
 			t.Error("expected error when reading directory")
 		}
 	})
 
 	t.Run("file not found", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
-		ctx := &models.WorkspaceContext{
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "nonexistent.txt"})
+		_, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "nonexistent.txt"})
 		if err == nil {
 			t.Error("expected error for nonexistent file")
 		}
 	})
 
 	t.Run("limit truncation", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
-		checksumManager := services.NewChecksumManager()
+		fs := mock.NewMockFileSystem()
+		checksumManager := service.NewChecksumManager()
 		content := []byte("test content")
 		fs.CreateFile("/workspace/test.txt", content, 0644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
 			ChecksumManager: checksumManager,
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		limit := int64(4)
-		resp, err := ReadFile(context.Background(), ctx, models.ReadFileRequest{Path: "test.txt", Limit: &limit})
+		resp, err := ReadFile(context.Background(), ctx, model.ReadFileRequest{Path: "test.txt", Limit: &limit})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

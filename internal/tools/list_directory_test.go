@@ -8,31 +8,31 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 func TestListDirectory(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("list workspace root with mixed files and directories", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file1.txt", []byte("content1"), 0o644)
 		fs.CreateFile("/workspace/file2.txt", []byte("content2"), 0o644)
 		fs.CreateDir("/workspace/subdir1")
 		fs.CreateDir("/workspace/subdir2")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -68,22 +68,22 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("list nested directory", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateFile("/workspace/src/main.go", []byte("package main"), 0o644)
 		fs.CreateFile("/workspace/src/utils.go", []byte("package main"), 0o644)
 		fs.CreateDir("/workspace/src/internal")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -107,19 +107,19 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("list empty directory", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/empty")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "empty", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "empty", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -130,19 +130,19 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("path resolves to file not directory", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "file.txt", MaxDepth: -1, Offset: 0, Limit: 1000})
+		_, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "file.txt", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err == nil {
 			t.Fatal("expected error when listing a file, got nil")
 		}
@@ -154,62 +154,62 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("path outside workspace", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/outside")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "../outside", MaxDepth: -1, Offset: 0, Limit: 1000})
-		if err != models.ErrOutsideWorkspace {
+		_, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "../outside", MaxDepth: -1, Offset: 0, Limit: 1000})
+		if err != model.ErrOutsideWorkspace {
 			t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 		}
 	})
 
 	t.Run("directory does not exist", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "nonexistent", MaxDepth: -1, Offset: 0, Limit: 1000})
+		_, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "nonexistent", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err == nil {
 			t.Fatal("expected error for nonexistent directory, got nil")
 		}
 
 		// Should propagate filesystem error
-		if err != models.ErrFileMissing && err.Error() == "" {
+		if err != model.ErrFileMissing && err.Error() == "" {
 			t.Errorf("expected meaningful error, got %v", err)
 		}
 	})
 
 	t.Run("filesystem error propagation", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/testdir")
 		fs.SetOperationError("ListDir", os.ErrPermission)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		_, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "testdir", MaxDepth: -1, Offset: 0, Limit: 1000})
+		_, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "testdir", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err == nil {
 			t.Fatal("expected error from filesystem, got nil")
 		}
@@ -219,20 +219,20 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("relative path input", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateFile("/workspace/src/file.txt", []byte("content"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -243,20 +243,20 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("absolute path input", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateFile("/workspace/src/file.txt", []byte("content"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "/workspace/src", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "/workspace/src", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -267,19 +267,19 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("dot path alias for workspace root", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -290,26 +290,26 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("verify entry metadata correctness", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("hello world"), 0o644)
 		fs.CreateDir("/workspace/subdir")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Find file and directory entries
-		var fileEntry, dirEntry *models.DirectoryEntry
+		var fileEntry, dirEntry *model.DirectoryEntry
 		for i := range resp.Entries {
 			switch resp.Entries[i].RelativePath {
 			case "file.txt":
@@ -347,22 +347,22 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("sorting: directories before files, alphabetical within each group", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/zebra.txt", []byte("z"), 0o644)
 		fs.CreateFile("/workspace/alpha.txt", []byte("a"), 0o644)
 		fs.CreateDir("/workspace/zulu")
 		fs.CreateDir("/workspace/alpha")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -390,21 +390,21 @@ func TestListDirectory(t *testing.T) {
 	})
 
 	t.Run("nested directory with relative path", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateDir("/workspace/src")
 		fs.CreateDir("/workspace/src/app")
 		fs.CreateFile("/workspace/src/app/main.go", []byte("package main"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "src/app", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "src/app", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -427,23 +427,23 @@ func TestListDirectory_Pagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("pagination with offset and limit", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		// Create 150 files
 		for i := range 150 {
 			fs.CreateFile(fmt.Sprintf("/workspace/file%d.txt", i), []byte("content"), 0o644)
 		}
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
 		// First page: offset=0, limit=50
-		resp1, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 50})
+		resp1, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -461,7 +461,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		// Second page: offset=50, limit=50
-		resp2, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 50, Limit: 50})
+		resp2, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 50, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -476,7 +476,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		// Third page: offset=100, limit=50 (should have 50 entries, no truncation)
-		resp3, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 100, Limit: 50})
+		resp3, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 100, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -506,20 +506,20 @@ func TestListDirectory_Pagination(t *testing.T) {
 func TestListDirectory_InvalidPagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {
 		// Limit=0 now uses default, should succeed
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 0})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 0})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -533,21 +533,21 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("directory with symlinks", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/file.txt", []byte("content"), 0o644)
 		fs.CreateDir("/workspace/target")
 		fs.CreateSymlink("/workspace/link", "/workspace/target")
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -575,22 +575,22 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("unicode and special characters", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/文件.txt", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/🚀.txt", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/zebra.txt", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/alpha.txt", []byte("content"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -630,28 +630,28 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("dotfiles filtered by gitignore", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/.gitignore", []byte("*.log\n"), 0o644)
 		fs.CreateFile("/workspace/.hidden", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/.test.log", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/.keep", []byte("content"), 0o644)
 
-		gitignoreService, err := services.NewGitignoreService(workspaceRoot, fs)
+		gitignoreService, err := service.NewGitignoreService(workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("unexpected error creating gitignore service: %v", err)
 		}
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   mocks.NewMockBinaryDetector(),
-			ChecksumManager:  services.NewChecksumManager(),
+			BinaryDetector:   mock.NewMockBinaryDetector(),
+			ChecksumManager:  service.NewChecksumManager(),
 			WorkspaceRoot:    workspaceRoot,
 			GitignoreService: gitignoreService,
 			Config:           *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -690,21 +690,21 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("all dotfiles included when gitignore service is nil", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		fs.CreateFile("/workspace/.hidden", []byte("content"), 0o644)
 		fs.CreateFile("/workspace/.test.log", []byte("content"), 0o644)
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:               fs,
-			BinaryDetector:   mocks.NewMockBinaryDetector(),
-			ChecksumManager:  services.NewChecksumManager(),
+			BinaryDetector:   mock.NewMockBinaryDetector(),
+			ChecksumManager:  service.NewChecksumManager(),
 			WorkspaceRoot:    workspaceRoot,
 			GitignoreService: nil, // No gitignore service
 			Config:           *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -735,17 +735,17 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("large directory pagination", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		// Create 5000 files
 		for i := range 5000 {
 			fs.CreateFile(fmt.Sprintf("/workspace/file%d.txt", i), []byte("content"), 0o644)
 		}
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
@@ -757,7 +757,7 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 		pageCount := 0
 
 		for {
-			resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: offset, Limit: limit})
+			resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: offset, Limit: limit})
 			if err != nil {
 				t.Fatalf("unexpected error at offset %d: %v", offset, err)
 			}
@@ -797,22 +797,22 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("offset beyond end returns empty", func(t *testing.T) {
-		fs := mocks.NewMockFileSystem()
+		fs := mock.NewMockFileSystem()
 		fs.CreateDir("/workspace")
 		// Create 10 files
 		for i := range 10 {
 			fs.CreateFile(fmt.Sprintf("/workspace/file%d.txt", i), []byte("content"), 0o644)
 		}
 
-		ctx := &models.WorkspaceContext{
+		ctx := &model.WorkspaceContext{
 			FS:              fs,
-			BinaryDetector:  mocks.NewMockBinaryDetector(),
-			ChecksumManager: services.NewChecksumManager(),
+			BinaryDetector:  mock.NewMockBinaryDetector(),
+			ChecksumManager: service.NewChecksumManager(),
 			WorkspaceRoot:   workspaceRoot,
 			Config:          *config.DefaultConfig(),
 		}
 
-		resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 100, Limit: 10})
+		resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 100, Limit: 10})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -832,7 +832,7 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 func TestListDirectory_Recursive(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/dir1")
 	fs.CreateDir("/workspace/dir1/subdir1")
@@ -840,15 +840,15 @@ func TestListDirectory_Recursive(t *testing.T) {
 	fs.CreateFile("/workspace/dir1/file2.txt", []byte("content"), 0o644)
 	fs.CreateFile("/workspace/file3.txt", []byte("content"), 0o644)
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
 	}
 
-	resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+	resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -882,7 +882,7 @@ func TestListDirectory_Recursive(t *testing.T) {
 func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/level1")
 	fs.CreateDir("/workspace/level1/level2")
@@ -891,16 +891,16 @@ func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
 	fs.CreateFile("/workspace/level1/level2/file2.txt", []byte("content"), 0o644)
 	fs.CreateFile("/workspace/level1/level2/level3/file3.txt", []byte("content"), 0o644)
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
 	}
 
 	// Depth limit of 2 should go 2 levels deep from root
-	resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: 2, Offset: 0, Limit: 1000})
+	resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: 2, Offset: 0, Limit: 1000})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -922,7 +922,7 @@ func TestListDirectory_RecursiveWithDepthLimit(t *testing.T) {
 func TestListDirectory_SymlinkLoop(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/dir1")
 	fs.CreateDir("/workspace/dir2")
@@ -931,16 +931,16 @@ func TestListDirectory_SymlinkLoop(t *testing.T) {
 	fs.CreateSymlink("/workspace/dir1/link", "/workspace/dir2")
 	fs.CreateSymlink("/workspace/dir2/link", "/workspace/dir1")
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
 	}
 
 	// Should detect loop and not hang
-	resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
+	resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -954,7 +954,7 @@ func TestListDirectory_SymlinkLoop(t *testing.T) {
 func TestListDirectory_RecursivePagination(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 
 	// Create 20 files across multiple directories
@@ -966,16 +966,16 @@ func TestListDirectory_RecursivePagination(t *testing.T) {
 		fs.CreateFile(fmt.Sprintf("/workspace/subdir/file%d.txt", i), []byte("content"), 0o644)
 	}
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
 	}
 
 	// Request offset=5, limit=5
-	resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 5, Limit: 5})
+	resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 5, Limit: 5})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -996,23 +996,23 @@ func TestListDirectory_RecursivePagination(t *testing.T) {
 func TestListDirectory_NonRecursive(t *testing.T) {
 	workspaceRoot := "/workspace"
 
-	fs := mocks.NewMockFileSystem()
+	fs := mock.NewMockFileSystem()
 	fs.CreateDir("/workspace")
 	fs.CreateDir("/workspace/dir1")
 	fs.CreateDir("/workspace/dir1/subdir1")
 	fs.CreateFile("/workspace/dir1/subdir1/file1.txt", []byte("content"), 0o644)
 	fs.CreateFile("/workspace/file2.txt", []byte("content"), 0o644)
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:              fs,
-		BinaryDetector:  mocks.NewMockBinaryDetector(),
-		ChecksumManager: services.NewChecksumManager(),
+		BinaryDetector:  mock.NewMockBinaryDetector(),
+		ChecksumManager: service.NewChecksumManager(),
 		WorkspaceRoot:   workspaceRoot,
 		Config:          *config.DefaultConfig(),
 	}
 
 	// Depth 0 means only list immediate children (non-recursive)
-	resp, err := ListDirectory(context.Background(), ctx, models.ListDirectoryRequest{Path: "", MaxDepth: 0, Offset: 0, Limit: 1000})
+	resp, err := ListDirectory(context.Background(), ctx, model.ListDirectoryRequest{Path: "", MaxDepth: 0, Offset: 0, Limit: 1000})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

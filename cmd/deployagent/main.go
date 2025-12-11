@@ -12,11 +12,11 @@ import (
 	"github.com/Cyclone1070/iav/internal/orchestrator"
 	orchadapter "github.com/Cyclone1070/iav/internal/orchestrator/adapter"
 	"github.com/Cyclone1070/iav/internal/provider/gemini"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"github.com/Cyclone1070/iav/internal/tools"
-	"github.com/Cyclone1070/iav/internal/tools/models"
+	"github.com/Cyclone1070/iav/internal/tools/model"
 	"github.com/Cyclone1070/iav/internal/ui"
-	uiservices "github.com/Cyclone1070/iav/internal/ui/services"
+	uiservices "github.com/Cyclone1070/iav/internal/ui/service"
 	"github.com/charmbracelet/bubbles/spinner"
 	"google.golang.org/genai"
 )
@@ -55,7 +55,7 @@ func createRealProviderFactory(cfg *config.Config) func(context.Context) (provid
 	}
 }
 
-func createTools(ctx *models.WorkspaceContext) []orchadapter.Tool {
+func createTools(ctx *model.WorkspaceContext) []orchadapter.Tool {
 	return []orchadapter.Tool{
 		orchadapter.NewReadFile(ctx),
 		orchadapter.NewWriteFile(ctx),

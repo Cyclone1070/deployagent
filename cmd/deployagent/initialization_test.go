@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	providermodels "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	providermodel "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,19 +21,19 @@ func TestMain_InitTools(t *testing.T) {
 
 	// Create workspace context
 	workspaceRoot := t.TempDir()
-	fileSystem := services.NewOSFileSystem()
-	binaryDetector := &services.SystemBinaryDetector{}
-	checksumMgr := services.NewChecksumManager()
-	gitignoreSvc, _ := services.NewGitignoreService(workspaceRoot, fileSystem)
+	fileSystem := service.NewOSFileSystem()
+	binaryDetector := &service.SystemBinaryDetector{}
+	checksumMgr := service.NewChecksumManager()
+	gitignoreSvc, _ := service.NewGitignoreService(workspaceRoot, fileSystem)
 
-	ctx := &models.WorkspaceContext{
+	ctx := &model.WorkspaceContext{
 		FS:               fileSystem,
 		BinaryDetector:   binaryDetector,
 		ChecksumManager:  checksumMgr,
 		WorkspaceRoot:    workspaceRoot,
 		GitignoreService: gitignoreSvc,
-		CommandExecutor:  &services.OSCommandExecutor{},
-		DockerConfig: models.DockerConfig{
+		CommandExecutor:  &service.OSCommandExecutor{},
+		DockerConfig: model.DockerConfig{
 			CheckCommand: []string{"docker", "info"},
 			StartCommand: []string{"docker", "desktop", "start"},
 		},
@@ -94,13 +94,13 @@ func TestMain_GoroutineCleanup(t *testing.T) {
 	readyChan := make(chan struct{})
 
 	// Create dependencies
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.StartBlocker = make(chan struct{})
 	mockUI.OnReadyCalled = func() {
 		close(readyChan)
 	}
-	mockProvider := mocks.NewMockProvider()
-	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
+	mockProvider := mock.NewMockProvider()
+	providerFactory := func(ctx context.Context) (providermodel.Provider, error) {
 		return mockProvider, nil
 	}
 
@@ -164,7 +164,7 @@ func TestMain_UIStartsInstantly(t *testing.T) {
 
 	// Track when UI ready
 	readyChan := make(chan struct{}, 1)
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.OnReadyCalled = func() {
 		mu.Lock()
 		events = append(events, "UI_READY")
@@ -174,14 +174,14 @@ func TestMain_UIStartsInstantly(t *testing.T) {
 
 	// Track when provider starts init
 	providerStartChan := make(chan struct{}, 1)
-	providerFactory := func(ctx context.Context) (providermodels.Provider, error) {
+	providerFactory := func(ctx context.Context) (providermodel.Provider, error) {
 		mu.Lock()
 		events = append(events, "PROVIDER_START")
 		mu.Unlock()
 		close(providerStartChan)
 
 		time.Sleep(100 * time.Millisecond) // Simulate slow init
-		return mocks.NewMockProvider(), nil
+		return mock.NewMockProvider(), nil
 	}
 
 	deps := Dependencies{

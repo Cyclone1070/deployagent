@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/orchestrator/adapter"
-	"github.com/Cyclone1070/iav/internal/orchestrator/models"
-	provider "github.com/Cyclone1070/iav/internal/provider/models"
-	"github.com/Cyclone1070/iav/internal/testing/mocks"
+	"github.com/Cyclone1070/iav/internal/orchestrator/model"
+	provider "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/testing/mock"
 )
 
 // =============================================================================
@@ -33,7 +33,7 @@ func TestHistoryTruncation_BuildsAndTruncates(t *testing.T) {
 	var historyLengthAtTruncation int
 
 	// Mock a tool that responds
-	mockTool := mocks.NewMockTool("test_tool")
+	mockTool := mock.NewMockTool("test_tool")
 	mockTool.DescriptionFunc = func() string { return "test" }
 	mockTool.DefinitionFunc = func() provider.ToolDefinition {
 		return provider.ToolDefinition{Name: "test_tool", Description: "test"}
@@ -43,8 +43,8 @@ func TestHistoryTruncation_BuildsAndTruncates(t *testing.T) {
 	}
 
 	generateCallCount := 0
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		countCalls.Add(1)
 		// After several messages, start exceeding the limit
 		// This forces truncation to kick in
@@ -70,7 +70,7 @@ func TestHistoryTruncation_BuildsAndTruncates(t *testing.T) {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
 					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "call", Name: "test_tool", Args: map[string]any{}},
 					},
 				},
@@ -85,12 +85,12 @@ func TestHistoryTruncation_BuildsAndTruncates(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy := mock.NewMockPolicy()
 	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
 		return nil // Allow all tools
 	}
@@ -133,7 +133,7 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 
 	// Create a mock that builds history then triggers aggressive truncation
 	generateCallCount := 0
-	mockTool := mocks.NewMockTool("test")
+	mockTool := mock.NewMockTool("test")
 	mockTool.DescriptionFunc = func() string { return "test" }
 	mockTool.DefinitionFunc = func() provider.ToolDefinition {
 		return provider.ToolDefinition{Name: "test", Description: "test"}
@@ -142,8 +142,8 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 		return "result", nil
 	}
 
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		// Always say we're over limit to force maximum truncation
 		// But respect when history is minimal
 		if len(messages) <= 1 {
@@ -163,7 +163,7 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
 					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "c", Name: "test", Args: map[string]any{}},
 					},
 				},
@@ -174,12 +174,12 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy := mock.NewMockPolicy()
 	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
 		return nil
 	}
@@ -204,7 +204,7 @@ func TestHistoryTruncation_GoalNeverRemoved(t *testing.T) {
 func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 	generateCallCount := 0
 
-	mockTool := mocks.NewMockTool("tool")
+	mockTool := mock.NewMockTool("tool")
 	mockTool.DescriptionFunc = func() string { return "test" }
 	mockTool.DefinitionFunc = func() provider.ToolDefinition {
 		return provider.ToolDefinition{Name: "tool", Description: "test"}
@@ -213,8 +213,8 @@ func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 		return "result", nil
 	}
 
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		// Trigger truncation after building some history
 		if len(messages) >= 7 {
 			return 8000, nil // Over limit
@@ -237,7 +237,7 @@ func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
 					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "c", Name: "tool", Args: map[string]any{}},
 					},
 				},
@@ -248,12 +248,12 @@ func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy := mock.NewMockPolicy()
 	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
 		return nil
 	}
@@ -280,8 +280,8 @@ func TestHistoryTruncation_PreservesToolResultPairs(t *testing.T) {
 // errors don't cause infinite loops or panics.
 func TestHistoryTruncation_CountTokensError_NoInfiniteLoop(t *testing.T) {
 	callCount := 0
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		callCount++
 		// First call succeeds, subsequent fail (simulates rate limit mid-truncation)
 		if callCount == 1 {
@@ -296,7 +296,7 @@ func TestHistoryTruncation_CountTokensError_NoInfiniteLoop(t *testing.T) {
 		return provider.Capabilities{MaxOutputTokens: 500}
 	}
 
-	orchestrator := newTestOrchestrator(mockProvider, mocks.NewMockPolicy(), mocks.NewMockUI(), []adapter.Tool{})
+	orchestrator := newTestOrchestrator(mockProvider, mock.NewMockPolicy(), mock.NewMockUI(), []adapter.Tool{})
 	err := orchestrator.Run(context.Background(), "test goal")
 
 	// Should return error, not hang
@@ -315,7 +315,7 @@ func TestHistoryTruncation_CountTokensError_NoInfiniteLoop(t *testing.T) {
 func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 	generateCallCount := 0
 
-	mockTool := mocks.NewMockTool("test")
+	mockTool := mock.NewMockTool("test")
 	mockTool.DescriptionFunc = func() string { return "test" }
 	mockTool.DefinitionFunc = func() provider.ToolDefinition {
 		return provider.ToolDefinition{Name: "test", Description: "test"}
@@ -324,8 +324,8 @@ func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 		return "result", nil
 	}
 
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		// Return token count well under context window
 		// With context=1000 and clamped safety=800, effective limit is 200
 		// So 400 tokens should NOT trigger truncation (400 > 200 but we should clamp better)
@@ -345,7 +345,7 @@ func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
 					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "c", Name: "test", Args: map[string]any{}},
 					},
 				},
@@ -356,12 +356,12 @@ func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy := mock.NewMockPolicy()
 	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
 		return nil
 	}
@@ -385,8 +385,8 @@ func TestHistoryTruncation_SafetyMarginExceedsContext(t *testing.T) {
 // reduce tokens (degenerate case), we don't loop forever.
 func TestHistoryTruncation_TokensNeverDecrease(t *testing.T) {
 	callCount := 0
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		callCount++
 		// Always return same high value regardless of message count
 		// This simulates a broken/malicious token counter
@@ -399,7 +399,7 @@ func TestHistoryTruncation_TokensNeverDecrease(t *testing.T) {
 		return provider.Capabilities{MaxOutputTokens: 500}
 	}
 
-	orchestrator := newTestOrchestrator(mockProvider, mocks.NewMockPolicy(), mocks.NewMockUI(), []adapter.Tool{})
+	orchestrator := newTestOrchestrator(mockProvider, mock.NewMockPolicy(), mock.NewMockUI(), []adapter.Tool{})
 
 	// Set up minimal history - just goal will be there after Run starts
 	_ = orchestrator.Run(context.Background(), "goal")
@@ -417,7 +417,7 @@ func TestHistoryTruncation_TokensNeverDecrease(t *testing.T) {
 func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 	tokenCountCalls := 0
 
-	mockTool := mocks.NewMockTool("test")
+	mockTool := mock.NewMockTool("test")
 	mockTool.DescriptionFunc = func() string { return "test" }
 	mockTool.DefinitionFunc = func() provider.ToolDefinition {
 		return provider.ToolDefinition{Name: "test", Description: "test"}
@@ -426,8 +426,8 @@ func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 		return "result", nil
 	}
 
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		tokenCountCalls++
 		// When we have exactly 3 messages (goal + model + function),
 		// report high token count to force truncation
@@ -448,7 +448,7 @@ func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
 					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "c", Name: "test", Args: map[string]any{}},
 					},
 				},
@@ -460,12 +460,12 @@ func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy := mock.NewMockPolicy()
 	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
 		return nil
 	}
@@ -498,7 +498,7 @@ func TestHistoryTruncation_ThreeMessageEdgeCase(t *testing.T) {
 func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 	generateCallCount := 0
 
-	mockTool := mocks.NewMockTool("test")
+	mockTool := mock.NewMockTool("test")
 	mockTool.DescriptionFunc = func() string { return "test" }
 	mockTool.DefinitionFunc = func() provider.ToolDefinition {
 		return provider.ToolDefinition{Name: "test", Description: "test"}
@@ -507,8 +507,8 @@ func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 		return "result", nil
 	}
 
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		// Force truncation when we have enough messages
 		if len(messages) >= 6 {
 			return 10000, nil // Way over limit
@@ -528,7 +528,7 @@ func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 			return &provider.GenerateResponse{
 				Content: provider.ResponseContent{
 					Type: provider.ResponseTypeToolCall,
-					ToolCalls: []models.ToolCall{
+					ToolCalls: []model.ToolCall{
 						{ID: "c", Name: "test", Args: map[string]any{}},
 					},
 				},
@@ -539,12 +539,12 @@ func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	mockPolicy := mocks.NewMockPolicy()
+	mockPolicy := mock.NewMockPolicy()
 	mockPolicy.CheckToolFunc = func(ctx context.Context, toolName string, args map[string]any) error {
 		return nil
 	}
@@ -570,8 +570,8 @@ func TestHistoryTruncation_NonPairedMessages(t *testing.T) {
 // TestHistoryTruncation_EmptyHistory verifies graceful handling of edge case
 // where somehow history becomes empty (defensive coding).
 func TestHistoryTruncation_EmptyHistory(t *testing.T) {
-	mockProvider := mocks.NewMockProvider()
-	mockProvider.CountTokensFunc = func(ctx context.Context, messages []models.Message) (int, error) {
+	mockProvider := mock.NewMockProvider()
+	mockProvider.CountTokensFunc = func(ctx context.Context, messages []model.Message) (int, error) {
 		// If we're called with empty messages, that's a bug
 		if len(messages) == 0 {
 			t.Error("CountTokens called with empty message list")
@@ -590,12 +590,12 @@ func TestHistoryTruncation_EmptyHistory(t *testing.T) {
 		}, nil
 	}
 
-	mockUI := mocks.NewMockUI()
+	mockUI := mock.NewMockUI()
 	mockUI.InputFunc = func(ctx context.Context, prompt string) (string, error) {
 		return "", errors.New("test complete")
 	}
 
-	orchestrator := newTestOrchestrator(mockProvider, mocks.NewMockPolicy(), mockUI, []adapter.Tool{})
+	orchestrator := newTestOrchestrator(mockProvider, mock.NewMockPolicy(), mockUI, []adapter.Tool{})
 	err := orchestrator.Run(context.Background(), "goal")
 
 	// Should complete without panicking

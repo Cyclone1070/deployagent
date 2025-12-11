@@ -10,16 +10,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Cyclone1070/iav/internal/tools/models"
-	"github.com/Cyclone1070/iav/internal/tools/services"
+	"github.com/Cyclone1070/iav/internal/tools/model"
+	"github.com/Cyclone1070/iav/internal/tools/service"
 )
 
 // SearchContent searches for content matching a regex pattern using ripgrep.
 // It validates the search path is within workspace boundaries, respects gitignore rules
 // (unless includeIgnored is true), and returns matches with pagination support.
-func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req models.SearchContentRequest) (*models.SearchContentResponse, error) {
+func SearchContent(ctx context.Context, wCtx *model.WorkspaceContext, req model.SearchContentRequest) (*model.SearchContentResponse, error) {
 	// Resolve search path
-	absSearchPath, _, err := services.Resolve(wCtx, req.SearchPath)
+	absSearchPath, _, err := service.Resolve(wCtx, req.SearchPath)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	info, err := wCtx.FS.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, models.ErrFileMissing
+			return nil, model.ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat search path: %w", err)
 	}
@@ -67,14 +67,14 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	cmd = append(cmd, req.Query, absSearchPath)
 
 	// Execute command with streaming
-	proc, stdout, _, err := wCtx.CommandExecutor.Start(ctx, cmd, models.ProcessOptions{Dir: absSearchPath})
+	proc, stdout, _, err := wCtx.CommandExecutor.Start(ctx, cmd, model.ProcessOptions{Dir: absSearchPath})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start rg command: %w", err)
 	}
 	// process will be waited on explicitly later
 
 	// Stream and process JSON output line by line
-	var matches []models.SearchContentMatch
+	var matches []model.SearchContentMatch
 	scanner := bufio.NewScanner(stdout)
 	// Increase buffer size to handle very long lines (e.g. minified JS)
 	buf := make([]byte, 0, initialBufSize)
@@ -120,7 +120,7 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 				lineContent = lineContent[:maxLineLength] + "...[truncated]"
 			}
 
-			matches = append(matches, models.SearchContentMatch{
+			matches = append(matches, model.SearchContentMatch{
 				File:        filepath.ToSlash(relPath),
 				LineNumber:  rgMatch.Data.LineNumber,
 				LineContent: lineContent,
@@ -139,7 +139,7 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 
 	// Wait for command to complete
 	if err := proc.Wait(); err != nil {
-		exitCode := services.GetExitCode(err)
+		exitCode := service.GetExitCode(err)
 		if exitCode == 1 {
 			// rg returns 1 for no matches (valid case)
 			// We just continue with empty matches
@@ -158,9 +158,9 @@ func SearchContent(ctx context.Context, wCtx *models.WorkspaceContext, req model
 	})
 
 	// Apply pagination
-	paginatedMatches, pagination := services.ApplyPagination(matches, offset, limit)
+	paginatedMatches, pagination := service.ApplyPagination(matches, offset, limit)
 
-	return &models.SearchContentResponse{
+	return &model.SearchContentResponse{
 		Matches:    paginatedMatches,
 		Offset:     offset,
 		Limit:      limit,
