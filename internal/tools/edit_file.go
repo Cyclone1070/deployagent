@@ -16,6 +16,8 @@ import (
 //
 // Note: There is a narrow race condition window between checksum validation and write.
 // For guaranteed conflict-free edits, external file locking would be required.
+//
+// Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
 func EditFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.EditFileRequest) (*models.EditFileResponse, error) {
 	// Resolve path
 	abs, rel, err := services.Resolve(wCtx, req.Path)

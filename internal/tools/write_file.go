@@ -14,6 +14,8 @@ import (
 // It validates the path is within workspace boundaries, checks for binary content,
 // enforces size limits, and writes atomically using a temp file + rename pattern.
 // Returns an error if the file already exists, is binary, too large, or outside the workspace.
+//
+// Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
 func WriteFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.WriteFileRequest) (*models.WriteFileResponse, error) {
 	// Resolve path
 	abs, rel, err := services.Resolve(wCtx, req.Path)

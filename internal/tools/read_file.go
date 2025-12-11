@@ -12,6 +12,8 @@ import (
 // It validates the path is within workspace boundaries, checks for binary content,
 // enforces size limits, and caches checksums for full file reads.
 // Returns an error if the file is binary, too large, or outside the workspace.
+//
+// Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
 func ReadFile(ctx context.Context, wCtx *models.WorkspaceContext, req models.ReadFileRequest) (*models.ReadFileResponse, error) {
 	// Resolve path
 	abs, rel, err := services.Resolve(wCtx, req.Path)
