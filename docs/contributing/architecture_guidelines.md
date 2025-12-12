@@ -122,7 +122,23 @@ internal/
 **Goal**: Decoupling and testability.
 
 *   **Define where used**: Do NOT define interfaces in the implementing package. Define them in the consumer package.
+    *   **Why**: The consumer knows what it needs. The implementer should not dictate the contract.
+    *   **Benefit**: You can swap implementations without touching the consumer. You can mock easily in tests.
+
 *   **Small Interfaces**: Keep interfaces minimal (`Reader` vs `ReadWriteCloser`).
+    *   **Why**: Large interfaces force implementers to provide methods they don't use. This creates coupling and bloat.
+    *   **Rule of Thumb**: If an interface has more than 5 methods, it's probably too big. Split it by use case.
+
+*   **No Shared Interfaces**: Interfaces are **local** to the package that uses them. They are NOT shared across packages, even sibling packages.
+    *   **Why**: Sibling packages should not know each other exist. If `file/` and `directory/` both need filesystem access, each defines its own interface with only the methods IT needs.
+    *   **Trade-off**: This creates duplication. You accept a small amount of duplication in exchange for massive decoupling and testability. This is the correct trade-off.
+
+> [!CAUTION]
+> **ANTI-PATTERN**: Shared Interface Library
+> *   **Bad**: Creating `internal/interfaces/filesystem.go` with a 10-method `FileSystem` interface that everyone imports.
+> *   **Why**: This is just `model/` in disguise. It creates a central dependency, couples all consumers, and forces implementers to satisfy methods they don't need.
+> *   **Solution**: Each consumer defines its own minimal interface. Duplication is acceptable. Coupling is not.
+
 
 **Example**:
 If `service` uses a database, `service` defines the `Repository` interface. The `database` package implements it.
@@ -136,6 +152,26 @@ type UserRepository interface {
 type Service struct {
     repo UserRepository
 }
+```
+
+**Sibling Isolation Example**:
+Both `file/` and `directory/` need filesystem operations, but each defines only what it needs:
+
+```go
+// package file
+type fileSystem interface {
+    Stat(path string) (FileInfo, error)
+    ReadFileRange(path string, offset, limit int64) ([]byte, error)
+}
+
+// package directory (different package, defines its own interface)
+type fileSystem interface {
+    Stat(path string) (FileInfo, error)
+    ListDir(path string) ([]FileInfo, error)
+}
+
+// Both are satisfied by the same concrete OSFileSystem,
+// but neither package knows about the other's interface.
 ```
 
 > [!CAUTION]
