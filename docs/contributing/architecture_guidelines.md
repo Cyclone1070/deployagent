@@ -17,16 +17,18 @@
 *   **Hierarchy**: Nested packages are permitted and encouraged for grouping related sub-features, as long as they adhere to the circular dependency rule.
 *   **Strict Rule**: **NO Circular Dependencies**. If you hit a circular dependency, your design is wrong. Refactor by extracting common definitions to a third package or decoupling via interfaces.
 
-```mermaid
-graph TD
-    subgraph "Bad Design (Layered)"
-        C[Controller] --> S[Service]
-        S --> M[Model]
-    end
-    subgraph "Good Design (Domain)"
-        Order[package order] --> Payment[package payment]
-        Order --> Customer[package customer]
-    end
+```text
+# Bad Design (Layered) - ANTI-PATTERN
+internal/
+  ├── controllers/
+  ├── services/
+  └── models/
+
+# Good Design (Domain) - RECOMMENDED
+internal/
+  ├── order/
+  ├── payment/
+  └── customer/
 ```
 
 > [!CAUTION]
