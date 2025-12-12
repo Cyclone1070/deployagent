@@ -2,20 +2,96 @@
 
 > [!IMPORTANT]
 > **Core Principle**: Make invalid states unrepresentable. Design your code so that it is impossible to misuse.
+>
 > These principles are strict guidelines to ensure maintainable, testable, and robust Go code. Any violations, no matter how small, will be rejected immediately during code review.
+
+## Pre-Commit Checklist
+
+Before submitting code, verify **every** item. A single unchecked box = rejection.
+
+### Package Design
+- [ ] No generic subdirectories (`model/`, `service/`, `utils/`, `types/`)
+- [ ] No package exceeds 10-15 files (excluding `*_test.go`)
+- [ ] No circular dependencies
+- [ ] No junk drawer packages mixing unrelated logic
+
+### Interfaces
+- [ ] All interfaces defined in the **consumer** package, not the implementer
+- [ ] All interfaces are minimal (≤5 methods)
+
+### Structs & Encapsulation
+- [ ] All domain entity fields are **private**
+- [ ] All domain entities have `New*` constructors
+- [ ] No direct struct initialization with `{}`
+- [ ] DTOs have **no methods** attached
+- [ ] No `json:`/`yaml:`/ORM tags on domain entities
+
+### Validation & DI
+- [ ] Static validation inside constructors
+- [ ] Dynamic validation at start of method body (clearly commented)
+- [ ] All dependencies injected via constructor
+- [ ] No global state for dependencies
+
+---
 
 ## 1. Package Design principles
 **Goal**: Small, focused, reusable components.
 
 *   **Small & Focused**: Packages should do one thing and do it well.
+
 *   **File Organization**:
     *   **Prefer Files over Directories**: Do not create generic sub-directories like `model/`, `service/`, or `types/` inside your package.
     *   **Correct**: `feature/types.go`, `feature/service.go`.
     *   **Incorrect**: `feature/models/types.go`, `feature/services/service.go`.
+
+> [!CAUTION]
+> **ANTI-PATTERN 1**: Grouping by layer (Global)
+> *   `controllers/`, `models/`, `services/`
+>
+> **ANTI-PATTERN 2**: Internal Layering (Inside Package)
+> *   `feature/user/models/user.go`
+> *   `feature/user/services/register.go`
+>
+> **CORRECT**: Grouping by feature/domain & Flat Package Files
+> *   `feature/order/`, `feature/payment/`
+> *   `feature/user/types.go`
+> *   `feature/user/register.go`
+> *   `feature/user/registration/register.go` (if complex)
+
 *   **Splitting Rule (The "Too Big" Test)**:
-    *   If a package grows large enough that you feel the need to create a `models/` directory to organize multiple model files, **the package is too big**.
+    *   If a package grows large enough (around 10-15 files) that you feel the need to create a `models/` directory to organize multiple model files, **the package is too big**.
     *   **Action**: Break it down into smaller, focused sub-packages (e.g., `feature/subfeature1`, `feature/subfeature2`).
+
+> [!CAUTION]
+> **ANTI-PATTERN**: The "Flatten and Bloat" Wrong Fix
+> 
+> When removing generic subdirectories like `model/` or `service/`, do NOT blindly flatten all files into the parent package if this creates a bloated package.
+>
+> ```text
+> # BEFORE: Internal Layering (WRONG)
+> feature/
+>   ├── models/     (8 files)
+>   ├── services/   (12 files)
+>   └── handlers/   (5 files)
+>
+> # WRONG FIX: Flatten Everything (STILL WRONG - now 25 files!)
+> feature/
+>   ├── user.go
+>   ├── order.go
+>   ├── ... (25 files total)
+>
+> # CORRECT FIX: Split by Domain
+> feature/
+>   ├── user/       (types.go, service.go, handler.go)
+>   ├── order/      (types.go, service.go, handler.go)
+>   └── payment/    (types.go, service.go, handler.go)
+> ```
+>
+> *   **Why**: You've traded one anti-pattern (internal layering) for another (bloated package). Both violate "small and focused."
+> *   **Rule**: If flattening would exceed 10-15 files, you MUST split into domain sub-packages instead.
+
 *   **Hierarchy**: Nested packages are permitted and encouraged for grouping related sub-features, as long as they adhere to the circular dependency rule.
+
 *   **Strict Rule**: **NO Circular Dependencies**. If you hit a circular dependency, your design is wrong. Refactor by extracting common definitions to a third package or decoupling via interfaces.
 
 ```text
@@ -31,21 +107,6 @@ internal/
   ├── payment/
   └── customer/
 ```
-
-> [!CAUTION]
-> **ANTI-PATTERN 1**: Grouping by layer (Global)
-> *   `controllers/`, `models/`, `services/`
->
-> **ANTI-PATTERN 2**: Internal Layering (Inside Package)
-> *   `pkg/user/models/user.go`
-> *   `pkg/user/services/register.go`
->
-> **CORRECT**: Grouping by feature/domain & Flat Package Files
-> *   `pkg/order/`, `pkg/payment/`
-> *   `pkg/user/types.go`
-> *   `pkg/user/register.go`
-> *   `pkg/user/register.go`
-> *   `pkg/user/registration/register.go` (if complex)
 
 > [!CAUTION]
 > **ANTI-PATTERN**: The "Junk Drawer" (Utils/Common)
@@ -78,13 +139,6 @@ type Service struct {
 ```
 
 > [!CAUTION]
-> **ANTI-PATTERN**: Pre-emptive Interface Return
-> *   **Bad**: `func NewService() ServiceInterface { ... }`
-> *   **Good**: `func NewService() *Service { ... }`
-> *   **Rule**: **Accept Interfaces, Return Concrete Types.**
-> *   **Why**: Returning interfaces pre-emptively limits the consumer's ability to use the full feature set of the struct and confuses the API surface.
-
-> [!CAUTION]
 > **ANTI-PATTERN**: Leaky Interfaces
 > *   **Bad**: `Save(u *User) (sql.Result, error)`
 >     *   *Why*: `sql.Result` ties your interface to a SQL database. You can't implement this for a file system or memory store.
@@ -95,9 +149,17 @@ type Service struct {
 **Goal**: Control state and enforce invariants.
 
 *   **Private Fields**: All Domain Entity fields MUST be private.
+
 *   **Public Constructor**: You MUST provide a public `New...` constructor for every Domain Entity.
     *   **Strict Rule**: Direct initialization with `{}` is **forbidden** for Domain Entities, even if they currently have no validation logic.
     *   **Reason**: Future-proofing. If you add validation later, you shouldn't have to refactor every usage.
+
+> [!CAUTION]
+> **ANTI-PATTERN**: Constructor Bypass
+> *   **Bad**: `user := &User{email: "..."}`
+> *   **Good**: `user := NewUser("...")`
+> *   **Why**: Bypassing the constructor skips validation and makes it impossible to guarantee invariants. It also breaks encapsulation.
+
 *   **DTOs**: Use separate **Data Transfer Objects** (DTOs) with public fields for simple data passing (JSON, API) where no behavior/validation is attached.
 
 ```go
@@ -113,12 +175,6 @@ type UserDTO struct {
     Email string `json:"email"`
 }
 ```
-
-> [!CAUTION]
-> **ANTI-PATTERN**: Constructor Bypass
-> *   **Bad**: `user := &User{email: "..."}`
-> *   **Good**: `user := NewUser("...")`
-> *   **Why**: Bypassing the constructor skips validation and makes it impossible to guarantee invariants. It also breaks encapsulation.
 
 > [!CAUTION]
 > **ANTI-PATTERN**: Tag Pollution on Domain Entities
@@ -193,4 +249,3 @@ func TestFileProcessor(t *testing.T) {
     // Test logic without touching disk
 }
 ```
-
