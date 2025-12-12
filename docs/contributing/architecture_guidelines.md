@@ -2,6 +2,7 @@
 
 > [!IMPORTANT]
 > **Core Principle**: Make invalid states unrepresentable. Design your code so that it is impossible to misuse.
+> These principles are strict guidelines to ensure maintainable, testable, and robust Go code. Any violations, no matter how small, will be rejected immediately during code review.
 
 ## 1. Package Design principles
 **Goal**: Small, focused, reusable components.
