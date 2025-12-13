@@ -32,6 +32,11 @@ Before submitting code, verify **every** item. A single unchecked box = rejectio
 - [ ] All dependencies injected via constructor
 - [ ] No global state for dependencies
 
+### Testing
+- [ ] All mocks defined locally in `*_test.go` files (no shared `mock/` package)
+- [ ] All test helpers defined locally in test files
+- [ ] `internal/testutils` contains ONLY generic helpers with NO codebase imports
+
 ---
 
 ## 1. Package Design
@@ -295,20 +300,14 @@ func (u *User) Save(repo UserRepository) error {
 
 ---
 
-## 5. Dependency Injection & Testing
-**Goal**: Deterministic, isolated tests.
+## 5. Dependency Injection
+**Goal**: Explicit, testable dependencies.
 
 *   **Strict DI**: Dependencies MUST be passed via constructor.
     *   **Why**: Explicit dependencies make code testable and prevent hidden coupling.
 
 *   **No Globals**: Never use global state for dependencies.
     *   **Why**: Globals create hidden dependencies, prevent parallel tests, and make code unpredictable.
-
-*   **Mocking**: Use mocks for all dependencies in unit tests.
-    *   **Why**: Real dependencies (databases, filesystems) make tests slow, flaky, and non-deterministic.
-
-*   **No Temp Files/Dirs**: Do not touch the filesystem in unit tests. Mock the interface.
-    *   **Why**: Filesystem operations are slow and create test pollution across runs.
 
 *   **Pure Helpers vs Dependencies**:
     *   **Pure helpers** (stateless, no I/O, no side effects): Import directly. No interface needed.
@@ -326,11 +325,33 @@ type FileProcessor struct {
 func NewFileProcessor(fs FileSystem) *FileProcessor {
     return &FileProcessor{fs: fs}
 }
-
-// Test with mock - no disk access
-func TestFileProcessor(t *testing.T) {
-    mockFS := new(MockFileSystem)
-    processor := NewFileProcessor(mockFS)
-    // Test logic without touching disk
-}
 ```
+
+---
+
+## 6. Testing
+**Goal**: Deterministic, isolated, self-contained tests.
+
+*   **Mocking**: Use mocks for all dependencies in unit tests.
+    *   **Why**: Real dependencies (databases, filesystems) make tests slow, flaky, and non-deterministic.
+
+*   **No Temp Files/Dirs**: Do not touch the filesystem in unit tests. Mock the interface.
+    *   **Why**: Filesystem operations are slow and create test pollution across runs.
+
+*   **Local Mocks**: Define mocks inside the `*_test.go` file that uses them. No shared `mock/` package.
+    *   **Why**: Consumer-defined interfaces mean each test defines its own interface. The mock implements THAT interface. Mocks can't drift. No import cycles.
+
+*   **Local Helpers**: Test helper functions should be defined in the test file that uses them.
+    *   **Why**: Keeps tests self-contained and readable.
+
+*   **Exception – `internal/testutils`**: Truly generic helpers MAY be placed here.
+    *   `testutils` MUST NOT import anything from the codebase (`internal/*`, `cmd/*`).
+    *   Only standard library and external dependencies allowed. Use sparingly.
+
+> [!CAUTION]
+> **ANTI-PATTERN**: Shared Mock Package
+>
+> *   **Bad**: `internal/testing/mock/filesystem.go` with a "god mock" used everywhere.
+> *   **Why**: Creates coupling, import cycles, and mocks that implement methods no single consumer needs.
+> *   **Solution**: Define `mockFileSystem` inside `file/read_test.go` with only the methods `file.fileSystem` requires.
+
