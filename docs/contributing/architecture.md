@@ -121,10 +121,6 @@ Before submitting code, verify **every** item.
 > **Single-File Directories Are Acceptable**
 >
 > When extracting shared code to prevent circular dependencies, a directory with one file is fine. Correct structure matters more than file count.
->
-> *   ✅ `feature/errors/errors.go` (prevents circular deps between parent and children)
-> *   ✅ `feature/pagination/pagination.go` (descriptive helper package)
-> *   ❌ `feature/utils/errors.go` (generic junk drawer)
 
 > [!CAUTION]
 > **ANTI-PATTERN**: Junk Drawer
@@ -364,3 +360,47 @@ func NewFileProcessor(fs FileSystem) *FileProcessor {
 > *   **Why**: Creates coupling, import cycles, and mocks that implement methods no single consumer needs.
 > *   **Solution**: Define `mockFileSystem` inside `file/read_test.go` with only the methods `file.fileSystem` requires.
 
+
+---
+
+## 7. Error Handling
+**Goal**: Decoupling and robustness.
+
+*   **Behavioral Interfaces**: Check *what* the error does, not *who* it is.
+    *   **Provider**: Implement behavioral methods on error structs (e.g., `NotFound() bool { return true }`).
+    *   **Consumer**: Define a local interface for the behavior you need to check.
+    *   **Why**: Completely removes import dependencies between consumer and provider. The consumer doesn't need to know the provider exists to handle its errors.
+
+*   **Local Error Definitions**: Define errors in the package that raises them.
+    *   **Why**: Keeps packages self-contained.
+
+> [!CAUTION]
+> **ANTI-PATTERN**: Shared Error Package
+>
+> *   **Bad**: `internal/errutil` containing all system errors.
+> *   **Why**: This is a "junk drawer" that couples every package to every other package.
+> *   **Solution**: Delete it. Define errors locally and use behavioral interfaces.
+
+**Example**:
+
+```go
+// 1. Provider (package fs)
+type NotFoundError struct { name string }
+func (e *NotFoundError) Error() string { return "not found: " + e.name }
+func (e *NotFoundError) NotFound() bool { return true } // <--- THE BEHAVIOR
+
+// 2. Consumer (package usecase) - NO import of "fs" needed!
+type notFound interface {
+    NotFound() bool
+}
+
+func (u *UseCase) Do() {
+    if err := u.opener.Open("file.txt"); err != nil {
+        // Check behavior via type assertion
+        if e, ok := err.(notFound); ok && e.NotFound() {
+            // Handle missing file
+            return
+        }
+    }
+}
+```
