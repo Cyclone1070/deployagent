@@ -62,7 +62,7 @@ Before submitting code, verify **every** item.
 >   └── models/
 >
 > # WRONG: Internal layering inside package
-> feature/user/
+> internal/feature/
 >   ├── models/user.go
 >   └── services/register.go
 >
@@ -74,8 +74,8 @@ Before submitting code, verify **every** item.
 > ```
 
 *   **Splitting Rule**: If a package grows to 10-15 files, it is too big. Break it into focused sub-packages.
-    *   **Why**: Large packages become hard to navigate and test. The urge to create `models/` is a symptom of bloat.
-    *   **Action**: Split by domain (e.g., `feature/user/`, `feature/order/`), not by layer.
+    *   **Why**: Large packages become hard to navigate and test. The urge to create `models/` or `services/` is a symptom of bloat.
+    *   **Action**: Split by domain (e.g., `internal/user/`, `internal/order/`), not by layer.
 
 > [!CAUTION]
 > **ANTI-PATTERN**: Flatten and Bloat
@@ -84,19 +84,19 @@ Before submitting code, verify **every** item.
 >
 > ```text
 > # BEFORE: Internal layering (WRONG)
-> feature/
+> internal/feature/
 >   ├── models/     (8 files)
 >   ├── services/   (12 files)
 >   └── handlers/   (5 files)
 >
 > # WRONG FIX: Flatten everything (now 25 files!)
-> feature/
+> internal/feature/
 >   ├── user.go
 >   ├── order.go
 >   └── ... (25 files)
 >
 > # CORRECT FIX: Split by domain
-> feature/
+> internal/
 >   ├── user/       (types.go, service.go, handler.go)
 >   ├── order/      (types.go, service.go, handler.go)
 >   └── payment/    (types.go, service.go, handler.go)
@@ -162,12 +162,12 @@ Before submitting code, verify **every** item.
 > *   **Solution**: Each consumer defines its own minimal interface. Duplication is acceptable. Coupling is not.
 
 > [!CAUTION]
-> **ANTI-PATTERN**: Leaky Interface
+> **ANTI-PATTERN**: Copy Exact Interface Methods
 >
 > *   **Bad**: Consumer interface declares methods it never calls (e.g., `Rename()` exists but is never invoked).
 > *   **Why**: The interface exposes internal implementation details or dependencies of dependencies.
 > *   **How It Happens**: Copying methods from the implementer instead of auditing actual usage.
-> *   **Solution**: Grep your package for each interface method. If unused, remove it.
+> *   **Solution**: Check your package for each interface method. If unused, remove it.
 
 **Example**:
 
