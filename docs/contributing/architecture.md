@@ -36,7 +36,10 @@ Before submitting code, verify **every** item.
 ### Testing
 - [ ] All mocks defined locally in `*_test.go` files (no shared `mock/` package)
 - [ ] All test helpers defined locally in test files
-- [ ] `internal/testutils` contains ONLY generic helpers with NO codebase imports
+### Error Handling
+- [ ] No shared error packages (e.g., `errutil`)
+- [ ] Errors defined in the package that raises them
+- [ ] Cross-package error checks use **Behavioral Interfaces** (no imports)
 
 ---
 
