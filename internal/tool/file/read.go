@@ -3,28 +3,41 @@ package file
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
 	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
+// fileReader defines the minimal filesystem operations needed for reading files.
+type fileReader interface {
+	Stat(path string) (os.FileInfo, error)
+	ReadFileRange(path string, offset, limit int64) ([]byte, error)
+}
+
+// checksumComputer defines the interface for checksum computation and updates.
+type checksumComputer interface {
+	Compute(data []byte) string
+	Update(path string, checksum string)
+}
+
 // ReadFileTool handles file reading operations.
 type ReadFileTool struct {
-	fileOps         fileOps
+	fileOps         fileReader
 	pathResolver    pathResolver
 	binaryDetector  binaryDetector
-	checksumManager checksumManager
+	checksumManager checksumComputer
 	config          *config.Config
 	workspaceRoot   string
 }
 
 // NewReadFileTool creates a new ReadFileTool with injected dependencies.
 func NewReadFileTool(
-	fileOps fileOps,
+	fileOps fileReader,
 	pathResolver pathResolver,
 	binaryDetector binaryDetector,
-	checksumManager checksumManager,
+	checksumManager checksumComputer,
 	cfg *config.Config,
 	workspaceRoot string,
 ) *ReadFileTool {

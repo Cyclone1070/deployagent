@@ -33,8 +33,8 @@ func TestCollector_Write_Truncation(t *testing.T) {
 		t.Errorf("Write returned %d, want %d", n, len(data))
 	}
 
-	if !c.Truncated {
-		t.Error("Truncated = false, want true")
+	if !c.Truncated() {
+		t.Error("Truncated() = false, want true")
 	}
 
 	// Should contain first 10 bytes
@@ -51,16 +51,15 @@ func TestCollector_Write_Binary(t *testing.T) {
 		t.Fatalf("Write failed: %v", err)
 	}
 
-	if !c.IsBinary {
-		t.Error("IsBinary = false, want true")
+	// Binary content should be indicated via String() output
+	if got := c.String(); got != "[Binary Content]" {
+		t.Errorf("String() = %q, want %q", got, "[Binary Content]")
 	}
 
-	// Should stop collecting after binary detection
-	// Implementation detail: does it keep what it has?
-	// Plan says "stops collecting".
-	// Let's assume it marks as binary and maybe clears buffer or keeps prefix.
-	// Usually binary files shouldn't be displayed, so String() might return a placeholder or empty.
-	// Let's check IsBinary flag primarily.
+	// Should also report as truncated since we stop collecting
+	if !c.Truncated() {
+		t.Error("Truncated() = false, want true (binary content stops collection)")
+	}
 }
 
 func TestCollector_UTF8_Boundary(t *testing.T) {

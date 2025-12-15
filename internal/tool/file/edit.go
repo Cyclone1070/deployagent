@@ -11,9 +11,23 @@ import (
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
+// fileEditor defines the minimal filesystem operations needed for editing files.
+type fileEditor interface {
+	Stat(path string) (os.FileInfo, error)
+	ReadFileRange(path string, offset, limit int64) ([]byte, error)
+	WriteFileAtomic(path string, content []byte, perm os.FileMode) error
+}
+
+// checksumManager defines the interface for full checksum management.
+type checksumManager interface {
+	Compute(data []byte) string
+	Get(path string) (checksum string, ok bool)
+	Update(path string, checksum string)
+}
+
 // EditFileTool handles file editing operations.
 type EditFileTool struct {
-	fileOps         fileOps
+	fileOps         fileEditor
 	pathResolver    pathResolver
 	binaryDetector  binaryDetector
 	checksumManager checksumManager
@@ -23,7 +37,7 @@ type EditFileTool struct {
 
 // NewEditFileTool creates a new EditFileTool with injected dependencies.
 func NewEditFileTool(
-	fileOps fileOps,
+	fileOps fileEditor,
 	pathResolver pathResolver,
 	binaryDetector binaryDetector,
 	checksumManager checksumManager,

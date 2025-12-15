@@ -1,15 +1,15 @@
-package fsutil
+package contentutil
 
 // SystemBinaryDetector implements binary content detection using null byte detection.
 // It checks for null bytes in the first N bytes of content, with special handling for UTF BOMs.
 type SystemBinaryDetector struct {
-	SampleSize int // Number of bytes to sample for binary detection
+	sampleSize int // Number of bytes to sample for binary detection
 }
 
 // NewSystemBinaryDetector creates a new SystemBinaryDetector with the specified sample size.
 func NewSystemBinaryDetector(sampleSize int) *SystemBinaryDetector {
 	return &SystemBinaryDetector{
-		SampleSize: sampleSize,
+		sampleSize: sampleSize,
 	}
 }
 
@@ -31,7 +31,7 @@ func (r *SystemBinaryDetector) IsBinaryContent(content []byte) bool {
 	}
 
 	// Check for null bytes in configured sample size
-	sampleSize := min(len(content), r.SampleSize)
+	sampleSize := min(len(content), r.sampleSize)
 	for i := range sampleSize {
 		if content[i] == 0 {
 			return true

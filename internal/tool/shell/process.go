@@ -64,7 +64,7 @@ func CollectProcessOutput(stdout, stderr io.Reader, maxBytes int, sampleSize int
 
 	wg.Wait()
 
-	truncated := stdoutCollector.Truncated || stderrCollector.Truncated
+	truncated := stdoutCollector.Truncated() || stderrCollector.Truncated()
 	return stdoutCollector.String(), stderrCollector.String(), truncated, nil
 }
 

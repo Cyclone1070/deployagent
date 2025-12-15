@@ -9,26 +9,26 @@ import (
 
 // OSProcess wraps an os/exec.Cmd to implement the process interface.
 type OSProcess struct {
-	Cmd *exec.Cmd
+	cmd *exec.Cmd
 }
 
 // Wait waits for the process to complete and returns any error.
 func (p *OSProcess) Wait() error {
-	return p.Cmd.Wait()
+	return p.cmd.Wait()
 }
 
 // Kill forcefully terminates the process.
 func (p *OSProcess) Kill() error {
-	if p.Cmd.Process != nil {
-		return p.Cmd.Process.Kill()
+	if p.cmd.Process != nil {
+		return p.cmd.Process.Kill()
 	}
 	return nil
 }
 
 // Signal sends a signal to the process.
 func (p *OSProcess) Signal(sig os.Signal) error {
-	if p.Cmd.Process != nil {
-		return p.Cmd.Process.Signal(sig)
+	if p.cmd.Process != nil {
+		return p.cmd.Process.Signal(sig)
 	}
 	return nil
 }
@@ -83,5 +83,5 @@ func (f *OSCommandExecutor) Start(ctx context.Context, command []string, opts Pr
 		return nil, nil, nil, err
 	}
 
-	return &OSProcess{Cmd: cmd}, stdout, stderr, nil
+	return &OSProcess{cmd: cmd}, stdout, stderr, nil
 }

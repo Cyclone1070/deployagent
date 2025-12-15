@@ -1,4 +1,4 @@
-package fsutil
+package hashutil
 
 import (
 	"crypto/sha256"

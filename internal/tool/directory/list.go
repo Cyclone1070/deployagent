@@ -14,9 +14,23 @@ import (
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
+// dirLister defines the filesystem operations needed for listing directories.
+type dirLister interface {
+	Stat(path string) (os.FileInfo, error)
+	Lstat(path string) (os.FileInfo, error)
+	Readlink(path string) (string, error)
+	UserHomeDir() (string, error)
+	ListDir(path string) ([]os.FileInfo, error)
+}
+
+// gitignoreService defines the interface for gitignore pattern matching.
+type gitignoreService interface {
+	ShouldIgnore(relativePath string) bool
+}
+
 // ListDirectoryTool handles directory listing operations.
 type ListDirectoryTool struct {
-	fs               fileSystem
+	fs               dirLister
 	gitignoreService gitignoreService
 	config           *config.Config
 	workspaceRoot    string
@@ -24,7 +38,7 @@ type ListDirectoryTool struct {
 
 // NewListDirectoryTool creates a new ListDirectoryTool with injected dependencies.
 func NewListDirectoryTool(
-	fs fileSystem,
+	fs dirLister,
 	gitignoreService gitignoreService,
 	cfg *config.Config,
 	workspaceRoot string,

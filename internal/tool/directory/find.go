@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,9 +17,23 @@ import (
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
+// dirFinder defines the filesystem operations needed for finding files.
+// Note: Does NOT include ListDir - this tool uses the fd command instead.
+type dirFinder interface {
+	Stat(path string) (os.FileInfo, error)
+	Lstat(path string) (os.FileInfo, error)
+	Readlink(path string) (string, error)
+	UserHomeDir() (string, error)
+}
+
+// commandExecutor defines the interface for executing shell commands.
+type commandExecutor interface {
+	Start(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error)
+}
+
 // FindFileTool handles file finding operations.
 type FindFileTool struct {
-	fs              fileSystem
+	fs              dirFinder
 	commandExecutor commandExecutor
 	config          *config.Config
 	workspaceRoot   string
@@ -26,7 +41,7 @@ type FindFileTool struct {
 
 // NewFindFileTool creates a new FindFileTool with injected dependencies.
 func NewFindFileTool(
-	fs fileSystem,
+	fs dirFinder,
 	commandExecutor commandExecutor,
 	cfg *config.Config,
 	workspaceRoot string,

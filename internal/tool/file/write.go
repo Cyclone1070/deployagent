@@ -11,22 +11,35 @@ import (
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
+// fileWriter defines the minimal filesystem operations needed for writing files.
+type fileWriter interface {
+	Stat(path string) (os.FileInfo, error)
+	WriteFileAtomic(path string, content []byte, perm os.FileMode) error
+	EnsureDirs(path string) error
+}
+
+// checksumUpdater defines the interface for checksum computation and updates.
+type checksumUpdater interface {
+	Compute(data []byte) string
+	Update(path string, checksum string)
+}
+
 // WriteFileTool handles file writing operations.
 type WriteFileTool struct {
-	fileOps         fileOps
+	fileOps         fileWriter
 	pathResolver    pathResolver
 	binaryDetector  binaryDetector
-	checksumManager checksumManager
+	checksumManager checksumUpdater
 	config          *config.Config
 	workspaceRoot   string
 }
 
 // NewWriteFileTool creates a new WriteFileTool with injected dependencies.
 func NewWriteFileTool(
-	fileOps fileOps,
+	fileOps fileWriter,
 	pathResolver pathResolver,
 	binaryDetector binaryDetector,
-	checksumManager checksumManager,
+	checksumManager checksumUpdater,
 	cfg *config.Config,
 	workspaceRoot string,
 ) *WriteFileTool {

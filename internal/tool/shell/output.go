@@ -5,10 +5,10 @@ import "bytes"
 // Collector captures command output with size limits and binary content detection.
 // It implements io.Writer and can be used to collect stdout/stderr from processes.
 type Collector struct {
-	Buffer    bytes.Buffer
-	MaxBytes  int
-	Truncated bool
-	IsBinary  bool
+	buffer    bytes.Buffer
+	maxBytes  int
+	truncated bool
+	isBinary  bool
 
 	// Internal state for binary detection
 	bytesChecked int
@@ -18,7 +18,7 @@ type Collector struct {
 // NewCollector creates a new output collector with the specified maximum byte limit and binary detection sample size.
 func NewCollector(maxBytes int, sampleSize int) *Collector {
 	return &Collector{
-		MaxBytes:   maxBytes,
+		maxBytes:   maxBytes,
 		sampleSize: sampleSize,
 	}
 }
@@ -26,7 +26,7 @@ func NewCollector(maxBytes int, sampleSize int) *Collector {
 // Write implements io.Writer for collecting process output.
 // It detects binary content and enforces size limits, truncating if necessary.
 func (c *Collector) Write(p []byte) (n int, err error) {
-	if c.IsBinary {
+	if c.isBinary {
 		return len(p), nil // Discard rest if binary
 	}
 
@@ -39,27 +39,27 @@ func (c *Collector) Write(p []byte) (n int, err error) {
 		}
 
 		if bytes.IndexByte(toCheck, 0) != -1 {
-			c.IsBinary = true
-			c.Truncated = true // Treated as truncated since we stop collecting
+			c.isBinary = true
+			c.truncated = true // Treated as truncated since we stop collecting
 			return len(p), nil
 		}
 		c.bytesChecked += len(toCheck)
 	}
 
 	// Check if we have space
-	remainingSpace := c.MaxBytes - c.Buffer.Len()
+	remainingSpace := c.maxBytes - c.buffer.Len()
 	if remainingSpace <= 0 {
-		c.Truncated = true
+		c.truncated = true
 		return len(p), nil
 	}
 
 	toWrite := p
 	if len(toWrite) > remainingSpace {
 		toWrite = toWrite[:remainingSpace]
-		c.Truncated = true
+		c.truncated = true
 	}
 
-	written, err := c.Buffer.Write(toWrite)
+	written, err := c.buffer.Write(toWrite)
 	if err != nil {
 		return written, err
 	}
@@ -71,8 +71,13 @@ func (c *Collector) Write(p []byte) (n int, err error) {
 // String returns the collected output as a string.
 // Returns "[Binary Content]" if binary data was detected.
 func (c *Collector) String() string {
-	if c.IsBinary {
+	if c.isBinary {
 		return "[Binary Content]"
 	}
-	return c.Buffer.String()
+	return c.buffer.String()
+}
+
+// Truncated returns whether the output was truncated due to size limits or binary content.
+func (c *Collector) Truncated() bool {
+	return c.truncated
 }

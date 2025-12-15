@@ -13,10 +13,12 @@ import (
 	orchadapter "github.com/Cyclone1070/iav/internal/orchestrator/adapter"
 	"github.com/Cyclone1070/iav/internal/provider/gemini"
 	provider "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/tool/contentutil"
 	"github.com/Cyclone1070/iav/internal/tool/directory"
 	"github.com/Cyclone1070/iav/internal/tool/file"
 	"github.com/Cyclone1070/iav/internal/tool/fsutil"
 	"github.com/Cyclone1070/iav/internal/tool/gitutil"
+	"github.com/Cyclone1070/iav/internal/tool/hashutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 	"github.com/Cyclone1070/iav/internal/tool/search"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
@@ -70,8 +72,8 @@ func createTools(cfg *config.Config, workspaceRoot string) ([]orchadapter.Tool, 
 
 	// Instantiate concrete dependencies
 	osFS := fsutil.NewOSFileSystem()
-	binaryDetector := fsutil.NewSystemBinaryDetector(cfg.Tools.BinaryDetectionSampleSize)
-	checksumManager := fsutil.NewChecksumManager()
+	binaryDetector := contentutil.NewSystemBinaryDetector(cfg.Tools.BinaryDetectionSampleSize)
+	checksumManager := hashutil.NewChecksumManager()
 	commandExecutor := shell.NewOSCommandExecutor()
 	todoStore := todo.NewInMemoryTodoStore()
 
