@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 // Local mocks for read tests
@@ -227,7 +226,7 @@ func TestReadFile(t *testing.T) {
 
 		tool := NewReadFileTool(fs, fs, detector, checksumManager, cfg, workspaceRoot)
 		_, err := tool.Run(context.Background(), ReadFileRequest{Path: "binary.bin"})
-		if err != toolserrors.ErrBinaryFile {
+		if err != ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
@@ -244,7 +243,7 @@ func TestReadFile(t *testing.T) {
 
 		tool := NewReadFileTool(fs, fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 		_, err := tool.Run(context.Background(), ReadFileRequest{Path: "large.txt"})
-		if err != toolserrors.ErrTooLarge {
+		if err != ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})

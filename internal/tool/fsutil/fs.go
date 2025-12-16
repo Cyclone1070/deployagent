@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 // writeSyncCloser defines the minimal interface for a writable file handle.
@@ -77,7 +76,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 
 	// Validate offset
 	if offset < 0 {
-		return nil, toolserrors.ErrInvalidOffset
+		return nil, ErrInvalidOffset
 	}
 
 	if offset >= fileSize {

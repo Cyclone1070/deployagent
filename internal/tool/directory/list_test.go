@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 // Local mocks for directory listing tests
@@ -333,8 +332,10 @@ func TestListDirectory(t *testing.T) {
 		tool := NewListDirectoryTool(fs, nil, config.DefaultConfig(), workspaceRoot)
 
 		_, err := tool.Run(context.Background(), ListDirectoryRequest{Path: "../tmp/outside", MaxDepth: -1, Offset: 0, Limit: 1000})
-		if err != toolserrors.ErrOutsideWorkspace {
-			t.Errorf("expected ErrOutsideWorkspace, got %v", err)
+
+		type outsideWorkspace interface{ OutsideWorkspace() bool }
+		if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+			t.Errorf("expected OutsideWorkspace error, got %v", err)
 		}
 	})
 

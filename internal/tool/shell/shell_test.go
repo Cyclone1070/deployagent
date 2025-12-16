@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 // Local mocks for shell tests
@@ -416,7 +415,7 @@ func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
 	}
 
 	_, err := tool.Run(context.Background(), req)
-	if err != toolserrors.ErrShellWorkingDirOutsideWorkspace {
+	if err != ErrShellWorkingDirOutsideWorkspace {
 		t.Errorf("Expected ErrShellWorkingDirOutsideWorkspace, got %v", err)
 	}
 }

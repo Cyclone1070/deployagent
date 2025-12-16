@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 func TestEditFile(t *testing.T) {
@@ -49,7 +48,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != toolserrors.ErrEditConflict {
+		if err != ErrEditConflict {
 			t.Errorf("expected ErrEditConflict, got %v", err)
 		}
 	})
@@ -126,7 +125,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != toolserrors.ErrSnippetNotFound {
+		if err != ErrSnippetNotFound {
 			t.Errorf("expected ErrSnippetNotFound, got %v", err)
 		}
 	})
@@ -154,7 +153,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != toolserrors.ErrExpectedReplacementsMismatch {
+		if err != ErrExpectedReplacementsMismatch {
 			t.Errorf("expected ErrExpectedReplacementsMismatch, got %v", err)
 		}
 	})
@@ -182,7 +181,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err := editTool.Run(context.Background(), EditFileRequest{Path: "binary.bin", Operations: ops})
-		if err != toolserrors.ErrBinaryFile {
+		if err != ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
@@ -241,7 +240,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err := editTool.Run(context.Background(), EditFileRequest{Path: "nonexistent.txt", Operations: ops})
-		if err != toolserrors.ErrFileMissing {
+		if err != ErrFileMissing {
 			t.Errorf("expected ErrFileMissing, got %v", err)
 		}
 	})
@@ -312,7 +311,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != toolserrors.ErrExpectedReplacementsMismatch {
+		if err != ErrExpectedReplacementsMismatch {
 			t.Errorf("expected ErrExpectedReplacementsMismatch, got %v", err)
 		}
 	})
@@ -355,7 +354,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != toolserrors.ErrTooLarge {
+		if err != ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})
@@ -389,7 +388,7 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), EditFileRequest{Path: "test.txt", Operations: ops})
-		if err != toolserrors.ErrEditConflict {
+		if err != ErrEditConflict {
 			t.Errorf("expected ErrEditConflict due to race condition, got %v", err)
 		}
 	})
@@ -461,8 +460,10 @@ func TestEditFile(t *testing.T) {
 
 		// Try to edit through escaping chain - should fail
 		_, err := editTool.Run(context.Background(), EditFileRequest{Path: "link1", Operations: ops})
-		if err != toolserrors.ErrOutsideWorkspace {
-			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
+
+		type outsideWorkspace interface{ OutsideWorkspace() bool }
+		if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+			t.Errorf("expected OutsideWorkspace error for escaping symlink chain, got %v", err)
 		}
 	})
 }

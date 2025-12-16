@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -78,7 +77,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req ReadFileRequest) (*ReadFileR
 	// Enforce size limit
 	maxFileSize := t.config.Tools.MaxFileSize
 	if info.Size() > maxFileSize {
-		return nil, toolserrors.ErrTooLarge
+		return nil, ErrTooLarge
 	}
 
 	// Derive offset and limit
@@ -98,7 +97,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req ReadFileRequest) (*ReadFileR
 
 	// Check for binary using content we already read
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
-		return nil, toolserrors.ErrBinaryFile
+		return nil, ErrBinaryFile
 	}
 
 	// Convert to string

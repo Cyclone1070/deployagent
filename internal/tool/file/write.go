@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -69,7 +68,7 @@ func (t *WriteFileTool) Run(ctx context.Context, req WriteFileRequest) (*WriteFi
 	// Check if file already exists
 	_, err = t.fileOps.Stat(abs)
 	if err == nil {
-		return nil, toolserrors.ErrFileExists
+		return nil, ErrFileExists
 	}
 	if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to check if file exists: %w", err)
@@ -83,13 +82,13 @@ func (t *WriteFileTool) Run(ctx context.Context, req WriteFileRequest) (*WriteFi
 	contentBytes := []byte(req.Content)
 
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
-		return nil, toolserrors.ErrBinaryFile
+		return nil, ErrBinaryFile
 	}
 
 	maxFileSize := t.config.Tools.MaxFileSize
 
 	if int64(len(contentBytes)) > maxFileSize {
-		return nil, toolserrors.ErrTooLarge
+		return nil, ErrTooLarge
 	}
 
 	filePerm := os.FileMode(0644)

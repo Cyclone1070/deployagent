@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
@@ -163,8 +162,10 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 
 	tool := NewSearchContentTool(fs, &mockCommandExecutorForSearch{}, config.DefaultConfig(), "/workspace")
 	_, err := tool.Run(context.Background(), SearchContentRequest{Query: "pattern", SearchPath: "../outside", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err != toolserrors.ErrOutsideWorkspace {
-		t.Errorf("expected ErrOutsideWorkspace, got %v", err)
+
+	type outsideWorkspace interface{ OutsideWorkspace() bool }
+	if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+		t.Errorf("expected OutsideWorkspace error, got %v", err)
 	}
 }
 

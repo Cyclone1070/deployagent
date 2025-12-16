@@ -2,17 +2,24 @@ package directory
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
+
+// Behavioral interfaces for cross-package error checking
+type outsideWorkspace interface {
+	OutsideWorkspace() bool
+}
+
+type fileMissing interface {
+	FileMissing() bool
+}
 
 // dirLister defines the filesystem operations needed for listing directories.
 type dirLister interface {
@@ -76,13 +83,12 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req ListDirectoryRequest) (
 	info, err := t.fs.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, toolserrors.ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat path: %w", err)
 	}
 
 	if !info.IsDir() {
-		return nil, fmt.Errorf("path is not a directory")
+		return nil, &NotDirectoryError{Path: abs}
 	}
 
 	// Set maxDepth: 0 = non-recursive (only immediate children), -1 or negative = unlimited
@@ -168,8 +174,11 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 
 	allEntries, err := t.fs.ListDir(abs)
 	if err != nil {
-		// Propagate sentinel errors directly
-		if errors.Is(err, toolserrors.ErrOutsideWorkspace) || errors.Is(err, toolserrors.ErrFileMissing) {
+		// Check for behavioral errors using type assertion
+		if e, ok := err.(outsideWorkspace); ok && e.OutsideWorkspace() {
+			return nil, false, err
+		}
+		if e, ok := err.(fileMissing); ok && e.FileMissing() {
 			return nil, false, err
 		}
 		// Wrap other errors for context

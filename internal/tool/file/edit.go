@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -73,7 +72,7 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 	info, err := t.fileOps.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, toolserrors.ErrFileMissing
+			return nil, ErrFileMissing
 		}
 		return nil, fmt.Errorf("failed to stat file: %w", err)
 	}
@@ -86,7 +85,7 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 
 	// Check for binary using content we already read
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
-		return nil, toolserrors.ErrBinaryFile
+		return nil, ErrBinaryFile
 	}
 
 	content := string(contentBytes)
@@ -97,7 +96,7 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 	// Check for conflicts with cached version
 	priorChecksum, ok := t.checksumManager.Get(abs)
 	if ok && priorChecksum != currentChecksum {
-		return nil, toolserrors.ErrEditConflict
+		return nil, ErrEditConflict
 	}
 
 	// Preserve original permissions
@@ -114,11 +113,11 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 		count := strings.Count(content, op.Before)
 
 		if count == 0 {
-			return nil, toolserrors.ErrSnippetNotFound
+			return nil, ErrSnippetNotFound
 		}
 
 		if count != op.ExpectedReplacements {
-			return nil, toolserrors.ErrExpectedReplacementsMismatch
+			return nil, ErrExpectedReplacementsMismatch
 		}
 
 		content = strings.Replace(content, op.Before, op.After, op.ExpectedReplacements)
@@ -130,7 +129,7 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 	// Check size limit
 	maxFileSize := t.config.Tools.MaxFileSize
 	if int64(len(newContentBytes)) > maxFileSize {
-		return nil, toolserrors.ErrTooLarge
+		return nil, ErrTooLarge
 	}
 
 	// Only revalidate if we had a cached checksum to check against
@@ -142,7 +141,7 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 		}
 		revalidationChecksum := t.checksumManager.Compute(revalidationBytes)
 		if revalidationChecksum != currentChecksum {
-			return nil, toolserrors.ErrEditConflict
+			return nil, ErrEditConflict
 		}
 	}
 

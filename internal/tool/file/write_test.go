@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 // Local mocks for write tests
@@ -345,7 +344,7 @@ func TestWriteFile(t *testing.T) {
 
 		tool := NewWriteFileTool(fs, fs, newMockBinaryDetectorForWrite(), checksumManager, config.DefaultConfig(), workspaceRoot)
 		_, err := tool.Run(context.Background(), WriteFileRequest{Path: "existing.txt", Content: "new content"})
-		if err != toolserrors.ErrFileExists {
+		if err != ErrFileExists {
 			t.Errorf("expected ErrFileExists, got %v", err)
 		}
 	})
@@ -358,8 +357,10 @@ func TestWriteFile(t *testing.T) {
 
 		tool := NewWriteFileTool(fs, fs, newMockBinaryDetectorForWrite(), checksumManager, config.DefaultConfig(), workspaceRoot)
 		_, err := tool.Run(context.Background(), WriteFileRequest{Path: "escape", Content: "content"})
-		if err != toolserrors.ErrOutsideWorkspace {
-			t.Errorf("expected ErrOutsideWorkspace for symlink escape, got %v", err)
+
+		type outsideWorkspace interface{ OutsideWorkspace() bool }
+		if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+			t.Errorf("expected OutsideWorkspace error for symlink escape, got %v", err)
 		}
 	})
 
@@ -377,7 +378,7 @@ func TestWriteFile(t *testing.T) {
 
 		tool := NewWriteFileTool(fs, fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, workspaceRoot)
 		_, err := tool.Run(context.Background(), WriteFileRequest{Path: "large.txt", Content: string(largeContent)})
-		if err != toolserrors.ErrTooLarge {
+		if err != ErrTooLarge {
 			t.Errorf("expected ErrTooLarge, got %v", err)
 		}
 	})
@@ -394,7 +395,7 @@ func TestWriteFile(t *testing.T) {
 		// Content with NUL byte
 		binaryContent := []byte{0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F}
 		_, err := tool.Run(context.Background(), WriteFileRequest{Path: "binary.bin", Content: string(binaryContent)})
-		if err != toolserrors.ErrBinaryFile {
+		if err != ErrBinaryFile {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
@@ -457,7 +458,7 @@ func TestWriteFile(t *testing.T) {
 		// This should succeed because we're creating a new file at the symlink path
 		if err != nil {
 			// If it fails, it's because the symlink exists, which is expected
-			if err != toolserrors.ErrFileExists {
+			if err != ErrFileExists {
 				t.Errorf("unexpected error: %v", err)
 			}
 		}
@@ -473,8 +474,10 @@ func TestWriteFile(t *testing.T) {
 		tool := NewWriteFileTool(fs, fs, newMockBinaryDetectorForWrite(), checksumManager, config.DefaultConfig(), workspaceRoot)
 		// Try to write a file through the symlink directory - should fail
 		_, err := tool.Run(context.Background(), WriteFileRequest{Path: "link/escape.txt", Content: "content"})
-		if err != toolserrors.ErrOutsideWorkspace {
-			t.Errorf("expected ErrOutsideWorkspace for symlink directory escape, got %v", err)
+
+		type outsideWorkspace interface{ OutsideWorkspace() bool }
+		if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+			t.Errorf("expected OutsideWorkspace error for symlink directory escape, got %v", err)
 		}
 	})
 
@@ -519,8 +522,10 @@ func TestWriteFile(t *testing.T) {
 		tool := NewWriteFileTool(fs, fs, newMockBinaryDetectorForWrite(), checksumManager, config.DefaultConfig(), workspaceRoot)
 		// Try to write through escaping chain - should fail
 		_, err := tool.Run(context.Background(), WriteFileRequest{Path: "link1/file.txt", Content: "content"})
-		if err != toolserrors.ErrOutsideWorkspace {
-			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
+
+		type outsideWorkspace interface{ OutsideWorkspace() bool }
+		if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+			t.Errorf("expected OutsideWorkspace error for escaping symlink chain, got %v", err)
 		}
 	})
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
@@ -54,13 +53,13 @@ func (t *SearchContentTool) Run(ctx context.Context, req SearchContentRequest) (
 	info, err := t.fs.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, toolserrors.ErrFileMissing
+			return nil, &FileMissingError{Path: absSearchPath}
 		}
 		return nil, fmt.Errorf("failed to stat search path: %w", err)
 	}
 
 	if !info.IsDir() {
-		return nil, fmt.Errorf("search path is not a directory")
+		return nil, &NotDirectoryError{Path: absSearchPath}
 	}
 
 	// Use configured limits - Validate() already checked bounds

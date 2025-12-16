@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 )
 
 // mockProcessForTimeout is a local mock for testing timeout functions
@@ -66,7 +65,7 @@ func TestExecuteWithTimeout_Fail(t *testing.T) {
 	}
 
 	err := ExecuteWithTimeout(context.Background(), 50*time.Millisecond, 2000, mock)
-	if err != toolserrors.ErrShellTimeout {
+	if err != ErrShellTimeout {
 		t.Errorf("Error = %v, want ErrShellTimeout", err)
 	}
 	if !signalCalled {

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -50,7 +49,7 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 
 	wd, _, err := pathutil.Resolve(t.workspaceRoot, t.fs, workingDir)
 	if err != nil {
-		return nil, toolserrors.ErrShellWorkingDirOutsideWorkspace
+		return nil, ErrShellWorkingDirOutsideWorkspace
 	}
 
 	// Policy check removed - caller is responsible for enforcement
@@ -123,9 +122,9 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 	}
 
 	if execErr != nil {
-		if execErr == toolserrors.ErrShellTimeout {
+		if execErr == ErrShellTimeout {
 			resp.ExitCode = -1
-			return resp, toolserrors.ErrShellTimeout
+			return resp, ErrShellTimeout
 		}
 		// Check for context cancellation
 		if errors.Is(execErr, context.Canceled) || errors.Is(execErr, context.DeadlineExceeded) {

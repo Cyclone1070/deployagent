@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	toolserrors "github.com/Cyclone1070/iav/internal/tool/errutil"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
@@ -195,8 +194,10 @@ func TestFindFile_PathOutsideWorkspace(t *testing.T) {
 
 	tool := NewFindFileTool(fs, &mockCommandExecutorForFind{}, config.DefaultConfig(), "/workspace")
 	_, err := tool.Run(context.Background(), FindFileRequest{Pattern: "*.go", SearchPath: "../outside", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err != toolserrors.ErrOutsideWorkspace {
-		t.Errorf("expected ErrOutsideWorkspace, got %v", err)
+
+	type outsideWorkspace interface{ OutsideWorkspace() bool }
+	if e, ok := err.(outsideWorkspace); !ok || !e.OutsideWorkspace() {
+		t.Errorf("expected OutsideWorkspace error, got %v", err)
 	}
 }
 
@@ -206,8 +207,10 @@ func TestFindFile_NonExistentPath(t *testing.T) {
 
 	tool := NewFindFileTool(fs, &mockCommandExecutorForFind{}, config.DefaultConfig(), "/workspace")
 	_, err := tool.Run(context.Background(), FindFileRequest{Pattern: "*.go", SearchPath: "nonexistent/dir", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100})
-	if err != toolserrors.ErrFileMissing {
-		t.Errorf("expected ErrFileMissing, got %v", err)
+
+	type fileMissing interface{ FileMissing() bool }
+	if e, ok := err.(fileMissing); !ok || !e.FileMissing() {
+		t.Errorf("expected FileMissing error, got %v", err)
 	}
 }
 
