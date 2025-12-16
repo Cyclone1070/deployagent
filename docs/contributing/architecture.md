@@ -15,10 +15,15 @@ Before submitting code, verify **every** item.
 - [ ] No circular dependencies
 - [ ] No junk drawer packages mixing unrelated logic
 
+### Dependency Injection
+- [ ] Pure helpers imported directly (no interface needed)
+- [ ] Dependencies injected via constructor with consumer-defined interface
+- [ ] No global state for dependencies
+
 ### Interfaces
 - [ ] All interfaces defined in the **consumer** package, not the implementer
-- [ ] All interfaces are minimal (≤5 methods)
 - [ ] No unused methods in interfaces (grep to verify each method is called)
+- [ ] Exception: import interface from helper package if already coupled
 
 ### Structs & Encapsulation
 - [ ] All domain entity fields are **private**
@@ -27,11 +32,9 @@ Before submitting code, verify **every** item.
 - [ ] DTOs have **no methods** attached
 - [ ] No `json:`/`yaml:`/ORM tags on domain entities
 
-### Validation & DI
+### Validation
 - [ ] Constructor validation for everything knowable from inputs
 - [ ] Runtime validation at method start (clearly commented `// 1. Runtime Validation`)
-- [ ] All dependencies injected via constructor
-- [ ] No global state for dependencies
 
 ### Testing
 - [ ] All mocks defined locally in `*_test.go` files (no shared `mock/` package)
@@ -138,16 +141,50 @@ Before submitting code, verify **every** item.
 
 ---
 
-## 2. Interfaces: Consumer-Defined
+## 2. Dependency Injection
+**Goal**: Explicit, testable dependencies.
+
+*   **Strict DI**: Dependencies MUST be passed via constructor.
+    *   **Why**: Explicit dependencies make code testable and prevent hidden coupling.
+
+*   **No Globals**: Never use global state for dependencies.
+    *   **Why**: Globals create hidden dependencies, prevent parallel tests, and make code unpredictable.
+
+*   **Pure Helpers vs Dependencies**:
+    *   **Pure helpers** (stateless, no I/O, no side effects): Import directly. No interface needed.
+    *   **Dependencies** (stateful, does I/O, has side effects): Define interface in consumer, inject via constructor.
+    *   **Why**: DI is for swappable/mockable behavior. Pure functions don't need mocking.
+
+**Example**:
+
+```go
+// Service with injected dependency
+type FileProcessor struct {
+    fs FileSystem
+}
+
+func NewFileProcessor(fs FileSystem) *FileProcessor {
+    return &FileProcessor{fs: fs}
+}
+```
+
+---
+
+## 3. Interfaces: Consumer-Defined
 **Goal**: Decoupling and testability.
 
 *   **Define Where Used**: Do NOT define interfaces in the implementing package. Define them in the consumer package.
     *   **Why**: The consumer knows what it needs. The implementer should not dictate the contract.
     *   **Benefit**: You can swap implementations without touching the consumer. You can mock easily in tests.
 
-*   **Small Interfaces**: Keep interfaces minimal (`Reader` vs `ReadWriteCloser`).
-    *   **Why**: Large interfaces force implementers to provide methods they don't use.
-    *   **Rule**: If an interface has more than 5 methods, split it by use case.
+> [!CAUTION]
+> **ANTI-PATTERN**: Copy Exact Interface Methods
+>
+> *   **Bad**: Consumer interface declares methods it never calls (e.g., `Rename()` exists but is never invoked).
+> *   **Why**: The interface exposes internal implementation details or dependencies of dependencies.
+> *   **How It Happens**: Copying methods from the implementer instead of auditing actual usage.
+> *   **Solution**: Check your package for each interface method. If unused, remove it.
+
 
 *   **No Shared Interfaces**: Interfaces are local to the package that uses them. NOT shared across packages, even siblings.
     *   **Why**: Sibling packages should not know each other exist. Each defines its own interface with only the methods IT needs.
@@ -161,12 +198,21 @@ Before submitting code, verify **every** item.
 > *   **Solution**: Each consumer defines its own minimal interface. Duplication is acceptable. Coupling is not.
 
 > [!CAUTION]
-> **ANTI-PATTERN**: Copy Exact Interface Methods
+> **ANTI-PATTERN**: Confusing Interface Sharing with Implementation Sharing
 >
-> *   **Bad**: Consumer interface declares methods it never calls (e.g., `Rename()` exists but is never invoked).
-> *   **Why**: The interface exposes internal implementation details or dependencies of dependencies.
-> *   **How It Happens**: Copying methods from the implementer instead of auditing actual usage.
-> *   **Solution**: Check your package for each interface method. If unused, remove it.
+> *   **Interfaces**: Consumer-defined, NOT shared across packages.
+> *   **Implementations**: CAN be shared in dedicated packages (via dependency injection or direct import for pure helpers).
+> *   **Mistake**: Duplicating implementations because you're avoiding shared interfaces. Share the concrete type, not the interface.
+
+> [!TIP]
+> **Exception: Helper Package Interfaces**
+>
+> If you already import a helper package (e.g., `pathutil`) and call its functions, you are coupled to it.
+> In this case, **import its interface directly** rather than redefining an identical interface locally.
+>
+> *   **Bad**: Redefining `type pathResolver interface { Lstat()... }` when you already import `pathutil.Resolve`.
+> *   **Good**: Use `pathutil.FileSystem` directly since coupling already exists.
+> *   **Why**: Redefining the interface is noise. It disguises where the requirement comes from.
 
 **Example**:
 
@@ -206,16 +252,9 @@ type fileSystem interface {
 > *   **Good**: `Save(u *User) (string, error)` — returns what you need without leaking implementation.
 > *   **Why**: Leaky interfaces prevent alternative implementations (file system, memory store).
 
-> [!CAUTION]
-> **ANTI-PATTERN**: Confusing Interface Sharing with Implementation Sharing
->
-> *   **Interfaces**: Consumer-defined, NOT shared across packages.
-> *   **Implementations**: CAN be shared in dedicated packages (via dependency injection or direct import for pure helpers).
-> *   **Mistake**: Duplicating implementations because you're avoiding shared interfaces. Share the concrete type, not the interface.
-
 ---
 
-## 3. Structs & Encapsulation
+## 4. Structs & Encapsulation
 **Goal**: Control state and enforce invariants.
 
 *   **Private Fields**: All domain entity fields MUST be private.
@@ -267,7 +306,7 @@ type UserDTO struct {
 
 ---
 
-## 4. Validation Strategy
+## 5. Validation Strategy
 **Goal**: Trust your objects.
 
 *   **Constructor Validation**: Validate everything you KNOW at construction time.
@@ -323,33 +362,6 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 ```
 
 ---
-
-## 5. Dependency Injection
-**Goal**: Explicit, testable dependencies.
-
-*   **Strict DI**: Dependencies MUST be passed via constructor.
-    *   **Why**: Explicit dependencies make code testable and prevent hidden coupling.
-
-*   **No Globals**: Never use global state for dependencies.
-    *   **Why**: Globals create hidden dependencies, prevent parallel tests, and make code unpredictable.
-
-*   **Pure Helpers vs Dependencies**:
-    *   **Pure helpers** (stateless, no I/O, no side effects): Import directly. No interface needed.
-    *   **Dependencies** (stateful, does I/O, has side effects): Define interface in consumer, inject via constructor.
-    *   **Why**: DI is for swappable/mockable behavior. Pure functions don't need mocking.
-
-**Example**:
-
-```go
-// Service with injected dependency
-type FileProcessor struct {
-    fs FileSystem
-}
-
-func NewFileProcessor(fs FileSystem) *FileProcessor {
-    return &FileProcessor{fs: fs}
-}
-```
 
 ---
 
