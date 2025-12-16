@@ -28,8 +28,8 @@ Before submitting code, verify **every** item.
 - [ ] No `json:`/`yaml:`/ORM tags on domain entities
 
 ### Validation & DI
-- [ ] Static validation inside constructors
-- [ ] Dynamic validation at start of method body (clearly commented)
+- [ ] Constructor validation for everything knowable from inputs
+- [ ] Runtime validation at method start (clearly commented `// 1. Runtime Validation`)
 - [ ] All dependencies injected via constructor
 - [ ] No global state for dependencies
 
@@ -270,39 +270,55 @@ type UserDTO struct {
 ## 4. Validation Strategy
 **Goal**: Trust your objects.
 
-*   **Static Validation (Invariants)**: Validate inside the constructor.
+*   **Constructor Validation**: Validate everything you KNOW at construction time.
     *   **Where**: `New...` function.
+    *   **What**: Input parameters and their relationships (e.g., "path cannot be empty", "offset >= 0", "limit <= maxLimit").
     *   **Guarantee**: It is impossible to create an invalid instance.
-    *   **Scope**: Internal consistency (e.g., "ID cannot be empty", "email must have @").
+    *   **Why**: Callers cannot forget to validate. Invalid objects cannot exist.
 
-*   **Dynamic Validation (Business Rules)**: Validate at the start of the method body.
-    *   **Where**: First lines of the method, clearly commented.
-    *   **Scope**: External state (e.g., "file exists", "user is unique in DB").
-    *   **Why**: Separating static and dynamic validation makes code predictable and testable.
+*   **Runtime Validation**: Validate what you DON'T KNOW until the method runs.
+    *   **Where**: First lines of the method, clearly commented as `// 1. Runtime Validation`.
+    *   **What**: External state requiring I/O or side effects (e.g., "file exists", "user is unique in DB").
+    *   **Why**: These checks require runtime operations. You cannot know the answer without performing the operations.
+
+> [!TIP]
+> **Rule of Thumb**: If validation requires a runtime operation (filesystem, network, database), it belongs in the method. Everything else belongs in the constructor.
 
 **Example**:
 
 ```go
-// Static validation in constructor
-func NewUser(id, email string) (*User, error) {
-    if id == "" {
-        return nil, errors.New("id is required")
+// Constructor validation - what we CAN know from inputs
+func NewReadFileRequest(path string, offset, limit int64) (*ReadFileRequest, error) {
+    if path == "" {
+        return nil, errors.New("path is required")
     }
-    if !strings.Contains(email, "@") {
-        return nil, errors.New("invalid email")
+    if offset < 0 {
+        return nil, errors.New("offset cannot be negative")
     }
-    return &User{id: id, email: email}, nil
+    if limit < 0 {
+        return nil, errors.New("limit cannot be negative")
+    }
+    return &ReadFileRequest{path: path, offset: offset, limit: limit}, nil
 }
 
-// Dynamic validation in method
-func (u *User) Save(repo UserRepository) error {
-    // 1. Dynamic Validation
-    if exists := repo.Exists(u.id); exists {
-        return errors.New("user already exists")
+// Runtime validation - what we CAN'T know until we check
+func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFileResponse, error) {
+    // 1. Runtime Validation
+    abs, err := t.pathResolver.Resolve(req.path)
+    if err != nil {
+        return nil, err // path outside workspace
+    }
+    info, err := t.fs.Stat(abs)
+    if err != nil {
+        return nil, err // file doesn't exist
+    }
+    if info.IsDir() {
+        return nil, errors.New("path is a directory, not a file")
     }
 
     // 2. Implementation
-    return repo.Save(u)
+    content, err := t.fs.ReadFile(abs)
+    ...
 }
 ```
 
