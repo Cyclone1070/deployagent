@@ -34,7 +34,7 @@ Before submitting code, verify **every** item.
 
 ### Validation
 - [ ] Constructor validation for everything knowable from inputs
-- [ ] Runtime validation at method start (clearly commented `// 1. Runtime Validation`)
+- [ ] Runtime validation at method start (clearly commented `// Runtime Validation`)
 
 ### Testing
 - [ ] All mocks defined locally in `*_test.go` files (no shared `mock/` package)
@@ -402,6 +402,34 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
     *   **Consumer**: Define a local interface for the behavior you need to check.
     *   **Why**: Completely removes import dependencies between consumer and provider. The consumer doesn't need to know the provider exists to handle its errors.
 
+> [!CAUTION]
+> **FORBIDDEN ERROR PATTERNS**
+>
+> The following error patterns are **strictly prohibited**:
+>
+> | Pattern | Example | Why Bad |
+> |---------|---------|---------|
+> | **Sentinel Errors** | `var ErrNotFound = errors.New("not found")` | Cannot carry context, forces `==` checks that couple packages |
+> | **fmt.Errorf** | `return fmt.Errorf("failed: %w", err)` | Anonymous errors, no behavioral method, untestable |
+> | **errors.New inline** | `return errors.New("something failed")` | Same as sentinel - no context, no behavior |
+> | **pkg/errors** | `errors.Wrap(err, "context")` | Deprecated pattern, use behavioral errors |
+>
+> **REQUIRED**: All errors MUST be behavioral error types:
+> ```go
+> // ✅ CORRECT: Behavioral error type
+> type NotFoundError struct {
+>     Path string
+> }
+> func (e *NotFoundError) Error() string { return "not found: " + e.Path }
+> func (e *NotFoundError) NotFound() bool { return true }
+>
+> // ❌ WRONG: Sentinel error
+> var ErrNotFound = errors.New("not found")
+>
+> // ❌ WRONG: fmt.Errorf
+> return fmt.Errorf("file not found: %s", path)
+> ```
+
 *   **Local Error Definitions**: Define errors in the package that raises them.
     *   **Why**: Keeps packages self-contained.
 
@@ -411,6 +439,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 > *   **Bad**: `internal/errutil` containing all system errors.
 > *   **Why**: This is a "junk drawer" that couples every package to every other package.
 > *   **Solution**: Delete it. Define errors locally and use behavioral interfaces.
+
 
 **Example**:
 
