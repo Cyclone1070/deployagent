@@ -437,6 +437,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 *   **Error Wrapping**: You MAY wrap errors to add context, provided you preserve behavior.
     *   **How**: Use `fmt.Errorf("context: %w", err)`.
     *   **Unwrapping**: Use `errors.As(err, &interfaceTarget)` to check for behavior. This automatically unwraps the chain to find the matching behavior.
+    *   **Error checking**: ALWAYS use `errors.As`. NEVER use type assertions (`err.(*Type)`) on errors, as you must assume all errors are wrapped.
 
 > [!NOTE]
 > **Use of fmt.Errorf**
@@ -470,8 +471,9 @@ type notFound interface {
 
 func (u *UseCase) Do() {
     if err := u.opener.Open("file.txt"); err != nil {
-        // Check behavior via type assertion
-        if e, ok := err.(notFound); ok && e.NotFound() {
+        // Check behavior via errors.As (safe for wrapped errors)
+        var nf notFound
+        if errors.As(err, &nf) && nf.NotFound() {
             // Handle missing file
             return
         }
