@@ -352,7 +352,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
         return nil, err // file doesn't exist
     }
     if info.IsDir() {
-        return nil, errors.New("path is a directory, not a file")
+        return nil, &IsDirectoryError{Path: abs}
     }
 
     // 2. Implementation
@@ -398,9 +398,10 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 **Goal**: Decoupling and robustness.
 
 *   **Behavioral Interfaces**: Check *what* the error does, not *who* it is.
-    *   **Provider**: Implement behavioral methods on error structs (e.g., `NotFound() bool { return true }`).
-    *   **Consumer**: Define a local interface for the behavior you need to check.
-    *   **Why**: Completely removes import dependencies between consumer and provider. The consumer doesn't need to know the provider exists to handle its errors.
+    *   **Mechanism**: Errors are opaque to the caller. The caller asserts behavior by checking if the error implements a locally defined interface.
+    *   **Provider**: Define a concrete error struct with a method indicating behavior (e.g., `NotFound() bool { return true }`).
+    *   **Consumer**: Define a local interface with the method you care about (e.g., `type notFound interface { NotFound() bool }`).
+    *   **Why**: Logic depends on capabilities, not types. Zero import coupling.
 
 > [!CAUTION]
 > **FORBIDDEN ERROR PATTERNS**
@@ -410,7 +411,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 > | Pattern | Example | Why Bad |
 > |---------|---------|---------|
 > | **Sentinel Errors** | `var ErrNotFound = errors.New("not found")` | Cannot carry context, forces `==` checks that couple packages |
-> | **fmt.Errorf** | `return fmt.Errorf("failed: %w", err)` | Anonymous errors, no behavioral method, untestable |
+> | **fmt.Errorf** | `return fmt.Errorf("file not found: %s", path)` | Anonymous errors, no behavioral method, untestable |
 > | **errors.New inline** | `return errors.New("something failed")` | Same as sentinel - no context, no behavior |
 > | **pkg/errors** | `errors.Wrap(err, "context")` | Deprecated pattern, use behavioral errors |
 >
@@ -426,9 +427,22 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 > // ❌ WRONG: Sentinel error
 > var ErrNotFound = errors.New("not found")
 >
-> // ❌ WRONG: fmt.Errorf
+> // ❌ WRONG: fmt.Errorf (creating an error)
 > return fmt.Errorf("file not found: %s", path)
+>
+> // ❌ WRONG: fmt.Errorf (wrapping a generic error)
+> return fmt.Errorf("failed: %w", errors.New("generic"))
 > ```
+
+*   **Error Wrapping**: You MAY wrap errors to add context, provided you preserve behavior.
+    *   **How**: Use `fmt.Errorf("context: %w", err)`.
+    *   **Unwrapping**: Use `errors.As(err, &interfaceTarget)` to check for behavior. This automatically unwraps the chain to find the matching behavior.
+
+> [!NOTE]
+> **Use of fmt.Errorf**
+>
+> `fmt.Errorf` is **strictly forbidden** for *creating* errors.
+> It is **specifically allowed** for *wrapping* behavioral errors to add context.
 
 *   **Local Error Definitions**: Define errors in the package that raises them.
     *   **Why**: Keeps packages self-contained.
