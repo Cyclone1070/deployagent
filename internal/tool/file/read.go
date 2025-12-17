@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // fileReader defines the minimal filesystem operations needed for reading files.
@@ -24,7 +23,6 @@ type checksumComputer interface {
 // ReadFileTool handles file reading operations.
 type ReadFileTool struct {
 	fileOps         fileReader
-	pathResolver    pathResolver
 	binaryDetector  binaryDetector
 	checksumManager checksumComputer
 	config          *config.Config
@@ -34,7 +32,6 @@ type ReadFileTool struct {
 // NewReadFileTool creates a new ReadFileTool with injected dependencies.
 func NewReadFileTool(
 	fileOps fileReader,
-	pathResolver pathResolver,
 	binaryDetector binaryDetector,
 	checksumManager checksumComputer,
 	cfg *config.Config,
@@ -42,7 +39,6 @@ func NewReadFileTool(
 ) *ReadFileTool {
 	return &ReadFileTool{
 		fileOps:         fileOps,
-		pathResolver:    pathResolver,
 		binaryDetector:  binaryDetector,
 		checksumManager: checksumManager,
 		config:          cfg,
@@ -56,12 +52,10 @@ func NewReadFileTool(
 // Returns an error if the file is binary, too large, or outside the workspace.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func (t *ReadFileTool) Run(ctx context.Context, req ReadFileRequest) (*ReadFileResponse, error) {
-	// Resolve path
-	abs, rel, err := pathutil.Resolve(t.workspaceRoot, t.pathResolver, req.Path)
-	if err != nil {
-		return nil, err
-	}
+func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFileResponse, error) {
+	// Runtime Validation
+	abs := req.AbsPath()
+	rel := req.RelPath()
 
 	// Get file info (single stat syscall)
 	info, err := t.fileOps.Stat(abs)
@@ -80,14 +74,9 @@ func (t *ReadFileTool) Run(ctx context.Context, req ReadFileRequest) (*ReadFileR
 		return nil, ErrTooLarge
 	}
 
-	// Derive offset and limit
-	var actualOffset, actualLimit int64
-	if req.Offset != nil {
-		actualOffset = *req.Offset
-	}
-	if req.Limit != nil {
-		actualLimit = *req.Limit
-	}
+	// Get offset and limit from validated request
+	actualOffset := req.Offset()
+	actualLimit := req.Limit()
 
 	// Read the file range (single open+read syscall)
 	contentBytes, err := t.fileOps.ReadFileRange(abs, actualOffset, actualLimit)

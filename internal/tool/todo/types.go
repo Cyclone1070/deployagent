@@ -22,38 +22,56 @@ type Todo struct {
 	Status      TodoStatus `json:"status"`
 }
 
-// ReadTodosRequest contains parameters for ReadTodos operation
+// ReadTodosDTO is the wire format for ReadTodos operation
+type ReadTodosDTO struct{}
+
+// ReadTodosRequest is the validated domain entity for ReadTodos operation
 type ReadTodosRequest struct{}
 
-// Validate validates the ReadTodosRequest
-func (r ReadTodosRequest) Validate(cfg *config.Config) error {
-	return nil // No fields to validate
+// NewReadTodosRequest creates a validated ReadTodosRequest from a DTO
+func NewReadTodosRequest(dto ReadTodosDTO, cfg *config.Config) (*ReadTodosRequest, error) {
+	// No validation needed
+	return &ReadTodosRequest{}, nil
 }
 
-// WriteTodosRequest contains parameters for WriteTodos operation
-type WriteTodosRequest struct {
+// WriteTodosDTO is the wire format for WriteTodos operation
+type WriteTodosDTO struct {
 	Todos []Todo `json:"todos"`
 }
 
-// Validate validates the WriteTodosRequest
-func (r WriteTodosRequest) Validate(cfg *config.Config) error {
+// WriteTodosRequest is the validated domain entity for WriteTodos operation
+type WriteTodosRequest struct {
+	todos []Todo
+}
+
+// NewWriteTodosRequest creates a validated WriteTodosRequest from a DTO
+func NewWriteTodosRequest(dto WriteTodosDTO, cfg *config.Config) (*WriteTodosRequest, error) {
+	// Constructor validation
 	// Check for empty todos array (questionable but allow it - might be clearing all todos)
 	// But validate each todo if present
-	for i, todo := range r.Todos {
+	for i, todo := range dto.Todos {
 		// Validate status
 		switch todo.Status {
 		case TodoStatusPending, TodoStatusInProgress, TodoStatusCompleted, TodoStatusCancelled:
 			// Valid
 		default:
-			return fmt.Errorf("todo[%d]: invalid status %q", i, todo.Status)
+			return nil, fmt.Errorf("todo[%d]: invalid status %q", i, todo.Status)
 		}
 
 		// Validate description is not empty
 		if todo.Description == "" {
-			return fmt.Errorf("todo[%d]: description cannot be empty", i)
+			return nil, fmt.Errorf("todo[%d]: description cannot be empty", i)
 		}
 	}
-	return nil
+
+	return &WriteTodosRequest{
+		todos: dto.Todos,
+	}, nil
+}
+
+// Todos returns the list of todos
+func (r *WriteTodosRequest) Todos() []Todo {
+	return r.todos
 }
 
 // ReadTodosResponse contains the list of current todos.

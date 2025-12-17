@@ -26,7 +26,8 @@ func NewReadTodosTool(store todoStore) *ReadTodosTool {
 
 // Run retrieves all todos from the store.
 // Returns an empty list if no todos exist.
-func (t *ReadTodosTool) Run(ctx context.Context, req ReadTodosRequest) (*ReadTodosResponse, error) {
+func (t *ReadTodosTool) Run(ctx context.Context, req *ReadTodosRequest) (*ReadTodosResponse, error) {
+	// Runtime Validation
 	if t.store == nil {
 		return nil, fmt.Errorf("todo store not configured")
 	}
@@ -55,16 +56,18 @@ func NewWriteTodosTool(store todoStore) *WriteTodosTool {
 
 // Run replaces all todos in the store.
 // This is an atomic operation that completely replaces the todo list.
-func (t *WriteTodosTool) Run(ctx context.Context, req WriteTodosRequest) (*WriteTodosResponse, error) {
+func (t *WriteTodosTool) Run(ctx context.Context, req *WriteTodosRequest) (*WriteTodosResponse, error) {
+	// Runtime Validation
 	if t.store == nil {
 		return nil, fmt.Errorf("todo store not configured")
 	}
 
-	if err := t.store.Write(req.Todos); err != nil {
+	todos := req.Todos()
+	if err := t.store.Write(todos); err != nil {
 		return nil, fmt.Errorf("failed to write todos: %w", err)
 	}
 
 	return &WriteTodosResponse{
-		Count: len(req.Todos),
+		Count: len(todos),
 	}, nil
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
-	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
@@ -55,21 +54,12 @@ func NewFindFileTool(
 
 // Run searches for files matching a glob pattern within the workspace using the fd command.
 // It supports pagination, optional ignoring of .gitignore rules, and workspace path validation.
-func (t *FindFileTool) Run(ctx context.Context, req FindFileRequest) (*FindFileResponse, error) {
-
-	// Resolve search path
-	absSearchPath, _, err := pathutil.Resolve(t.workspaceRoot, t.fs, req.SearchPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Validate inputs
-	if req.Pattern == "" {
-		return nil, fmt.Errorf("pattern is required")
-	}
+func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFileResponse, error) {
+	// Runtime Validation
+	absSearchPath := req.SearchAbsPath()
 
 	// Validate pattern syntax
-	if _, err := filepath.Match(req.Pattern, ""); err != nil {
+	if _, err := filepath.Match(req.Pattern(), ""); err != nil {
 		return nil, fmt.Errorf("invalid glob pattern: %w", err)
 	}
 
@@ -86,24 +76,23 @@ func (t *FindFileTool) Run(ctx context.Context, req FindFileRequest) (*FindFileR
 		return nil, &NotDirectoryError{Path: absSearchPath}
 	}
 
-	// Use configured limits - Validate() already checked bounds
+	// Use configured limits - constructor already checked bounds
 	limit := t.config.Tools.DefaultFindFileLimit
-	if req.Limit != 0 {
-		limit = req.Limit
+	if req.Limit() != 0 {
+		limit = req.Limit()
 	}
-	offset := req.Offset
 
 	// fd --glob "pattern" searchPath
-	cmd := []string{"fd", "--glob", req.Pattern, absSearchPath}
+	cmd := []string{"fd", "--glob", req.Pattern(), absSearchPath}
 
 	// Handle ignored files
-	if req.IncludeIgnored {
+	if req.IncludeIgnored() {
 		cmd = append(cmd, "--no-ignore", "--hidden")
 	}
 
 	// Max depth
-	if req.MaxDepth > 0 {
-		cmd = append(cmd, "--max-depth", fmt.Sprintf("%d", req.MaxDepth))
+	if req.MaxDepth() > 0 {
+		cmd = append(cmd, "--max-depth", fmt.Sprintf("%d", req.MaxDepth()))
 	}
 
 	// Execute command with streaming
@@ -155,11 +144,11 @@ func (t *FindFileTool) Run(ctx context.Context, req FindFileRequest) (*FindFileR
 	sort.Strings(matches)
 
 	// Apply pagination
-	paginatedMatches, paginationResult := paginationutil.ApplyPagination(matches, offset, limit)
+	paginatedMatches, paginationResult := paginationutil.ApplyPagination(matches, req.Offset(), limit)
 
 	return &FindFileResponse{
 		Matches:    paginatedMatches,
-		Offset:     offset,
+		Offset:     req.Offset(),
 		Limit:      limit,
 		TotalCount: paginationResult.TotalCount,
 		Truncated:  paginationResult.Truncated,

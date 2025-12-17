@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // fileEditor defines the minimal filesystem operations needed for editing files.
@@ -27,7 +26,6 @@ type checksumManager interface {
 // EditFileTool handles file editing operations.
 type EditFileTool struct {
 	fileOps         fileEditor
-	pathResolver    pathResolver
 	binaryDetector  binaryDetector
 	checksumManager checksumManager
 	config          *config.Config
@@ -37,7 +35,6 @@ type EditFileTool struct {
 // NewEditFileTool creates a new EditFileTool with injected dependencies.
 func NewEditFileTool(
 	fileOps fileEditor,
-	pathResolver pathResolver,
 	binaryDetector binaryDetector,
 	checksumManager checksumManager,
 	cfg *config.Config,
@@ -45,7 +42,6 @@ func NewEditFileTool(
 ) *EditFileTool {
 	return &EditFileTool{
 		fileOps:         fileOps,
-		pathResolver:    pathResolver,
 		binaryDetector:  binaryDetector,
 		checksumManager: checksumManager,
 		config:          cfg,
@@ -61,12 +57,10 @@ func NewEditFileTool(
 // For guaranteed conflict-free edits, external file locking would be required.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileResponse, error) {
-	// Resolve path
-	abs, rel, err := pathutil.Resolve(t.workspaceRoot, t.pathResolver, req.Path)
-	if err != nil {
-		return nil, err
-	}
+func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFileResponse, error) {
+	// Runtime Validation
+	abs := req.AbsPath()
+	rel := req.RelPath()
 
 	// Check if file exists
 	info, err := t.fileOps.Stat(abs)
@@ -104,7 +98,7 @@ func (t *EditFileTool) Run(ctx context.Context, req EditFileRequest) (*EditFileR
 
 	// Apply operations sequentially
 	operationsApplied := 0
-	for _, op := range req.Operations {
+	for _, op := range req.Operations() {
 		// Apply default ExpectedReplacements if not specified (0 = omitted)
 		if op.ExpectedReplacements == 0 {
 			op.ExpectedReplacements = 1

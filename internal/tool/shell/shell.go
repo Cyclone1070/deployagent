@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // ShellTool executes commands on the local machine.
@@ -40,21 +39,13 @@ func NewShellTool(
 // Run executes a shell command with Docker readiness checks,
 // environment variable support, timeout handling, and output collection.
 // NOTE: This tool does NOT enforce policy - the caller is responsible for policy checks.
-func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, error) {
-
-	workingDir := req.WorkingDir
-	if workingDir == "" {
-		workingDir = "."
-	}
-
-	wd, _, err := pathutil.Resolve(t.workspaceRoot, t.fs, workingDir)
-	if err != nil {
-		return nil, ErrShellWorkingDirOutsideWorkspace
-	}
+func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse, error) {
+	// Runtime Validation
+	wd := req.WorkingDirAbs()
 
 	// Policy check removed - caller is responsible for enforcement
 
-	if IsDockerCommand(req.Command) {
+	if IsDockerCommand(req.Command()) {
 		retryAttempts := t.config.Tools.DockerRetryAttempts
 		retryIntervalMs := t.config.Tools.DockerRetryIntervalMs
 
@@ -65,15 +56,10 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 
 	env := os.Environ()
 
-	for _, envFile := range req.EnvFiles {
-		envFilePath, _, err := pathutil.Resolve(t.workspaceRoot, t.fs, envFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve env file %s: %w", envFile, err)
-		}
-
+	for _, envFilePath := range req.EnvFilesAbsPaths() {
 		envVars, err := ParseEnvFile(t.fs, envFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse env file %s: %w", envFile, err)
+			return nil, fmt.Errorf("failed to parse env file %s: %w", envFilePath, err)
 		}
 
 		// EnvFiles override system env
@@ -83,7 +69,7 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 	}
 
 	// Request.Env overrides everything
-	for k, v := range req.Env {
+	for k, v := range req.Env() {
 		env = append(env, k+"="+v)
 	}
 
@@ -92,7 +78,7 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 		Env: env,
 	}
 
-	proc, stdout, stderr, err := t.commandExecutor.Start(ctx, req.Command, opts)
+	proc, stdout, stderr, err := t.commandExecutor.Start(ctx, req.Command(), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +90,7 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 
 	stdoutStr, stderrStr, truncated, _ := CollectProcessOutput(stdout, stderr, int(maxOutputSize), sampleSize)
 
-	timeout := time.Duration(req.TimeoutSeconds) * time.Second
+	timeout := time.Duration(req.TimeoutSeconds()) * time.Second
 	if timeout == 0 {
 		timeout = time.Duration(t.config.Tools.DefaultShellTimeout) * time.Second
 	}
@@ -138,7 +124,7 @@ func (t *ShellTool) Run(ctx context.Context, req ShellRequest) (*ShellResponse, 
 
 	resp.ExitCode = 0
 
-	if IsDockerComposeUpDetached(req.Command) {
+	if IsDockerComposeUpDetached(req.Command()) {
 		ids, err := CollectComposeContainers(ctx, t.commandExecutor, wd)
 		if err == nil {
 			resp.Notes = append(resp.Notes, FormatContainerStartedNote(ids))

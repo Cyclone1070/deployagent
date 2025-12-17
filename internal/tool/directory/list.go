@@ -9,7 +9,6 @@ import (
 
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
-	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // Behavioral interfaces for cross-package error checking
@@ -61,22 +60,15 @@ func NewListDirectoryTool(
 // Run lists the contents of a directory within the workspace.
 // It supports optional recursion and pagination, validating that the path is within
 // workspace boundaries, respecting gitignore rules, and returning entries sorted by path.
-func (t *ListDirectoryTool) Run(ctx context.Context, req ListDirectoryRequest) (*ListDirectoryResponse, error) {
-	// Use configured limits - Validate() already checked bounds
+func (t *ListDirectoryTool) Run(ctx context.Context, req *ListDirectoryRequest) (*ListDirectoryResponse, error) {
+	// Runtime Validation
+	abs := req.AbsPath()
+	rel := req.RelPath()
+
+	// Use configured limits - constructor already checked bounds
 	limit := t.config.Tools.DefaultListDirectoryLimit
-	if req.Limit != 0 {
-		limit = req.Limit
-	}
-
-	// Default to workspace root if path is empty
-	if req.Path == "" {
-		req.Path = "."
-	}
-
-	// Resolve path
-	abs, rel, err := pathutil.Resolve(t.workspaceRoot, t.fs, req.Path)
-	if err != nil {
-		return nil, err
+	if req.Limit() != 0 {
+		limit = req.Limit()
 	}
 
 	// Check if path exists and is a directory
@@ -92,7 +84,7 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req ListDirectoryRequest) (
 	}
 
 	// Set maxDepth: 0 = non-recursive (only immediate children), -1 or negative = unlimited
-	maxDepth := req.MaxDepth
+	maxDepth := req.MaxDepth()
 	if maxDepth < 0 {
 		maxDepth = -1 // unlimited
 	}
@@ -102,7 +94,7 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req ListDirectoryRequest) (
 	maxResults := t.config.Tools.MaxListDirectoryResults
 	var currentCount int
 
-	directoryEntries, capHit, err := t.listRecursive(ctx, abs, 0, maxDepth, visited, req.IncludeIgnored, maxResults, &currentCount)
+	directoryEntries, capHit, err := t.listRecursive(ctx, abs, 0, maxDepth, visited, req.IncludeIgnored(), maxResults, &currentCount)
 	if err != nil {
 		return nil, err
 	}
@@ -121,20 +113,20 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req ListDirectoryRequest) (
 	})
 
 	// Apply pagination
-	directoryEntries, paginationResult := paginationutil.ApplyPagination(directoryEntries, req.Offset, limit)
+	directoryEntries, paginationResult := paginationutil.ApplyPagination(directoryEntries, req.Offset(), limit)
 
 	var truncationReason string
 	if capHit {
 		paginationResult.Truncated = true
 		truncationReason = fmt.Sprintf("Results capped at %d entries.", maxResults)
 	} else if paginationResult.Truncated {
-		truncationReason = fmt.Sprintf("Page limit reached. More results at offset %d.", req.Offset+limit)
+		truncationReason = fmt.Sprintf("Page limit reached. More results at offset %d.", req.Offset()+limit)
 	}
 
 	return &ListDirectoryResponse{
 		DirectoryPath:    rel,
 		Entries:          directoryEntries,
-		Offset:           req.Offset,
+		Offset:           req.Offset(),
 		Limit:            limit,
 		TotalCount:       paginationResult.TotalCount,
 		Truncated:        paginationResult.Truncated,

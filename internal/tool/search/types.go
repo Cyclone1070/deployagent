@@ -2,8 +2,10 @@ package search
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // SearchContentMatch represents a single match in a file
@@ -13,8 +15,8 @@ type SearchContentMatch struct {
 	LineContent string // Content of the matching line
 }
 
-// SearchContentRequest contains parameters for SearchContent operation
-type SearchContentRequest struct {
+// SearchContentDTO is the wire format for SearchContent operation
+type SearchContentDTO struct {
 	Query          string `json:"query"`
 	SearchPath     string `json:"search_path"`
 	CaseSensitive  bool   `json:"case_sensitive,omitempty"`
@@ -23,21 +25,98 @@ type SearchContentRequest struct {
 	Limit          int    `json:"limit,omitempty"`
 }
 
-// Validate validates the SearchContentRequest
-func (r SearchContentRequest) Validate(cfg *config.Config) error {
-	if r.Query == "" {
-		return fmt.Errorf("query is required")
+// SearchContentRequest is the validated domain entity for SearchContent operation
+type SearchContentRequest struct {
+	query          string
+	searchAbsPath  string
+	searchRelPath  string
+	caseSensitive  bool
+	includeIgnored bool
+	offset         int
+	limit          int
+}
+
+// NewSearchContentRequest creates a validated SearchContentRequest from a DTO
+func NewSearchContentRequest(
+	dto SearchContentDTO,
+	cfg *config.Config,
+	workspaceRoot string,
+	fs interface {
+		Lstat(path string) (os.FileInfo, error)
+		Readlink(path string) (string, error)
+		UserHomeDir() (string, error)
+	},
+) (*SearchContentRequest, error) {
+	// Constructor validation
+	if dto.Query == "" {
+		return nil, fmt.Errorf("query is required")
 	}
-	if r.Offset < 0 {
-		return fmt.Errorf("offset cannot be negative")
+	if dto.Offset < 0 {
+		return nil, fmt.Errorf("offset cannot be negative")
 	}
-	if r.Limit < 0 {
-		return fmt.Errorf("limit cannot be negative")
+	if dto.Limit < 0 {
+		return nil, fmt.Errorf("limit cannot be negative")
 	}
-	if r.Limit > cfg.Tools.MaxSearchContentLimit {
-		return fmt.Errorf("limit %d exceeds maximum %d", r.Limit, cfg.Tools.MaxSearchContentLimit)
+	if dto.Limit > cfg.Tools.MaxSearchContentLimit {
+		return nil, fmt.Errorf("limit %d exceeds maximum %d", dto.Limit, cfg.Tools.MaxSearchContentLimit)
 	}
-	return nil
+
+	// SearchPath defaults to "." if empty
+	searchPath := dto.SearchPath
+	if searchPath == "" {
+		searchPath = "."
+	}
+
+	// Path resolution for search path
+	searchAbs, searchRel, err := resolvePathWithFS(workspaceRoot, fs, searchPath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid search path: %w", err)
+	}
+
+	return &SearchContentRequest{
+		query:          dto.Query,
+		searchAbsPath:  searchAbs,
+		searchRelPath:  searchRel,
+		caseSensitive:  dto.CaseSensitive,
+		includeIgnored: dto.IncludeIgnored,
+		offset:         dto.Offset,
+		limit:          dto.Limit,
+	}, nil
+}
+
+// Query returns the search query
+func (r *SearchContentRequest) Query() string {
+	return r.query
+}
+
+// SearchAbsPath returns the absolute search path
+func (r *SearchContentRequest) SearchAbsPath() string {
+	return r.searchAbsPath
+}
+
+// SearchRelPath returns the relative search path
+func (r *SearchContentRequest) SearchRelPath() string {
+	return r.searchRelPath
+}
+
+// CaseSensitive returns whether the search is case sensitive
+func (r *SearchContentRequest) CaseSensitive() bool {
+	return r.caseSensitive
+}
+
+// IncludeIgnored returns whether to include ignored files
+func (r *SearchContentRequest) IncludeIgnored() bool {
+	return r.includeIgnored
+}
+
+// Offset returns the offset
+func (r *SearchContentRequest) Offset() int {
+	return r.offset
+}
+
+// Limit returns the limit
+func (r *SearchContentRequest) Limit() int {
+	return r.limit
 }
 
 // SearchContentResponse contains the result of a SearchContent operation
@@ -47,4 +126,19 @@ type SearchContentResponse struct {
 	Limit      int
 	TotalCount int  // Total matches found (may be capped for performance)
 	Truncated  bool // True if more matches exist
+}
+
+// resolvePathWithFS is a helper that calls pathutil.Resolve with the given filesystem
+func resolvePathWithFS(
+	workspaceRoot string,
+	fs interface {
+		Lstat(path string) (os.FileInfo, error)
+		Readlink(path string) (string, error)
+		UserHomeDir() (string, error)
+	},
+	path string,
+) (string, string, error) {
+	// Cast to pathutil.FileSystem (the interface is identical)
+	fsImpl := fs.(pathutil.FileSystem)
+	return pathutil.Resolve(workspaceRoot, fsImpl, path)
 }

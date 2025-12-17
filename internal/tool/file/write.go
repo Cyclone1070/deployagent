@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // fileWriter defines the minimal filesystem operations needed for writing files.
@@ -26,7 +25,6 @@ type checksumUpdater interface {
 // WriteFileTool handles file writing operations.
 type WriteFileTool struct {
 	fileOps         fileWriter
-	pathResolver    pathResolver
 	binaryDetector  binaryDetector
 	checksumManager checksumUpdater
 	config          *config.Config
@@ -36,7 +34,6 @@ type WriteFileTool struct {
 // NewWriteFileTool creates a new WriteFileTool with injected dependencies.
 func NewWriteFileTool(
 	fileOps fileWriter,
-	pathResolver pathResolver,
 	binaryDetector binaryDetector,
 	checksumManager checksumUpdater,
 	cfg *config.Config,
@@ -44,7 +41,6 @@ func NewWriteFileTool(
 ) *WriteFileTool {
 	return &WriteFileTool{
 		fileOps:         fileOps,
-		pathResolver:    pathResolver,
 		binaryDetector:  binaryDetector,
 		checksumManager: checksumManager,
 		config:          cfg,
@@ -58,15 +54,13 @@ func NewWriteFileTool(
 // Returns an error if the file already exists, is binary, too large, or outside the workspace.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func (t *WriteFileTool) Run(ctx context.Context, req WriteFileRequest) (*WriteFileResponse, error) {
-	// Resolve path
-	abs, rel, err := pathutil.Resolve(t.workspaceRoot, t.pathResolver, req.Path)
-	if err != nil {
-		return nil, err
-	}
+func (t *WriteFileTool) Run(ctx context.Context, req *WriteFileRequest) (*WriteFileResponse, error) {
+	// Runtime Validation
+	abs := req.AbsPath()
+	rel := req.RelPath()
 
 	// Check if file already exists
-	_, err = t.fileOps.Stat(abs)
+	_, err := t.fileOps.Stat(abs)
 	if err == nil {
 		return nil, ErrFileExists
 	}
@@ -79,7 +73,7 @@ func (t *WriteFileTool) Run(ctx context.Context, req WriteFileRequest) (*WriteFi
 		return nil, fmt.Errorf("failed to create parent directories: %w", err)
 	}
 
-	contentBytes := []byte(req.Content)
+	contentBytes := []byte(req.Content())
 
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
 		return nil, ErrBinaryFile
@@ -91,10 +85,7 @@ func (t *WriteFileTool) Run(ctx context.Context, req WriteFileRequest) (*WriteFi
 		return nil, ErrTooLarge
 	}
 
-	filePerm := os.FileMode(0644)
-	if req.Perm != nil {
-		filePerm = *req.Perm & 0777
-	}
+	filePerm := req.Perm()
 
 	// Write the file atomically
 	if err := t.fileOps.WriteFileAtomic(abs, contentBytes, filePerm); err != nil {
