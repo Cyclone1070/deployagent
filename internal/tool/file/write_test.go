@@ -11,15 +11,8 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
-
-// ... (mocks kept as is, but I'm replacing the whole file content from line 1? No, just TestWriteFile and imports)
-// StartLine: 3 for imports
-// Then TestWriteFile.
-// I will split into 2 chunks.
-
-// Chunk 1: imports
-// Chunk 2: TestWriteFile replacement.
 
 // Local mocks for write tests
 
@@ -367,9 +360,8 @@ func TestWriteFile(t *testing.T) {
 		}
 
 		_, err = tool.Run(context.Background(), req)
-		var fileExistsErr *FileExistsError
-		if err == nil || !errors.As(err, &fileExistsErr) {
-			t.Errorf("expected FileExistsError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrFileExists) {
+			t.Errorf("expected ErrFileExists, got %v", err)
 		}
 	})
 
@@ -404,19 +396,10 @@ func TestWriteFile(t *testing.T) {
 		// Let's assume `NewWriteFileRequest` catches it.
 
 		if err != nil {
-			// Check if error is OutsideWorkspace
-			type outsideWorkspace interface{ OutsideWorkspace() bool }
-			if e, ok := errors.Unwrap(err).(outsideWorkspace); ok && e.OutsideWorkspace() {
-				return // Success
+			if !errors.Is(err, shared.ErrOutsideWorkspace) {
+				t.Fatalf("expected ErrOutsideWorkspace, got %v", err)
 			}
-			// Or if err itself implements it?
-			// `resolvePathWithFS` returns `fmt.Errorf("invalid path: %w", err)`.
-			// `errors.As` or checking wrapped error.
-			if e, ok := err.(outsideWorkspace); ok && e.OutsideWorkspace() {
-				return
-			}
-			// If not, maybe we should continue to tool.Run?
-			// No, if request creation fails, we can't run tool.
+			return // Success
 		}
 
 		// If request creation succeeded (e.g. symlink didn't trigger check yet), try Run.
@@ -424,10 +407,8 @@ func TestWriteFile(t *testing.T) {
 			_, err = tool.Run(context.Background(), req)
 		}
 
-		type outsideWorkspace interface{ OutsideWorkspace() bool }
-		var targetErr outsideWorkspace
-		if err == nil || !errors.As(err, &targetErr) || !targetErr.OutsideWorkspace() {
-			t.Errorf("expected OutsideWorkspace error for symlink escape, got %v", err)
+		if !errors.Is(err, shared.ErrOutsideWorkspace) {
+			t.Errorf("expected ErrOutsideWorkspace for symlink escape, got %v", err)
 		}
 	})
 
@@ -453,9 +434,8 @@ func TestWriteFile(t *testing.T) {
 		}
 
 		_, err = tool.Run(context.Background(), req)
-		var tooLargeErr *TooLargeError
-		if err == nil || !errors.As(err, &tooLargeErr) {
-			t.Errorf("expected TooLargeError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrFileTooLarge) {
+			t.Errorf("expected ErrFileTooLarge, got %v", err)
 		}
 	})
 
@@ -478,9 +458,8 @@ func TestWriteFile(t *testing.T) {
 		}
 
 		_, err = tool.Run(context.Background(), req)
-		var binaryErr *BinaryFileError
-		if err == nil || !errors.As(err, &binaryErr) {
-			t.Errorf("expected BinaryFileError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrBinaryFile) {
+			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
@@ -566,9 +545,7 @@ func TestWriteFile(t *testing.T) {
 		_, err = tool.Run(context.Background(), req)
 		// This should succeed because we're creating a new file at the symlink path
 		if err != nil {
-			var fileExistsErr *FileExistsError
-			// If it fails, it's because the symlink exists, which is expected
-			if !errors.As(err, &fileExistsErr) {
+			if !errors.Is(err, shared.ErrFileExists) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		}
@@ -592,10 +569,8 @@ func TestWriteFile(t *testing.T) {
 			_, err = tool.Run(context.Background(), req)
 		}
 
-		type outsideWorkspace interface{ OutsideWorkspace() bool }
-		var targetErr outsideWorkspace
-		if err == nil || !errors.As(err, &targetErr) || !targetErr.OutsideWorkspace() {
-			t.Errorf("expected OutsideWorkspace error for symlink directory escape, got %v", err)
+		if !errors.Is(err, shared.ErrOutsideWorkspace) {
+			t.Errorf("expected ErrOutsideWorkspace for symlink directory escape, got %v", err)
 		}
 	})
 
@@ -655,10 +630,8 @@ func TestWriteFile(t *testing.T) {
 			_, err = tool.Run(context.Background(), req)
 		}
 
-		type outsideWorkspace interface{ OutsideWorkspace() bool }
-		var targetErr outsideWorkspace
-		if err == nil || !errors.As(err, &targetErr) || !targetErr.OutsideWorkspace() {
-			t.Errorf("expected OutsideWorkspace error for escaping symlink chain, got %v", err)
+		if !errors.Is(err, shared.ErrOutsideWorkspace) {
+			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
 		}
 	})
 }

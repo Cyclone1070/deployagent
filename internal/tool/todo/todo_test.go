@@ -2,10 +2,12 @@ package todo
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 func TestTodoTools(t *testing.T) {
@@ -227,14 +229,14 @@ func TestTodoTools(t *testing.T) {
 
 		readReq, _ := NewReadTodosRequest(ReadTodosDTO{}, cfg)
 		_, err := readTool.Run(context.Background(), readReq)
-		if err == nil {
-			t.Error("expected error when reading with missing store, got nil")
+		if err == nil || !errors.Is(err, shared.ErrStoreNotConfigured) {
+			t.Errorf("expected ErrStoreNotConfigured when reading with missing store, got %v", err)
 		}
 
 		writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []Todo{}}, cfg)
 		_, err = writeTool.Run(context.Background(), writeReq)
-		if err == nil {
-			t.Error("expected error when writing with missing store, got nil")
+		if err == nil || !errors.Is(err, shared.ErrStoreNotConfigured) {
+			t.Errorf("expected ErrStoreNotConfigured when writing with missing store, got %v", err)
 		}
 	})
 }

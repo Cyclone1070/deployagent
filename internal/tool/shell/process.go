@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // ExecuteWithTimeout runs a process with a timeout, handling graceful shutdown.
@@ -32,10 +34,10 @@ func ExecuteWithTimeout(ctx context.Context, command []string, timeout time.Dura
 		// Wait a bit for graceful shutdown
 		select {
 		case <-done:
-			return &TimeoutError{Command: command, Duration: timeout}
+			return &shared.TimeoutError{Command: command, Duration: timeout}
 		case <-time.After(time.Duration(gracefulShutdownMs) * time.Millisecond):
 			_ = proc.Kill()
-			return &TimeoutError{Command: command, Duration: timeout}
+			return &shared.TimeoutError{Command: command, Duration: timeout}
 		}
 	}
 }

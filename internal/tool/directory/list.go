@@ -2,23 +2,16 @@ package directory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 )
-
-// Behavioral interfaces for cross-package error checking
-type outsideWorkspace interface {
-	OutsideWorkspace() bool
-}
-
-type fileMissing interface {
-	FileMissing() bool
-}
 
 // dirLister defines the filesystem operations needed for listing directories.
 type dirLister interface {
@@ -74,11 +67,14 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req *ListDirectoryRequest) 
 	// Check if path exists and is a directory
 	info, err := t.fs.Stat(abs)
 	if err != nil {
-		return nil, &ListDirError{Path: abs, Cause: &StatError{Path: abs, Cause: err}}
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%w: %s", shared.ErrFileMissing, abs)
+		}
+		return nil, &shared.ListDirError{Path: abs, Cause: err}
 	}
 
 	if !info.IsDir() {
-		return nil, &ListDirError{Path: abs, Cause: &NotDirectoryError{Path: abs}}
+		return nil, fmt.Errorf("%w: %s", shared.ErrNotADirectory, abs)
 	}
 
 	// Set maxDepth: 0 = non-recursive (only immediate children), -1 or negative = unlimited
@@ -164,15 +160,17 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 
 	allEntries, err := t.fs.ListDir(abs)
 	if err != nil {
-		// Check for behavioral errors using type assertion
-		if e, ok := err.(outsideWorkspace); ok && e.OutsideWorkspace() {
+		// Detect specific error conditions using errors.Is
+		if errors.Is(err, shared.ErrOutsideWorkspace) {
 			return nil, false, err
 		}
-		if e, ok := err.(fileMissing); ok && e.FileMissing() {
+
+		if errors.Is(err, shared.ErrFileMissing) {
 			return nil, false, err
 		}
+
 		// Wrap other errors for context
-		return nil, false, &ListDirError{Path: abs, Cause: err}
+		return nil, false, &shared.ListDirError{Path: abs, Cause: err}
 	}
 
 	var directoryEntries []DirectoryEntry
@@ -186,7 +184,7 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 		entryRel, err := filepath.Rel(t.workspaceRoot, entryAbs)
 		if err != nil {
 			// This indicates a bug in path resolution - don't mask it
-			return nil, false, &RelPathError{Path: entryAbs, Cause: err}
+			return nil, false, &shared.RelPathError{Path: entryAbs, Cause: err}
 		}
 
 		// Normalize to forward slashes

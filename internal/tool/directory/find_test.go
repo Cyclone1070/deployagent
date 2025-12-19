@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
@@ -211,8 +212,8 @@ func TestFindFile_InvalidGlob(t *testing.T) {
 	}
 
 	_, err = tool.Run(context.Background(), req)
-	if err == nil {
-		t.Fatal("expected error for invalid glob, got nil")
+	if err == nil || !errors.Is(err, shared.ErrInvalidPattern) {
+		t.Fatalf("expected ErrInvalidPattern for invalid glob, got %v", err)
 	}
 }
 
@@ -229,22 +230,20 @@ func TestFindFile_PathOutsideWorkspace(t *testing.T) {
 
 	// NewFindFileRequest validates path traversal
 	if err != nil {
-		var pathTraversalErr *PathTraversalError
-		if errors.As(err, &pathTraversalErr) {
+		if errors.Is(err, shared.ErrPathTraversal) {
 			return // Success
 		}
-		t.Errorf("expected PathTraversalError in constructor, got %v", err)
+		t.Errorf("expected ErrPathTraversal in constructor, got %v", err)
 		return
 	}
 
 	// If it passes validation (unlikely given the input), then Run logic
 	_, err = tool.Run(context.Background(), req)
 
-	var pathTraversalErr *PathTraversalError
-	if errors.As(err, &pathTraversalErr) {
+	if errors.Is(err, shared.ErrPathTraversal) {
 		return // Success
 	}
-	t.Errorf("expected PathTraversalError, got %v", err)
+	t.Errorf("expected ErrPathTraversal, got %v", err)
 }
 
 func TestFindFile_NonExistentPath(t *testing.T) {
@@ -263,8 +262,8 @@ func TestFindFile_NonExistentPath(t *testing.T) {
 	}
 
 	_, err = tool.Run(context.Background(), req)
-	if err == nil {
-		t.Fatal("expected error for non-existent path, got nil")
+	if err == nil || !errors.Is(err, shared.ErrFileMissing) {
+		t.Fatalf("expected ErrFileMissing for non-existent path, got %v", err)
 	}
 }
 

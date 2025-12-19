@@ -1,7 +1,10 @@
 package todo
 
 import (
+	"fmt"
+
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // TodoStatus represents the status of a todo item.
@@ -53,12 +56,12 @@ func NewWriteTodosRequest(dto WriteTodosDTO, cfg *config.Config) (*WriteTodosReq
 		case TodoStatusPending, TodoStatusInProgress, TodoStatusCompleted, TodoStatusCancelled:
 			// Valid
 		default:
-			return nil, &InvalidStatusError{Index: i, Status: todo.Status}
+			return nil, fmt.Errorf("todo[%d]: %w %q", i, shared.ErrInvalidStatus, todo.Status)
 		}
 
 		// Validate description is not empty
 		if todo.Description == "" {
-			return nil, &EmptyDescriptionError{Index: i}
+			return nil, fmt.Errorf("todo[%d]: %w", i, shared.ErrEmptyDescription)
 		}
 	}
 

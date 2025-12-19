@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
@@ -35,7 +36,7 @@ func NewService(workspaceRoot string, fs FileSystem) (*Service, error) {
 	// Read .gitignore file
 	content, err := fs.ReadFileRange(gitignorePath, 0, 0)
 	if err != nil {
-		return nil, &GitignoreReadError{Path: gitignorePath, Cause: err}
+		return nil, &shared.GitignoreReadError{Path: gitignorePath, Cause: err}
 	}
 
 	// Parse gitignore patterns line by line

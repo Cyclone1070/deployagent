@@ -2,7 +2,10 @@ package shell
 
 import (
 	"bufio"
+	"fmt"
 	"strings"
+
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // ParseEnvFile parses a .env file and returns a map of environment variables.
@@ -19,7 +22,7 @@ import (
 func ParseEnvFile(fs fileSystem, path string) (map[string]string, error) {
 	content, err := fs.ReadFileRange(path, 0, 0)
 	if err != nil {
-		return nil, &EnvFileReadError{Path: path, Cause: err}
+		return nil, &shared.EnvFileReadError{Path: path, Cause: err}
 	}
 
 	env := make(map[string]string)
@@ -38,7 +41,7 @@ func ParseEnvFile(fs fileSystem, path string) (map[string]string, error) {
 		// Split on first =
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
-			return nil, &EnvFileParseError{Path: path, Line: lineNum, Content: line}
+			return nil, fmt.Errorf("%w: %s:%d: %s", shared.ErrEnvFileParse, path, lineNum, line)
 		}
 
 		key := strings.TrimSpace(parts[0])
@@ -56,7 +59,7 @@ func ParseEnvFile(fs fileSystem, path string) (map[string]string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, &EnvFileScanError{Path: path, Cause: err}
+		return nil, fmt.Errorf("%w: %s: %v", shared.ErrEnvFileScan, path, err)
 	}
 
 	return env, nil

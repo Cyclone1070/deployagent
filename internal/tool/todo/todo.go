@@ -2,6 +2,8 @@ package todo
 
 import (
 	"context"
+
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // todoStore defines the interface for todo storage.
@@ -28,12 +30,12 @@ func NewReadTodosTool(store todoStore) *ReadTodosTool {
 func (t *ReadTodosTool) Run(ctx context.Context, req *ReadTodosRequest) (*ReadTodosResponse, error) {
 	// Runtime Validation
 	if t.store == nil {
-		return nil, &StoreNotConfiguredError{}
+		return nil, shared.ErrStoreNotConfigured
 	}
 
 	todos, err := t.store.Read()
 	if err != nil {
-		return nil, &StoreReadError{Cause: err}
+		return nil, &shared.StoreReadError{Cause: err}
 	}
 
 	return &ReadTodosResponse{
@@ -58,12 +60,12 @@ func NewWriteTodosTool(store todoStore) *WriteTodosTool {
 func (t *WriteTodosTool) Run(ctx context.Context, req *WriteTodosRequest) (*WriteTodosResponse, error) {
 	// Runtime Validation
 	if t.store == nil {
-		return nil, &StoreNotConfiguredError{}
+		return nil, shared.ErrStoreNotConfigured
 	}
 
 	todos := req.Todos()
 	if err := t.store.Write(todos); err != nil {
-		return nil, &StoreWriteError{Cause: err}
+		return nil, &shared.StoreWriteError{Cause: err}
 	}
 
 	return &WriteTodosResponse{

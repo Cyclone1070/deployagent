@@ -1,9 +1,11 @@
 package shell
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -39,10 +41,10 @@ func NewShellRequest(
 ) (*ShellRequest, error) {
 	// Constructor validation
 	if len(dto.Command) == 0 {
-		return nil, &CommandRequiredError{}
+		return nil, shared.ErrCommandRequired
 	}
 	if dto.TimeoutSeconds < 0 {
-		return nil, &NegativeTimeoutError{Value: dto.TimeoutSeconds}
+		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidTimeout, dto.TimeoutSeconds)
 	}
 
 	// WorkingDir defaults to "." if empty

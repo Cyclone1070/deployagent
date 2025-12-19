@@ -2,10 +2,12 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // fileEditor defines the minimal filesystem operations needed for editing files.
@@ -65,20 +67,20 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	info, err := t.fileOps.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, &FileMissingError{Path: abs}
+			return nil, fmt.Errorf("%w: %s", shared.ErrFileMissing, abs)
 		}
-		return nil, &StatError{Path: abs, Cause: err}
+		return nil, &shared.StatError{Path: abs, Cause: err}
 	}
 
 	// Read full file (single open+read syscall)
 	contentBytes, err := t.fileOps.ReadFileRange(abs, 0, 0)
 	if err != nil {
-		return nil, &ReadError{Path: abs, Cause: err}
+		return nil, &shared.ReadError{Path: abs, Cause: err}
 	}
 
 	// Check for binary using content we already read
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
-		return nil, &BinaryFileError{Path: abs}
+		return nil, fmt.Errorf("%w: %s", shared.ErrBinaryFile, abs)
 	}
 
 	content := string(contentBytes)
@@ -89,7 +91,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	// Check for conflicts with cached version
 	priorChecksum, ok := t.checksumManager.Get(abs)
 	if ok && priorChecksum != currentChecksum {
-		return nil, &EditConflictError{Path: abs}
+		return nil, fmt.Errorf("%w: %s", shared.ErrEditConflict, abs)
 	}
 
 	// Preserve original permissions
@@ -106,11 +108,11 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 		count := strings.Count(content, op.Before)
 
 		if count == 0 {
-			return nil, &SnippetNotFoundError{Path: abs, Snippet: op.Before}
+			return nil, fmt.Errorf("%w: %s in %s", shared.ErrSnippetNotFound, op.Before, abs)
 		}
 
 		if count != op.ExpectedReplacements {
-			return nil, &ReplacementMismatchError{Path: abs, Expected: op.ExpectedReplacements, Actual: count}
+			return nil, fmt.Errorf("%w in %s: expected %d, found %d", shared.ErrReplacementMismatch, abs, op.ExpectedReplacements, count)
 		}
 
 		content = strings.Replace(content, op.Before, op.After, op.ExpectedReplacements)
@@ -122,7 +124,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	// Check size limit
 	maxFileSize := t.config.Tools.MaxFileSize
 	if int64(len(newContentBytes)) > maxFileSize {
-		return nil, &TooLargeError{Path: abs, Size: int64(len(newContentBytes)), Limit: maxFileSize}
+		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", shared.ErrFileTooLarge, abs, len(newContentBytes), maxFileSize)
 	}
 
 	// Only revalidate if we had a cached checksum to check against
@@ -130,17 +132,17 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	if ok {
 		revalidationBytes, err := t.fileOps.ReadFileRange(abs, 0, 0)
 		if err != nil {
-			return nil, &RevalidateError{Path: abs, Cause: err}
+			return nil, &shared.RevalidateError{Path: abs, Cause: err}
 		}
 		revalidationChecksum := t.checksumManager.Compute(revalidationBytes)
 		if revalidationChecksum != currentChecksum {
-			return nil, &EditConflictError{Path: abs}
+			return nil, fmt.Errorf("%w during revalidation: %s", shared.ErrEditConflict, abs)
 		}
 	}
 
 	// Write the modified content atomically
 	if err := t.fileOps.WriteFileAtomic(abs, newContentBytes, originalPerm); err != nil {
-		return nil, &WriteError{Path: abs, Cause: err}
+		return nil, &shared.WriteError{Path: abs, Cause: err}
 	}
 
 	// Compute new checksum and update cache

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // Local mocks for directory listing tests
@@ -348,9 +349,8 @@ func TestListDirectory(t *testing.T) {
 		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 		_, err = tool.Run(context.Background(), req)
 
-		var listDirErr *ListDirError
-		if err == nil || !errors.As(err, &listDirErr) {
-			t.Fatalf("expected ListDirError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrNotADirectory) {
+			t.Fatalf("expected ErrNotADirectory, got %v", err)
 		}
 	})
 
@@ -366,15 +366,8 @@ func TestListDirectory(t *testing.T) {
 
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 
-		type outsideWorkspace interface{ OutsideWorkspace() bool }
-		var targetErr outsideWorkspace
-
 		if err != nil {
-			if errors.As(err, &targetErr) && targetErr.OutsideWorkspace() {
-				return // Success
-			}
-			var pathTraversalErr *PathTraversalError
-			if errors.As(err, &pathTraversalErr) {
+			if errors.Is(err, shared.ErrPathTraversal) {
 				return // Success
 			}
 		}
@@ -388,11 +381,8 @@ func TestListDirectory(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		if !errors.As(err, &targetErr) || !targetErr.OutsideWorkspace() {
-			var pathTraversalErr *PathTraversalError
-			if !errors.As(err, &pathTraversalErr) {
-				t.Errorf("expected OutsideWorkspace or PathTraversalError, got %v", err)
-			}
+		if !errors.Is(err, shared.ErrPathTraversal) {
+			t.Errorf("expected ErrPathTraversal, got %v", err)
 		}
 	})
 
@@ -409,9 +399,8 @@ func TestListDirectory(t *testing.T) {
 
 		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 		_, err = tool.Run(context.Background(), req)
-		var listDirErr *ListDirError
-		if err == nil || !errors.As(err, &listDirErr) {
-			t.Errorf("expected ListDirError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrFileMissing) {
+			t.Errorf("expected ErrFileMissing, got %v", err)
 		}
 	})
 
@@ -758,13 +747,8 @@ func TestListDirectory_FilesystemErrorPropagation(t *testing.T) {
 			t.Fatal("expected error from NewListDirectoryRequest, got nil")
 		}
 
-		var listDirErr *ListDirError
-		if !errors.As(err, &listDirErr) {
-			t.Fatalf("expected ListDirError, got %v", err)
-		}
-		// Check cause
-		if !strings.Contains(listDirErr.Cause.Error(), "permission") {
-			t.Errorf("expected permission-related cause, got: %v", listDirErr.Cause)
+		if !strings.Contains(err.Error(), "permission") {
+			t.Errorf("expected permission-related error, got: %v", err)
 		}
 	})
 }

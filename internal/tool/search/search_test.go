@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
@@ -193,10 +194,8 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 
 	_, err = tool.Run(context.Background(), req)
 
-	type outsideWorkspace interface{ OutsideWorkspace() bool }
-	var targetErr outsideWorkspace
-	if !errors.As(err, &targetErr) || !targetErr.OutsideWorkspace() {
-		t.Errorf("expected OutsideWorkspace error, got %v", err)
+	if !errors.Is(err, shared.ErrOutsideWorkspace) {
+		t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 	}
 }
 

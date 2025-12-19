@@ -1,9 +1,12 @@
 package fsutil
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // writeSyncCloser defines the minimal interface for a writable file handle.
@@ -74,7 +77,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 
 	// Validate offset
 	if offset < 0 {
-		return nil, &InvalidOffsetError{Value: offset}
+		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, offset)
 	}
 
 	if offset >= fileSize {
@@ -114,7 +117,7 @@ func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.File
 
 	tmpFile, err := r.createTemp(dir, ".tmp-*")
 	if err != nil {
-		return &TempFileError{Dir: dir, Cause: err}
+		return &shared.TempFileError{Dir: dir, Cause: err}
 	}
 
 	tmpPath := tmpFile.Name()
@@ -130,28 +133,28 @@ func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.File
 	}()
 
 	if _, err := tmpFile.Write(content); err != nil {
-		return &TempWriteError{Path: tmpPath, Cause: err}
+		return &shared.TempWriteError{Path: tmpPath, Cause: err}
 	}
 
 	if err := tmpFile.Sync(); err != nil {
-		return &TempSyncError{Path: tmpPath, Cause: err}
+		return &shared.TempSyncError{Path: tmpPath, Cause: err}
 	}
 
 	// Close file before rename (required on some systems)
 	if err := tmpFile.Close(); err != nil {
 		tmpFile = nil
-		return &TempCloseError{Path: tmpPath, Cause: err}
+		return &shared.TempCloseError{Path: tmpPath, Cause: err}
 	}
 	tmpFile = nil
 
 	// Atomic rename is the critical operation that ensures consistency
 	if err := r.rename(tmpPath, path); err != nil {
-		return &RenameError{Old: tmpPath, New: path, Cause: err}
+		return &shared.RenameError{Old: tmpPath, New: path, Cause: err}
 	}
 	needsCleanup = false
 
 	if err := r.chmod(path, perm); err != nil {
-		return &ChmodError{Path: path, Mode: perm, Cause: err}
+		return &shared.ChmodError{Path: path, Mode: perm, Cause: err}
 	}
 
 	return nil

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 func TestEditFile(t *testing.T) {
@@ -55,9 +56,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var editConflictErr *EditConflictError
-		if err == nil || !errors.As(err, &editConflictErr) {
-			t.Errorf("expected EditConflictError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrEditConflict) {
+			t.Errorf("expected ErrEditConflict, got %v", err)
 		}
 	})
 
@@ -150,9 +150,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var snippetNotFoundErr *SnippetNotFoundError
-		if err == nil || !errors.As(err, &snippetNotFoundErr) {
-			t.Errorf("expected SnippetNotFoundError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrSnippetNotFound) {
+			t.Errorf("expected ErrSnippetNotFound, got %v", err)
 		}
 	})
 
@@ -186,9 +185,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var mismatchErr *ReplacementMismatchError
-		if err == nil || !errors.As(err, &mismatchErr) {
-			t.Errorf("expected ReplacementMismatchError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrReplacementMismatch) {
+			t.Errorf("expected ErrReplacementMismatch, got %v", err)
 		}
 	})
 
@@ -221,9 +219,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var binaryErr *BinaryFileError
-		if err == nil || !errors.As(err, &binaryErr) {
-			t.Errorf("expected BinaryFileError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrBinaryFile) {
+			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
@@ -294,9 +291,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var fileMissingErr *FileMissingError
-		if err == nil || !errors.As(err, &fileMissingErr) {
-			t.Errorf("expected FileMissingError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrFileMissing) {
+			t.Errorf("expected ErrFileMissing, got %v", err)
 		}
 	})
 
@@ -380,9 +376,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var mismatchErr *ReplacementMismatchError
-		if err == nil || !errors.As(err, &mismatchErr) {
-			t.Errorf("expected ReplacementMismatchError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrReplacementMismatch) {
+			t.Errorf("expected ErrReplacementMismatch, got %v", err)
 		}
 	})
 
@@ -430,9 +425,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var tooLargeErr *TooLargeError
-		if err == nil || !errors.As(err, &tooLargeErr) {
-			t.Errorf("expected TooLargeError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrFileTooLarge) {
+			t.Errorf("expected ErrFileTooLarge, got %v", err)
 		}
 	})
 
@@ -472,9 +466,8 @@ func TestEditFile(t *testing.T) {
 		}
 
 		_, err = editTool.Run(context.Background(), editReq)
-		var editConflictErr *EditConflictError
-		if err == nil || !errors.As(err, &editConflictErr) {
-			t.Errorf("expected EditConflictError due to race condition, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrEditConflict) {
+			t.Errorf("expected ErrEditConflict due to race condition, got %v", err)
 		}
 	})
 
@@ -558,10 +551,8 @@ func TestEditFile(t *testing.T) {
 			_, err = editTool.Run(context.Background(), editReq)
 		}
 
-		type outsideWorkspace interface{ OutsideWorkspace() bool }
-		var targetErr outsideWorkspace
-		if err == nil || !errors.As(err, &targetErr) || !targetErr.OutsideWorkspace() {
-			t.Errorf("expected OutsideWorkspace error for escaping symlink chain, got %v", err)
+		if !errors.Is(err, shared.ErrOutsideWorkspace) {
+			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
 		}
 	})
 }

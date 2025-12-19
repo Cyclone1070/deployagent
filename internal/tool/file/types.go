@@ -1,9 +1,11 @@
 package file
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -45,13 +47,13 @@ func NewReadFileRequest(
 ) (*ReadFileRequest, error) {
 	// Constructor validation - everything we can know from inputs
 	if dto.Path == "" {
-		return nil, &PathRequiredError{}
+		return nil, shared.ErrPathRequired
 	}
 
 	var offset int64
 	if dto.Offset != nil {
 		if *dto.Offset < 0 {
-			return nil, &NegativeOffsetError{Value: *dto.Offset}
+			return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, *dto.Offset)
 		}
 		offset = *dto.Offset
 	}
@@ -59,7 +61,7 @@ func NewReadFileRequest(
 	var limit int64
 	if dto.Limit != nil {
 		if *dto.Limit < 0 {
-			return nil, &NegativeLimitError{Value: *dto.Limit}
+			return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, *dto.Limit)
 		}
 		limit = *dto.Limit
 	}
@@ -137,17 +139,17 @@ func NewWriteFileRequest(
 ) (*WriteFileRequest, error) {
 	// Constructor validation
 	if dto.Path == "" {
-		return nil, &PathRequiredError{}
+		return nil, shared.ErrPathRequired
 	}
 
 	if dto.Content == "" {
-		return nil, &ContentRequiredError{}
+		return nil, shared.ErrContentRequired
 	}
 
 	perm := os.FileMode(0644) // default
 	if dto.Perm != nil {
 		if *dto.Perm&^os.FileMode(0777) != 0 {
-			return nil, &InvalidPermissionError{Perm: uint32(*dto.Perm)}
+			return nil, fmt.Errorf("%w: %o", shared.ErrInvalidPermission, *dto.Perm)
 		}
 		perm = *dto.Perm & 0777
 	}
@@ -212,19 +214,19 @@ func NewEditFileRequest(
 ) (*EditFileRequest, error) {
 	// Constructor validation
 	if dto.Path == "" {
-		return nil, &PathRequiredError{}
+		return nil, shared.ErrPathRequired
 	}
 
 	if len(dto.Operations) == 0 {
-		return nil, &OperationsRequiredError{}
+		return nil, shared.ErrOperationsRequired
 	}
 
 	for i, op := range dto.Operations {
 		if op.Before == "" {
-			return nil, &BeforeRequiredError{Index: i + 1}
+			return nil, fmt.Errorf("operation %d: %w", i+1, shared.ErrBeforeRequired)
 		}
 		if op.ExpectedReplacements < 0 {
-			return nil, &NegativeExpectedReplacementsError{Index: i + 1, Value: op.ExpectedReplacements}
+			return nil, fmt.Errorf("operation %d: %w: %d", i+1, shared.ErrInvalidExpectedReplacements, op.ExpectedReplacements)
 		}
 	}
 

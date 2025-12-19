@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
@@ -60,20 +61,20 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 
 	// Validate pattern syntax
 	if _, err := filepath.Match(req.Pattern(), ""); err != nil {
-		return nil, &InvalidPatternError{Pattern: req.Pattern(), Cause: err}
+		return nil, fmt.Errorf("%w %s: %v", shared.ErrInvalidPattern, req.Pattern(), err)
 	}
 
 	// Verify search path exists and is a directory
 	info, err := t.fs.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, &FileMissingError{Path: absSearchPath}
+			return nil, fmt.Errorf("%w: %s", shared.ErrFileMissing, absSearchPath)
 		}
-		return nil, &StatError{Path: absSearchPath, Cause: err}
+		return nil, &shared.StatError{Path: absSearchPath, Cause: err}
 	}
 
 	if !info.IsDir() {
-		return nil, &NotDirectoryError{Path: absSearchPath}
+		return nil, fmt.Errorf("%w: %s", shared.ErrNotADirectory, absSearchPath)
 	}
 
 	// Use configured limits - constructor already checked bounds
@@ -98,7 +99,7 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	// Execute command with streaming
 	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.ProcessOptions{Dir: absSearchPath})
 	if err != nil {
-		return nil, &CommandStartError{Cmd: "fd", Cause: err}
+		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "start"}
 	}
 	// We will wait explicitly to check for errors
 
@@ -132,12 +133,12 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	if err := scanner.Err(); err != nil {
 		// Try to wait to clean up process even on scan error
 		_ = proc.Wait()
-		return nil, &CommandOutputError{Cmd: "fd", Cause: err}
+		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "read output"}
 	}
 
 	// Check command exit status
 	if err := proc.Wait(); err != nil {
-		return nil, &CommandFailedError{Cmd: "fd", Cause: err}
+		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "execution"}
 	}
 
 	// Sort ensures consistent pagination

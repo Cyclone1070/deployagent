@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
@@ -48,13 +50,13 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	info, err := t.fs.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, &FileMissingError{Path: absSearchPath}
+			return nil, fmt.Errorf("%w: %s", shared.ErrFileMissing, absSearchPath)
 		}
-		return nil, &StatError{Path: absSearchPath, Cause: err}
+		return nil, &shared.StatError{Path: absSearchPath, Cause: err}
 	}
 
 	if !info.IsDir() {
-		return nil, &NotDirectoryError{Path: absSearchPath}
+		return nil, fmt.Errorf("%w: %s", shared.ErrNotADirectory, absSearchPath)
 	}
 
 	// Use configured limits - constructor already checked bounds
@@ -88,7 +90,7 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	// Execute command with streaming
 	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.ProcessOptions{Dir: absSearchPath})
 	if err != nil {
-		return nil, &CommandStartError{Cmd: "rg", Cause: err}
+		return nil, &shared.CommandError{Cmd: "rg", Cause: err, Stage: "start"}
 	}
 	// process will be waited on explicitly later
 
@@ -153,7 +155,7 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, &CommandOutputError{Cmd: "rg", Cause: err}
+		return nil, &shared.CommandError{Cmd: "rg", Cause: err, Stage: "read output"}
 	}
 
 	// Wait for command to complete
@@ -164,7 +166,7 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 			// We just continue with empty matches
 		} else {
 			// Exit code 2+ = real error
-			return nil, &CommandFailedError{Cmd: "rg", Cause: err}
+			return nil, &shared.CommandError{Cmd: "rg", Cause: err, Stage: "execution"}
 		}
 	}
 

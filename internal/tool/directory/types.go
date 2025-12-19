@@ -2,11 +2,13 @@ package directory
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -48,13 +50,13 @@ func NewListDirectoryRequest(
 ) (*ListDirectoryRequest, error) {
 	// Constructor validation
 	if dto.Offset < 0 {
-		return nil, &NegativeOffsetError{Value: int64(dto.Offset)}
+		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, dto.Offset)
 	}
 	if dto.Limit < 0 {
-		return nil, &NegativeLimitError{Value: int64(dto.Limit)}
+		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, dto.Limit)
 	}
 	if dto.Limit > cfg.Tools.MaxListDirectoryLimit {
-		return nil, &LimitExceededError{Value: int64(dto.Limit), Max: int64(cfg.Tools.MaxListDirectoryLimit)}
+		return nil, fmt.Errorf("%w: %d (max %d)", shared.ErrLimitExceeded, dto.Limit, cfg.Tools.MaxListDirectoryLimit)
 	}
 
 	// Path defaults to "." if empty
@@ -66,11 +68,10 @@ func NewListDirectoryRequest(
 	// Path resolution
 	abs, rel, err := resolvePathWithFS(workspaceRoot, fs, path)
 	if err != nil {
-		var ow interface{ OutsideWorkspace() bool }
-		if errors.As(err, &ow) && ow.OutsideWorkspace() {
-			return nil, &PathTraversalError{Path: path}
+		if errors.Is(err, shared.ErrOutsideWorkspace) {
+			return nil, fmt.Errorf("%w: %s", shared.ErrPathTraversal, path)
 		}
-		return nil, &ListDirError{Path: path, Cause: err}
+		return nil, err
 	}
 
 	return &ListDirectoryRequest{
@@ -158,27 +159,27 @@ func NewFindFileRequest(
 ) (*FindFileRequest, error) {
 	// Constructor validation
 	if dto.Pattern == "" {
-		return nil, &PatternRequiredError{}
+		return nil, shared.ErrPatternRequired
 	}
 
 	// Check for path traversal or absolute path in pattern
 	if strings.Contains(dto.Pattern, "..") || filepath.IsAbs(dto.Pattern) {
-		return nil, &PathTraversalError{Path: dto.Pattern}
+		return nil, fmt.Errorf("%w in pattern: %s", shared.ErrPathTraversal, dto.Pattern)
 	}
 
 	// Simple check for path traversal in search path if provided
 	if dto.SearchPath != "" && (dto.SearchPath == ".." || dto.SearchPath == "/" || dto.SearchPath == "\\") {
-		return nil, &PathTraversalError{Path: dto.SearchPath}
+		return nil, fmt.Errorf("%w in search path: %s", shared.ErrPathTraversal, dto.SearchPath)
 	}
 
 	if dto.Offset < 0 {
-		return nil, &NegativeOffsetError{Value: int64(dto.Offset)}
+		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, dto.Offset)
 	}
 	if dto.Limit < 0 {
-		return nil, &NegativeLimitError{Value: int64(dto.Limit)}
+		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, dto.Limit)
 	}
 	if dto.Limit > cfg.Tools.MaxFindFileLimit {
-		return nil, &LimitExceededError{Value: int64(dto.Limit), Max: int64(cfg.Tools.MaxFindFileLimit)}
+		return nil, fmt.Errorf("%w: %d (max %d)", shared.ErrLimitExceeded, dto.Limit, cfg.Tools.MaxFindFileLimit)
 	}
 
 	// SearchPath defaults to "." if empty
@@ -190,11 +191,10 @@ func NewFindFileRequest(
 	// Path resolution for search path
 	searchAbs, searchRel, err := resolvePathWithFS(workspaceRoot, fs, searchPath)
 	if err != nil {
-		var ow interface{ OutsideWorkspace() bool }
-		if errors.As(err, &ow) && ow.OutsideWorkspace() {
-			return nil, &PathTraversalError{Path: searchPath}
+		if errors.Is(err, shared.ErrOutsideWorkspace) {
+			return nil, fmt.Errorf("%w: %s", shared.ErrPathTraversal, searchPath)
 		}
-		return nil, &FindFileError{Path: searchPath, Cause: err}
+		return nil, err
 	}
 
 	return &FindFileRequest{

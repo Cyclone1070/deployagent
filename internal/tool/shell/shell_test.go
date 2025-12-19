@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // Local mocks for shell tests
@@ -415,17 +416,11 @@ CACHE_URL=redis://localhost`
 		}
 	})
 
-	t.Run("Env file outside workspace", func(t *testing.T) {
-		dto := ShellDTO{Command: []string{"env"}, EnvFiles: []string{"../../etc/passwd"}}
-		_, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
-		if err == nil {
-			t.Error("Expected error for env file outside workspace, got nil")
-		}
-		var ow interface{ OutsideWorkspace() bool }
-		if !errors.As(err, &ow) || !ow.OutsideWorkspace() {
-			t.Errorf("Expected OutsideWorkspace error from NewShellRequest, got %v", err)
-		}
-	})
+	dto := ShellDTO{Command: []string{"env"}, EnvFiles: []string{"../../etc/passwd"}}
+	_, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
+	if !errors.Is(err, shared.ErrOutsideWorkspace) {
+		t.Errorf("Expected ErrOutsideWorkspace error from NewShellRequest, got %v", err)
+	}
 }
 
 func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
@@ -436,12 +431,8 @@ func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
 
 	dto := ShellDTO{Command: []string{"ls"}, WorkingDir: "../outside"}
 	_, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
-	if err == nil {
-		t.Fatal("Expected error from NewShellRequest")
-	}
-	var ow interface{ OutsideWorkspace() bool }
-	if !errors.As(err, &ow) || !ow.OutsideWorkspace() {
-		t.Errorf("Expected OutsideWorkspace error from NewShellRequest, got %v", err)
+	if !errors.Is(err, shared.ErrOutsideWorkspace) {
+		t.Errorf("Expected ErrOutsideWorkspace error from NewShellRequest, got %v", err)
 	}
 }
 

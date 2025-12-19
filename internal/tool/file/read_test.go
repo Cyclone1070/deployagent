@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // Local mocks for read tests
@@ -251,9 +252,8 @@ func TestReadFile(t *testing.T) {
 		}
 
 		_, err = tool.Run(context.Background(), req)
-		var binaryErr *BinaryFileError
-		if err == nil || !errors.As(err, &binaryErr) {
-			t.Errorf("expected BinaryFileError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrBinaryFile) {
+			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
 
@@ -276,9 +276,8 @@ func TestReadFile(t *testing.T) {
 		}
 
 		_, err = tool.Run(context.Background(), req)
-		var tooLargeErr *TooLargeError
-		if err == nil || !errors.As(err, &tooLargeErr) {
-			t.Errorf("expected TooLargeError, got %v", err)
+		if err == nil || !errors.Is(err, shared.ErrFileTooLarge) {
+			t.Errorf("expected ErrFileTooLarge, got %v", err)
 		}
 	})
 
@@ -324,9 +323,8 @@ func TestReadFile(t *testing.T) {
 		}
 
 		_, err = tool.Run(context.Background(), req)
-		var isDirErr *IsDirectoryError
-		if err == nil || !errors.As(err, &isDirErr) {
-			t.Error("expected IsDirectoryError when reading directory")
+		if err == nil || !errors.Is(err, shared.ErrIsDirectory) {
+			t.Error("expected ErrIsDirectory when reading directory")
 		}
 	})
 
@@ -378,7 +376,7 @@ func TestReadFile(t *testing.T) {
 		// It did NOT explicitly return ErrFileMissing.
 		// So expecting `StatError` is correct for now.
 
-		var statErr *StatError
+		var statErr *shared.StatError
 		if err == nil || !errors.As(err, &statErr) {
 			t.Errorf("expected StatError for nonexistent file, got %v", err)
 		}
