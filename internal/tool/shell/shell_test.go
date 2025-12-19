@@ -193,7 +193,7 @@ func TestShellTool_Run_WorkingDir(t *testing.T) {
 	var capturedDir string
 	factory := &mockCommandExecutorForShell{}
 	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedDir = opts.Dir
+		capturedDir = opts.Dir()
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
@@ -227,7 +227,7 @@ func TestShellTool_Run_Env(t *testing.T) {
 	var capturedEnv []string
 	factory := &mockCommandExecutorForShell{}
 	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedEnv = opts.Env
+		capturedEnv = opts.Env()
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
@@ -290,7 +290,7 @@ CACHE_URL=redis://localhost`
 	var capturedEnv []string
 	factory := &mockCommandExecutorForShell{}
 	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedEnv = opts.Env
+		capturedEnv = opts.Env()
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
@@ -660,7 +660,7 @@ func TestShellTool_Run_EnvInjection(t *testing.T) {
 	var capturedEnv []string
 	factory := &mockCommandExecutorForShell{}
 	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedEnv = opts.Env
+		capturedEnv = opts.Env()
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil

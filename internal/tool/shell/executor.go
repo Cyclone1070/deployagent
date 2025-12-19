@@ -7,18 +7,23 @@ import (
 	"os/exec"
 )
 
-// OSProcess wraps an os/exec.Cmd to implement the process interface.
-type OSProcess struct {
+// osProcess wraps an os/exec.Cmd to implement the process interface.
+type osProcess struct {
 	cmd *exec.Cmd
 }
 
+// newOSProcess creates a new osProcess wrapping the given command.
+func newOSProcess(cmd *exec.Cmd) *osProcess {
+	return &osProcess{cmd: cmd}
+}
+
 // Wait waits for the process to complete and returns any error.
-func (p *OSProcess) Wait() error {
+func (p *osProcess) Wait() error {
 	return p.cmd.Wait()
 }
 
 // Kill forcefully terminates the process.
-func (p *OSProcess) Kill() error {
+func (p *osProcess) Kill() error {
 	if p.cmd.Process != nil {
 		return p.cmd.Process.Kill()
 	}
@@ -26,7 +31,7 @@ func (p *OSProcess) Kill() error {
 }
 
 // Signal sends a signal to the process.
-func (p *OSProcess) Signal(sig os.Signal) error {
+func (p *osProcess) Signal(sig os.Signal) error {
 	if p.cmd.Process != nil {
 		return p.cmd.Process.Signal(sig)
 	}
@@ -63,8 +68,8 @@ func (f *OSCommandExecutor) Start(ctx context.Context, command []string, opts Pr
 	}
 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	cmd.Dir = opts.Dir
-	cmd.Env = opts.Env
+	cmd.Dir = opts.Dir()
+	cmd.Env = opts.Env()
 
 	// Explicitly close stdin to prevent interactive hangs
 	cmd.Stdin = nil
@@ -83,5 +88,5 @@ func (f *OSCommandExecutor) Start(ctx context.Context, command []string, opts Pr
 		return nil, nil, nil, err
 	}
 
-	return &OSProcess{cmd: cmd}, stdout, stderr, nil
+	return newOSProcess(cmd), stdout, stderr, nil
 }

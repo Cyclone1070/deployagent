@@ -2,9 +2,9 @@ package shell
 
 import "bytes"
 
-// Collector captures command output with size limits and binary content detection.
+// collector captures command output with size limits and binary content detection.
 // It implements io.Writer and can be used to collect stdout/stderr from processes.
-type Collector struct {
+type collector struct {
 	buffer    bytes.Buffer
 	maxBytes  int
 	truncated bool
@@ -15,9 +15,9 @@ type Collector struct {
 	sampleSize   int // Number of bytes to check for binary content
 }
 
-// NewCollector creates a new output collector with the specified maximum byte limit and binary detection sample size.
-func NewCollector(maxBytes int, sampleSize int) *Collector {
-	return &Collector{
+// newCollector creates a new output collector with the specified maximum byte limit and binary detection sample size.
+func newCollector(maxBytes int, sampleSize int) *collector {
+	return &collector{
 		maxBytes:   maxBytes,
 		sampleSize: sampleSize,
 	}
@@ -25,7 +25,7 @@ func NewCollector(maxBytes int, sampleSize int) *Collector {
 
 // Write implements io.Writer for collecting process output.
 // It detects binary content and enforces size limits, truncating if necessary.
-func (c *Collector) Write(p []byte) (n int, err error) {
+func (c *collector) Write(p []byte) (n int, err error) {
 	if c.isBinary {
 		return len(p), nil // Discard rest if binary
 	}
@@ -70,7 +70,7 @@ func (c *Collector) Write(p []byte) (n int, err error) {
 
 // String returns the collected output as a string.
 // Returns "[Binary Content]" if binary data was detected.
-func (c *Collector) String() string {
+func (c *collector) String() string {
 	if c.isBinary {
 		return "[Binary Content]"
 	}
@@ -78,6 +78,6 @@ func (c *Collector) String() string {
 }
 
 // Truncated returns whether the output was truncated due to size limits or binary content.
-func (c *Collector) Truncated() bool {
+func (c *collector) Truncated() bool {
 	return c.truncated
 }

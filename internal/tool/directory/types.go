@@ -14,8 +14,23 @@ import (
 
 // DirectoryEntry represents a single entry in a directory listing
 type DirectoryEntry struct {
-	RelativePath string
-	IsDir        bool
+	relativePath string
+	isDir        bool
+}
+
+// NewDirectoryEntry creates a new DirectoryEntry.
+func NewDirectoryEntry(relativePath string, isDir bool) DirectoryEntry {
+	return DirectoryEntry{relativePath: relativePath, isDir: isDir}
+}
+
+// RelativePath returns the relative path of the entry.
+func (e DirectoryEntry) RelativePath() string {
+	return e.relativePath
+}
+
+// IsDir returns whether the entry is a directory.
+func (e DirectoryEntry) IsDir() bool {
+	return e.isDir
 }
 
 // ListDirectoryDTO is the wire format for ListDirectory operation

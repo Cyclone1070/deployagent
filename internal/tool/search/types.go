@@ -11,9 +11,29 @@ import (
 
 // SearchContentMatch represents a single match in a file
 type SearchContentMatch struct {
-	File        string // Relative path to the file
-	LineNumber  int    // 1-based line number
-	LineContent string // Content of the matching line
+	file        string // Relative path to the file
+	lineNumber  int    // 1-based line number
+	lineContent string // Content of the matching line
+}
+
+// NewSearchContentMatch creates a new SearchContentMatch.
+func NewSearchContentMatch(file string, lineNumber int, lineContent string) SearchContentMatch {
+	return SearchContentMatch{file: file, lineNumber: lineNumber, lineContent: lineContent}
+}
+
+// File returns the relative path to the file.
+func (m SearchContentMatch) File() string {
+	return m.file
+}
+
+// LineNumber returns the 1-based line number.
+func (m SearchContentMatch) LineNumber() int {
+	return m.lineNumber
+}
+
+// LineContent returns the content of the matching line.
+func (m SearchContentMatch) LineContent() string {
+	return m.lineContent
 }
 
 // SearchContentDTO is the wire format for SearchContent operation

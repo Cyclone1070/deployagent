@@ -132,14 +132,14 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
 	}
 
-	if resp.Matches[0].File != "file.go" {
-		t.Errorf("expected file.go, got %s", resp.Matches[0].File)
+	if resp.Matches[0].File() != "file.go" {
+		t.Errorf("expected file.go, got %s", resp.Matches[0].File())
 	}
-	if resp.Matches[0].LineNumber != 10 {
-		t.Errorf("expected line 10, got %d", resp.Matches[0].LineNumber)
+	if resp.Matches[0].LineNumber() != 10 {
+		t.Errorf("expected line 10, got %d", resp.Matches[0].LineNumber())
 	}
-	if resp.Matches[0].LineContent != "func foo()" {
-		t.Errorf("expected 'func foo()', got %q", resp.Matches[0].LineContent)
+	if resp.Matches[0].LineContent() != "func foo()" {
+		t.Errorf("expected 'func foo()', got %q", resp.Matches[0].LineContent())
 	}
 }
 
@@ -230,11 +230,11 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 		t.Fatalf("expected 1 match, got %d", len(resp.Matches))
 	}
 
-	if len(resp.Matches[0].LineContent) > 10100 {
-		t.Errorf("expected line to be truncated to ~10000 chars, got %d", len(resp.Matches[0].LineContent))
+	if len(resp.Matches[0].LineContent()) > 10100 {
+		t.Errorf("expected line to be truncated to ~10000 chars, got %d", len(resp.Matches[0].LineContent()))
 	}
 
-	if !strings.Contains(resp.Matches[0].LineContent, "[truncated]") {
+	if !strings.Contains(resp.Matches[0].LineContent(), "[truncated]") {
 		t.Error("expected truncation marker in line content")
 	}
 }
@@ -352,8 +352,8 @@ func TestSearchContent_Pagination(t *testing.T) {
 		t.Error("expected Truncated=true")
 	}
 
-	if resp.Matches[0].LineNumber != 3 {
-		t.Errorf("expected line 3, got %d", resp.Matches[0].LineNumber)
+	if resp.Matches[0].LineNumber() != 3 {
+		t.Errorf("expected line 3, got %d", resp.Matches[0].LineNumber())
 	}
 }
 
@@ -390,14 +390,14 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 	}
 
 	// Verify sorting (by file, then line number)
-	if resp.Matches[0].File != "a.txt" || resp.Matches[0].LineNumber != 5 {
-		t.Errorf("expected a.txt:5, got %s:%d", resp.Matches[0].File, resp.Matches[0].LineNumber)
+	if resp.Matches[0].File() != "a.txt" || resp.Matches[0].LineNumber() != 5 {
+		t.Errorf("expected a.txt:5, got %s:%d", resp.Matches[0].File(), resp.Matches[0].LineNumber())
 	}
-	if resp.Matches[1].File != "a.txt" || resp.Matches[1].LineNumber != 10 {
-		t.Errorf("expected a.txt:10, got %s:%d", resp.Matches[1].File, resp.Matches[1].LineNumber)
+	if resp.Matches[1].File() != "a.txt" || resp.Matches[1].LineNumber() != 10 {
+		t.Errorf("expected a.txt:10, got %s:%d", resp.Matches[1].File(), resp.Matches[1].LineNumber())
 	}
-	if resp.Matches[2].File != "b.txt" || resp.Matches[2].LineNumber != 5 {
-		t.Errorf("expected b.txt:5, got %s:%d", resp.Matches[2].File, resp.Matches[2].LineNumber)
+	if resp.Matches[2].File() != "b.txt" || resp.Matches[2].LineNumber() != 5 {
+		t.Errorf("expected b.txt:5, got %s:%d", resp.Matches[2].File(), resp.Matches[2].LineNumber())
 	}
 }
 
@@ -523,10 +523,10 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	foundIgnored := false
 	foundVisible := false
 	for _, match := range resp.Matches {
-		if match.File == "ignored.go" {
+		if match.File() == "ignored.go" {
 			foundIgnored = true
 		}
-		if match.File == "visible.go" {
+		if match.File() == "visible.go" {
 			foundVisible = true
 		}
 	}

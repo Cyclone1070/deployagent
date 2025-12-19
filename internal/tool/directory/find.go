@@ -97,7 +97,7 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	}
 
 	// Execute command with streaming
-	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.ProcessOptions{Dir: absSearchPath})
+	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.NewProcessOptions(absSearchPath, nil))
 	if err != nil {
 		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "start"}
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 func TestCollector_Write_Buffering(t *testing.T) {
-	c := NewCollector(1024, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
+	c := newCollector(1024, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
 	data := []byte("hello world")
 	n, err := c.Write(data)
 	if err != nil {
@@ -22,7 +22,7 @@ func TestCollector_Write_Buffering(t *testing.T) {
 }
 
 func TestCollector_Write_Truncation(t *testing.T) {
-	c := NewCollector(10, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
+	c := newCollector(10, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
 	data := []byte("hello world") // 11 bytes
 	n, err := c.Write(data)
 	if err != nil {
@@ -44,7 +44,7 @@ func TestCollector_Write_Truncation(t *testing.T) {
 }
 
 func TestCollector_Write_Binary(t *testing.T) {
-	c := NewCollector(1024, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
+	c := newCollector(1024, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
 	data := []byte("hello\x00world")
 	_, err := c.Write(data)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestCollector_Write_Binary(t *testing.T) {
 
 func TestCollector_UTF8_Boundary(t *testing.T) {
 	// 3-byte character: ⌘ (E2 8C 98)
-	c := NewCollector(1024, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
+	c := newCollector(1024, config.DefaultConfig().Tools.BinaryDetectionSampleSize)
 
 	// Write first byte
 	_, _ = c.Write([]byte{0xE2})

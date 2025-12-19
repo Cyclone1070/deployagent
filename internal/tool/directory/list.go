@@ -96,14 +96,14 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req *ListDirectoryRequest) 
 	// Sort: directories first, then files, both alphabetically by RelativePath
 	sort.Slice(directoryEntries, func(i, j int) bool {
 		// Directories come before files
-		if directoryEntries[i].IsDir && !directoryEntries[j].IsDir {
+		if directoryEntries[i].IsDir() && !directoryEntries[j].IsDir() {
 			return true
 		}
-		if !directoryEntries[i].IsDir && directoryEntries[j].IsDir {
+		if !directoryEntries[i].IsDir() && directoryEntries[j].IsDir() {
 			return false
 		}
 		// Within same type, sort alphabetically
-		return directoryEntries[i].RelativePath < directoryEntries[j].RelativePath
+		return directoryEntries[i].RelativePath() < directoryEntries[j].RelativePath()
 	})
 
 	// Apply pagination
@@ -197,10 +197,7 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 			}
 		}
 
-		directoryEntry := DirectoryEntry{
-			RelativePath: entryRel,
-			IsDir:        entry.IsDir(),
-		}
+		directoryEntry := NewDirectoryEntry(entryRel, entry.IsDir())
 
 		directoryEntries = append(directoryEntries, directoryEntry)
 		*currentCount++

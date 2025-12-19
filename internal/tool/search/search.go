@@ -88,7 +88,7 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	cmd = append(cmd, req.Query(), absSearchPath)
 
 	// Execute command with streaming
-	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.ProcessOptions{Dir: absSearchPath})
+	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.NewProcessOptions(absSearchPath, nil))
 	if err != nil {
 		return nil, &shared.CommandError{Cmd: "rg", Cause: err, Stage: "start"}
 	}
@@ -141,11 +141,11 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 				lineContent = lineContent[:maxLineLength] + "...[truncated]"
 			}
 
-			matches = append(matches, SearchContentMatch{
-				File:        filepath.ToSlash(relPath),
-				LineNumber:  rgMatch.Data.LineNumber,
-				LineContent: lineContent,
-			})
+			matches = append(matches, NewSearchContentMatch(
+				filepath.ToSlash(relPath),
+				rgMatch.Data.LineNumber,
+				lineContent,
+			))
 
 			// Safety check for memory
 			if len(matches) >= maxResults {
@@ -172,10 +172,10 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 
 	// Sort results for consistency (by file, then line number)
 	sort.Slice(matches, func(i, j int) bool {
-		if matches[i].File != matches[j].File {
-			return matches[i].File < matches[j].File
+		if matches[i].File() != matches[j].File() {
+			return matches[i].File() < matches[j].File()
 		}
-		return matches[i].LineNumber < matches[j].LineNumber
+		return matches[i].LineNumber() < matches[j].LineNumber()
 	})
 
 	// Apply pagination

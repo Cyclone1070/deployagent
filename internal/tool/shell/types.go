@@ -129,8 +129,23 @@ type DockerConfig struct {
 
 // ProcessOptions contains options for starting a process.
 type ProcessOptions struct {
-	Dir string
-	Env []string
+	dir string
+	env []string
+}
+
+// NewProcessOptions creates a new ProcessOptions.
+func NewProcessOptions(dir string, env []string) ProcessOptions {
+	return ProcessOptions{dir: dir, env: env}
+}
+
+// Dir returns the working directory for the process.
+func (o ProcessOptions) Dir() string {
+	return o.dir
+}
+
+// Env returns the environment variables for the process.
+func (o ProcessOptions) Env() []string {
+	return o.env
 }
 
 // resolvePathWithFS is a helper that calls pathutil.Resolve with the given filesystem

@@ -270,11 +270,11 @@ func TestListDirectory(t *testing.T) {
 
 		for i, expected := range expectedOrder {
 			entry := resp.Entries[i]
-			if entry.RelativePath != expected.name {
-				t.Errorf("entry %d: expected RelativePath %q, got %q", i, expected.name, entry.RelativePath)
+			if entry.RelativePath() != expected.name {
+				t.Errorf("entry %d: expected RelativePath %q, got %q", i, expected.name, entry.RelativePath())
 			}
-			if entry.IsDir != expected.isDir {
-				t.Errorf("entry %d: expected IsDir %v, got %v", i, expected.isDir, entry.IsDir)
+			if entry.IsDir() != expected.isDir {
+				t.Errorf("entry %d: expected IsDir %v, got %v", i, expected.isDir, entry.IsDir())
 			}
 		}
 	})
@@ -627,8 +627,8 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 			t.Fatalf("expected 1 entry (dotfiles filtered), got %d", len(resp.Entries))
 		}
 
-		if resp.Entries[0].RelativePath != "file.txt" {
-			t.Errorf("expected file.txt, got %s", resp.Entries[0].RelativePath)
+		if resp.Entries[0].RelativePath() != "file.txt" {
+			t.Errorf("expected file.txt, got %s", resp.Entries[0].RelativePath())
 		}
 	})
 }
@@ -779,7 +779,7 @@ func TestListDirectory_EntryMetadata(t *testing.T) {
 		// Find file and directory entries
 		var fileEntry, dirEntry *DirectoryEntry
 		for i := range resp.Entries {
-			switch resp.Entries[i].RelativePath {
+			switch resp.Entries[i].RelativePath() {
 			case "file.txt":
 				fileEntry = &resp.Entries[i]
 			case "subdir":
@@ -796,21 +796,21 @@ func TestListDirectory_EntryMetadata(t *testing.T) {
 		}
 
 		// Verify file entry
-		if fileEntry.IsDir {
+		if fileEntry.IsDir() {
 			t.Error("file.txt should not be marked as directory")
 		}
 
-		if fileEntry.RelativePath != "file.txt" {
-			t.Errorf("expected RelativePath 'file.txt', got %q", fileEntry.RelativePath)
+		if fileEntry.RelativePath() != "file.txt" {
+			t.Errorf("expected RelativePath 'file.txt', got %q", fileEntry.RelativePath())
 		}
 
 		// Verify directory entry
-		if !dirEntry.IsDir {
+		if !dirEntry.IsDir() {
 			t.Error("subdir should be marked as directory")
 		}
 
-		if dirEntry.RelativePath != "subdir" {
-			t.Errorf("expected RelativePath 'subdir', got %q", dirEntry.RelativePath)
+		if dirEntry.RelativePath() != "subdir" {
+			t.Errorf("expected RelativePath 'subdir', got %q", dirEntry.RelativePath())
 		}
 	})
 }
@@ -847,17 +847,17 @@ func TestListDirectory_Sorting(t *testing.T) {
 		// Verify order: alpha (dir), zulu (dir), alpha.txt (file), zebra.txt (file)
 		expectedOrder := []string{"alpha", "zulu", "alpha.txt", "zebra.txt"}
 		for i, expected := range expectedOrder {
-			if resp.Entries[i].RelativePath != expected {
-				t.Errorf("entry %d: expected %q, got %q", i, expected, resp.Entries[i].RelativePath)
+			if resp.Entries[i].RelativePath() != expected {
+				t.Errorf("entry %d: expected %q, got %q", i, expected, resp.Entries[i].RelativePath())
 			}
 		}
 
 		// Verify directories come first
-		if !resp.Entries[0].IsDir || !resp.Entries[1].IsDir {
+		if !resp.Entries[0].IsDir() || !resp.Entries[1].IsDir() {
 			t.Error("directories should come before files")
 		}
 
-		if resp.Entries[2].IsDir || resp.Entries[3].IsDir {
+		if resp.Entries[2].IsDir() || resp.Entries[3].IsDir() {
 			t.Error("files should come after directories")
 		}
 	})
@@ -895,8 +895,8 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 			t.Fatalf("expected 1 entry, got %d", len(resp.Entries))
 		}
 
-		if resp.Entries[0].RelativePath != "src/app/main.go" {
-			t.Errorf("expected RelativePath 'src/app/main.go', got %q", resp.Entries[0].RelativePath)
+		if resp.Entries[0].RelativePath() != "src/app/main.go" {
+			t.Errorf("expected RelativePath 'src/app/main.go', got %q", resp.Entries[0].RelativePath())
 		}
 	})
 }

@@ -73,10 +73,7 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 		env = append(env, k+"="+v)
 	}
 
-	opts := ProcessOptions{
-		Dir: wd,
-		Env: env,
-	}
+	opts := NewProcessOptions(wd, env)
 
 	proc, stdout, stderr, err := t.commandExecutor.Start(ctx, req.Command(), opts)
 	if err != nil {

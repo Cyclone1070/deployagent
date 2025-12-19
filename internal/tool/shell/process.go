@@ -46,8 +46,8 @@ func ExecuteWithTimeout(ctx context.Context, command []string, timeout time.Dura
 // It enforces a maximum size limit for the collected output and detects binary content.
 // Returns the stdout string, stderr string, whether output was truncated, and any error.
 func CollectProcessOutput(stdout, stderr io.Reader, maxBytes int, sampleSize int) (string, string, bool, error) {
-	stdoutCollector := NewCollector(maxBytes, sampleSize)
-	stderrCollector := NewCollector(maxBytes, sampleSize)
+	stdoutCollector := newCollector(maxBytes, sampleSize)
+	stderrCollector := newCollector(maxBytes, sampleSize)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
