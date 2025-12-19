@@ -395,46 +395,57 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 ---
 
 ## 7. Error Handling
-**Goal**: Simplicity, standard Go patterns, and pragmatism.
+**Goal**: Decoupling, Type Safety, and Scalability.
 
-*   **Sentinel Errors**: Use package-level sentinel errors for standard domain conditions.
-    *   **Mechanism**: `var ErrNotFound = errors.New("not found")`
-    *   **Why**: Idiomatic, simple, and immediately understandable to any Go developer.
-    *   **Usage**: Check using `errors.Is(err, pkg.ErrSentinel)`.
+*   **Shared Error Domain**: All cross-boundary Sentinel Errors and Public Struct Errors MUST be defined in a shared `err` package (e.g., `internal/tool/err`).
+    *   **Structure**:
+        *   `internal/pkggroup/err/sentinels.go`: Contains all `var ErrX = errors.New(...)` definitions.
+        *   `internal/pkggroup/err/types.go`: Contains all public `type ErrorX struct` definitions.
+    *   **Topology**: The `err` package MUST be a **Leaf Node** and a **Sibling** to the packages that use it.
+        *   **Correct**: `internal/feature/err` is a sibling to `internal/feature/files`, `internal/feature/users`.
+        *   **Why**: Being a leaf node (importing nothing internal) guarantees no circular dependencies. Being a sibling keeps it scoped to the domain group.
+    *   **Why**: Fully decouples Consumers from Producer implementations. Prevents circular dependencies and "Hidden Coupling".
+    *   **Usage**: Producers return `err.ErrX`. Consumers check `errors.Is(e, err.ErrX)`.
 
-*   **Error Structs**: Use exported structs **ONLY** when extending context is strictly necessary.
-    *   **Usage**: When you need to pass extra data programmatically (e.g., `TimeoutError{Duration: 5s}`).
-    *   **Mixed Use**: It is acceptable to have both Sentinels (for validation) and Structs (for complex IO) in the same package.
+*   **Sentinel Errors**: Use Sentinels for all standard domain conditions ("Not Found", "Invalid Input").
+    *   **Mechanism**: `var ErrNotFound = errors.New("not found")` defined in the shared `err` package.
+
+*   **Error Structs**: Use Structs only when context (paths, values) is required for error handling logic.
+    *   **Mechanism**: `type PathError struct { ... }` defined in the shared `err` package.
 
 > [!CAUTION]
 > **FORBIDDEN ERROR PATTERNS**
 >
 > | Pattern | Why Bad |
 > |---------|---------|
-> | **Behavioral Interfaces** | Over-engineering for a CLI. Creates "magic" interfaces that hide simple dependencies and confuse contributors. |
-> | **Shared Error Package** | `internal/errors` becomes a "God Package" that couples everything to everything. Keep errors with the code that raises them. |
-> | **Raw errors.New output** | `return errors.New("fail")`. **Untestable**. Callers cannot check for this specific error programmatically (must rely on fragile string matching). Use a Sentinel instead. |
+> | **Local Sentinel Errors** | Defining `ErrX` in `service` forces `handler` to import `service` just to check an error. This couples Logic packages. |
+> | **Behavioral Interfaces** | Using `interface { NotFound() bool }` leads to boilerplate explosion and obscures simple error checks. Though it is acknowledge that this is idiomatic for complex enterprise applications. |
+> | **Raw errors.New output** | `return errors.New("fail")`. **Untestable**. Use a Sentinel instead. |
 
 *   **Error Wrapping**: Always wrap errors to add context.
-    *   **How**: `fmt.Errorf("operation failed: %w", err)`
-    *   **Checking**: Use `errors.Is(err, pkg.ErrSentinel)` to check nature. Use `errors.As(err, &targetStruct)` to check data.
+    *   **How**: `fmt.Errorf("operation failed: %w", e)`
+    *   **Checking**: Use `errors.Is(e, err.ErrSentinel)` to check nature. Use `errors.As(e, &targetStruct)` to check data.
 
 **Example**:
 
 ```go
-// Provider (package fs)
+// Shared Definitions (package err, e.g., inside internal/tool/err)
 var ErrNotFound = errors.New("file not found")
 
-// Consumer (package usecase)
-import "iav/internal/fs"
+// Provider (package fs)
+import "iav/internal/tool/err"
+func Open() error {
+    return fmt.Errorf("fs: %w", err.ErrNotFound)
+}
 
+// Consumer (package usecase)
+import "iav/internal/tool/err"
 func Do() {
-    if err := fs.Open(); err != nil {
-        if errors.Is(err, fs.ErrNotFound) {
-            // Handle specific error
+    if e := fs.Open(); e != nil {
+        if errors.Is(e, err.ErrNotFound) {
+            // Handle specific error without importing 'fs'
             return
         }
-        // Handle generic error
     }
 }
 ```
