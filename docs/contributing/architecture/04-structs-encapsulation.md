@@ -2,6 +2,9 @@
 
 **Goal**: Control state and enforce invariants.
 
+> [!NOTE]
+> Error structs are not covered by this section, these rules don't apply to errors. See [Error Handling](./05-error-handling.md).
+
 *   **Private Fields**: All domain entity fields MUST be private.
     *   **Why**: Private fields prevent external code from putting the object into an invalid state.
 
