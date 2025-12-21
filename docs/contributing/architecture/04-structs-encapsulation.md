@@ -12,13 +12,8 @@
 > **STRICT RULE**: Direct initialization with `{}` is strictly forbidden with **no exception**.
 > 
 > Even if there's no validation yet and it appears to be boilerplate. Even if it's a private struct used in a single place with a single primitive field. The struct will grow soon and refactoring is unavoidable. Future proofing is more important than initial, short-lived convenience. 
-
-> [!CAUTION]
-> **ANTI-PATTERN**: Constructor Bypass
 >
-> *   **Bad**: `user := &User{email: "..."}`
-> *   **Good**: `user := NewUser("...")`
-> *   **Why**: Bypassing the constructor skips validation and makes invariants impossible to guarantee.
+> It might sound obvious, but go encourages public fields with direct initialization for simple structs, trading future proofing for initial convenience. This is not a trade off we want to make.
 
 *   **DTOs**: Use Data Transfer Objects with public fields for serialization (JSON, API). DTOs have NO methods.
     *   **Why**: DTOs are pure data carriers. Behavior belongs in domain entities.

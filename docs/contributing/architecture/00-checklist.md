@@ -1,7 +1,7 @@
 # Go Architecture & Design Guidelines
 
 > [!IMPORTANT]
-> **Core Principles**: Make invalid states unrepresentable. Design your code so that it is impossible to misuse. Decoupling is the key to maintainable, testable, and robust Go code.
+> **Design Goals**: Future proofing code over initial convenience. Decoupling is the key to maintainable, testable, and robust Go code.
 >
 > These principles are strict guidelines to ensure maintainable, testable, and robust Go code. Any violations, no matter how small, will be rejected immediately during code review.
 
