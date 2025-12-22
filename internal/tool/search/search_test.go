@@ -26,7 +26,7 @@ func (m *mockFileInfoForSearch) Size() int64        { return 0 }
 func (m *mockFileInfoForSearch) Mode() os.FileMode  { return 0644 }
 func (m *mockFileInfoForSearch) ModTime() time.Time { return time.Time{} }
 func (m *mockFileInfoForSearch) IsDir() bool        { return m.isDir }
-func (m *mockFileInfoForSearch) Sys() interface{}   { return nil }
+func (m *mockFileInfoForSearch) Sys() any           { return nil }
 
 type mockFileSystemForSearch struct {
 	dirs map[string]bool
@@ -283,7 +283,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	var rgOutput string
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		rgOutput += fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"line %d"},"line_number":%d}}
 `, i, i+1)
 	}

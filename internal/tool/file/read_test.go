@@ -23,7 +23,7 @@ func (m *mockFileInfoForRead) Size() int64        { return m.size }
 func (m *mockFileInfoForRead) Mode() os.FileMode  { return 0644 }
 func (m *mockFileInfoForRead) ModTime() time.Time { return time.Time{} }
 func (m *mockFileInfoForRead) IsDir() bool        { return m.isDir }
-func (m *mockFileInfoForRead) Sys() interface{}   { return nil }
+func (m *mockFileInfoForRead) Sys() any           { return nil }
 
 type mockFileSystemForRead struct {
 	files map[string][]byte

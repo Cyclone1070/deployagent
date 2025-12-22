@@ -123,7 +123,7 @@ func TestTick_DotAnimation(t *testing.T) {
 	model.state.DotCount = 0
 
 	// Tick 4 times
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		msg := tickMsg(time.Now())
 		newModel, _ := model.Update(msg)
 		model = newModel.(BubbleTeaModel)

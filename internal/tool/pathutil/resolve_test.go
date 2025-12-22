@@ -26,7 +26,7 @@ func (m *mockFileInfoForPath) Size() int64        { return m.size }
 func (m *mockFileInfoForPath) Mode() os.FileMode  { return m.mode }
 func (m *mockFileInfoForPath) ModTime() time.Time { return time.Time{} }
 func (m *mockFileInfoForPath) IsDir() bool        { return m.isDir }
-func (m *mockFileInfoForPath) Sys() interface{}   { return nil }
+func (m *mockFileInfoForPath) Sys() any           { return nil }
 
 type mockFileSystemForPath struct {
 	files    map[string][]byte
@@ -151,8 +151,8 @@ func (m *mockFileSystemForPath) ListDir(path string) ([]os.FileInfo, error) {
 	// Find all direct children
 	seen := make(map[string]bool)
 	for p := range m.files {
-		if strings.HasPrefix(p, prefix) {
-			rel := strings.TrimPrefix(p, prefix)
+		if after, ok := strings.CutPrefix(p, prefix); ok {
+			rel := after
 			parts := strings.Split(rel, "/")
 			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
 				seen[parts[0]] = true
@@ -169,8 +169,8 @@ func (m *mockFileSystemForPath) ListDir(path string) ([]os.FileInfo, error) {
 		if p == path {
 			continue
 		}
-		if strings.HasPrefix(p, prefix) {
-			rel := strings.TrimPrefix(p, prefix)
+		if after, ok := strings.CutPrefix(p, prefix); ok {
+			rel := after
 			parts := strings.Split(rel, "/")
 			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
 				seen[parts[0]] = true
@@ -184,8 +184,8 @@ func (m *mockFileSystemForPath) ListDir(path string) ([]os.FileInfo, error) {
 	}
 
 	for p := range m.symlinks {
-		if strings.HasPrefix(p, prefix) {
-			rel := strings.TrimPrefix(p, prefix)
+		if after, ok := strings.CutPrefix(p, prefix); ok {
+			rel := after
 			parts := strings.Split(rel, "/")
 			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
 				seen[parts[0]] = true

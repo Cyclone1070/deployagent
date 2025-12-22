@@ -66,8 +66,8 @@ func (p *GeminiProvider) getModelInfo(name string) *provider.ModelInfo {
 // stripModelPrefix removes the "models/" prefix from a model name for display purposes.
 // If the model doesn't have the prefix, it returns the name unchanged.
 func stripModelPrefix(modelName string) string {
-	if strings.HasPrefix(modelName, "models/") {
-		return strings.TrimPrefix(modelName, "models/")
+	if after, ok := strings.CutPrefix(modelName, "models/"); ok {
+		return after
 	}
 	return modelName
 }

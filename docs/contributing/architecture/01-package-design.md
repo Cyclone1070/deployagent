@@ -48,6 +48,25 @@
     *   **Why**: Large packages become hard to navigate and test. The urge to create `models/` or `services/` is a symptom of bloat.
     *   **Action**: Split by domain (e.g., `internal/user/`, `internal/order/`), not by layer.
 
+> [!NOTE]
+> **Grouping Directories vs Packages**
+>
+> A **grouping directory** is a folder that contains other packages but has **no `.go` files itself**. Naming for these is less strict because they have minimal effect on actual code readability. These should be named so that navigating and discovering packages is easy and natural.
+>
+> ```text
+> # ACCEPTABLE: Grouping directory with generic name if it makes sense
+> internal/tool/
+>   └── helper/           # No .go files - just a folder
+>       ├── hash/       # package hash
+>       ├── pagination/ # package pagination
+>       └── content/    # package content
+>
+> # NOT ACCEPTABLE: Package with generic name
+> internal/tool/util/util.go  # package util - BAD
+> ```
+>
+
+
 > [!CAUTION]
 > **ANTI-PATTERN**: Flatten and Bloat
 >

@@ -29,7 +29,7 @@ func (m *mockFileInfoForWrite) Size() int64        { return m.size }
 func (m *mockFileInfoForWrite) Mode() os.FileMode  { return m.mode }
 func (m *mockFileInfoForWrite) ModTime() time.Time { return time.Time{} }
 func (m *mockFileInfoForWrite) IsDir() bool        { return m.isDir }
-func (m *mockFileInfoForWrite) Sys() interface{}   { return nil }
+func (m *mockFileInfoForWrite) Sys() any           { return nil }
 
 type fileEntry struct {
 	content []byte

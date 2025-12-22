@@ -175,7 +175,7 @@ func TestTodoTools(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Launch 100 goroutines reading and writing
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
