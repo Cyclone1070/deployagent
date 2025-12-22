@@ -1,6 +1,7 @@
 package pathutil
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -52,9 +53,9 @@ func (e *ReadlinkError) Unwrap() error { return e.Cause }
 // -- Sentinels --
 
 var (
-	ErrOutsideWorkspace    = fmt.Errorf("path is outside workspace root")
-	ErrWorkspaceRootNotSet = fmt.Errorf("workspace root not set")
-	ErrSymlinkLoop         = fmt.Errorf("symlink loop detected")
-	ErrSymlinkChainTooLong = fmt.Errorf("symlink chain too long")
-	ErrNotADirectory       = fmt.Errorf("not a directory")
+	ErrOutsideWorkspace    = errors.New("path is outside workspace root")
+	ErrWorkspaceRootNotSet = errors.New("workspace root not set")
+	ErrSymlinkLoop         = errors.New("symlink loop detected")
+	ErrSymlinkChainTooLong = errors.New("symlink chain too long")
+	ErrNotADirectory       = errors.New("not a directory")
 )
