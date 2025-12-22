@@ -12,9 +12,7 @@
     *   **Why**: Constructors are the single point of validation. If you add validation later, you won't need to refactor every usage.
 
 > [!NOTE]
-> **STRICT RULE**: Direct initialization with `{}` is strictly forbidden with **no exception**.
-> 
-> Even if there's no validation yet and it appears to be boilerplate. Even if it's a private struct used in a single place with a single primitive field. The struct will grow soon and refactoring is unavoidable. Future proofing is more important than initial, short-lived convenience. 
+> **STRICT RULE**: Direct initialization with `{}` is strictly forbidden. Even if there's no validation yet and it appears to be boilerplate. Even if it's a private struct used in a single place with a single primitive field. The struct will grow soon and refactoring is unavoidable. Future proofing is more important than initial, short-lived convenience. 
 >
 > It might sound obvious, but go encourages public fields with direct initialization for simple structs, trading future proofing for initial convenience. This is not a trade off we want to make.
 

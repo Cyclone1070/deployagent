@@ -13,8 +13,8 @@ Before submitting code, verify **every** item.
 - [ ] No generic subdirectories (`model/`, `service/`, `utils/`, `types/`)
 - [ ] No package exceeds 10-15 files (excluding `*_test.go`)
 - [ ] Parent package does NOT import its sub-packages
-- [ ] Shared types (meant for consumers) are in the parent package
-- [ ] Wiring types (Config, Options) are in the sub-package
+- [ ] Types and errors live with their implementation package
+- [ ] Exception: Shared types/errors in parent ONLY for multiple implementations
 
 ### Dependency Injection
 - [ ] Pure helpers imported directly (including their interfaces, structs, errors)
@@ -41,5 +41,6 @@ Before submitting code, verify **every** item.
 - [ ] All test helpers defined locally in test files
 
 ### Error Handling
-- [ ] All exported errors defined in the **parent** package (`errors.go`)
+- [ ] Errors defined in the same package as the code that returns them
+- [ ] Exception: Shared errors in parent ONLY for multiple implementations
 - [ ] Cross-package error checks use **Sentinel Errors** (via `errors.Is`)

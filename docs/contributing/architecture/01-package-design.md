@@ -5,6 +5,18 @@
 *   **Feature-Based Packages**: A package must represent a **feature** or **domain concept**, not a layer (controller, service, model).
     *   **Why**: Feature packages contain all related code (types, logic, handlers) in one place. Layer packages scatter related code across the codebase.
 
+> [!NOTE]
+> **Multiple implementations**: If a package has multiple implementations (e.g., different storage backends), use sub-packages for each implementation, with shared types and errors in the parent.
+>
+> **Example**:
+> ```text
+> internal/storage/
+>    ├── memory/      # In-memory storage implementation
+>    ├── file/        # File-based storage implementation
+>    ├── types.go   # Shared types
+>    └── errors.go   # Shared errors
+> ```
+
 *   **File Organization**: Do not create generic sub-directories like `model/`, `service/`, or `types/` inside your package.
     *   **Correct**: `feature/types.go`, `feature/service.go`
     *   **Incorrect**: `feature/models/types.go`, `feature/services/service.go`
@@ -68,20 +80,6 @@
 > **Single-File Directories Are Acceptable**
 >
 > When extracting shared code to prevent circular dependencies, a directory with one file is fine. Correct structure matters more than file count.
-
-*   **Parent Package Role**: The parent package holds **shared types and errors** for its children.
-    *   **Contains**: Shared types (`types.go`) and errors (`errors.go`). These can be split into smaller files if too big.
-    *   **Import Rule**: Parent must **NEVER** import its sub-packages.
-    *   **Why**: Without shared types, touching the data means importing the producer package. Shared types let you work with the data without coupling to who produced it.
-
-> [!NOTE]
-> **Shared Types (Parent vs. Local)**: How do you know where to place what struct if the interfaces are consumer defined?
->
-> Decide based on **who the type is meant for**:
-> - **Meant for consumers → Parent**: Types in public method signatures (Requests, Responses, Errors) are the Contract.
-> - **Meant for wiring → Local**: Types for construction/configuration (Config, Options) and private types, stay in the sub-package.
->
-> Consumers need the Contract. Wiring (`main.go`) can import sub-packages directly without breaking decoupling.
 
 > [!CAUTION]
 > **ANTI-PATTERN**: Junk Drawer
