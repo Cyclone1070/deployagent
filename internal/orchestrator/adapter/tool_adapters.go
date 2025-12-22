@@ -7,6 +7,7 @@ import (
 
 	"github.com/Cyclone1070/iav/internal/config"
 	provider "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/tool"
 	"github.com/Cyclone1070/iav/internal/tool/directory"
 	"github.com/Cyclone1070/iav/internal/tool/file"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
@@ -62,7 +63,7 @@ func (a *ReadFileAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *ReadFileAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto file.ReadFileDTO
+	var dto tool.ReadFileDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -135,7 +136,7 @@ func (a *WriteFileAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *WriteFileAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto file.WriteFileDTO
+	var dto tool.WriteFileDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -222,7 +223,7 @@ func (a *EditFileAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *EditFileAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto file.EditFileDTO
+	var dto tool.EditFileDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -303,7 +304,7 @@ func (a *ListDirectoryAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *ListDirectoryAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto directory.ListDirectoryDTO
+	var dto tool.ListDirectoryDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -388,7 +389,7 @@ func (a *FindFileAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *FindFileAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto directory.FindFileDTO
+	var dto tool.FindFileDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -473,7 +474,7 @@ func (a *SearchContentAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *SearchContentAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto search.SearchContentDTO
+	var dto tool.SearchContentDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -560,7 +561,7 @@ func (a *ShellAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *ShellAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto shell.ShellDTO
+	var dto tool.ShellDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -618,7 +619,7 @@ func (a *ReadTodosAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *ReadTodosAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto todo.ReadTodosDTO
+	var dto tool.ReadTodosDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)
@@ -695,7 +696,7 @@ func (a *WriteTodosAdapter) Definition() provider.ToolDefinition {
 }
 
 func (a *WriteTodosAdapter) Execute(ctx context.Context, args map[string]any) (string, error) {
-	var dto todo.WriteTodosDTO
+	var dto tool.WriteTodosDTO
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal args: %w", err)

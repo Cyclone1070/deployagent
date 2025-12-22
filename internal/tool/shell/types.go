@@ -5,9 +5,14 @@ import (
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
+
+// DockerConfig contains configuration for Docker readiness checks.
+type DockerConfig struct {
+	CheckCommand []string // e.g., ["docker", "info"]
+	StartCommand []string // e.g., ["docker", "desktop", "start"]
+}
 
 // ShellDTO is the wire format for shell command execution
 type ShellDTO struct {
@@ -28,6 +33,48 @@ type ShellRequest struct {
 	envFilesAbsPaths []string // Resolved absolute paths
 }
 
+// Command returns the command to execute
+func (r ShellRequest) Command() []string {
+	return r.command
+}
+
+// WorkingDirAbs returns the absolute working directory
+func (r ShellRequest) WorkingDirAbs() string {
+	return r.workingDirAbs
+}
+
+// WorkingDirRel returns the relative working directory
+func (r ShellRequest) WorkingDirRel() string {
+	return r.workingDirRel
+}
+
+// TimeoutSeconds returns the timeout in seconds
+func (r ShellRequest) TimeoutSeconds() int {
+	return r.timeoutSeconds
+}
+
+// Env returns the environment variables
+func (r ShellRequest) Env() map[string]string {
+	return r.env
+}
+
+// EnvFilesAbsPaths returns the resolved absolute paths to env files
+func (r ShellRequest) EnvFilesAbsPaths() []string {
+	return r.envFilesAbsPaths
+}
+
+// ShellResponse represents the result of a local command execution.
+type ShellResponse struct {
+	Stdout         string
+	Stderr         string
+	ExitCode       int
+	Truncated      bool
+	DurationMs     int64
+	WorkingDir     string
+	Notes          []string
+	BackgroundPIDs []int
+}
+
 // NewShellRequest creates a validated ShellRequest from a DTO
 func NewShellRequest(
 	dto ShellDTO,
@@ -41,10 +88,10 @@ func NewShellRequest(
 ) (*ShellRequest, error) {
 	// Constructor validation
 	if len(dto.Command) == 0 {
-		return nil, shared.ErrCommandRequired
+		return nil, ErrCommandRequired
 	}
 	if dto.TimeoutSeconds < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidTimeout, dto.TimeoutSeconds)
+		return nil, fmt.Errorf("%w: %d", ErrInvalidTimeout, dto.TimeoutSeconds)
 	}
 
 	// WorkingDir defaults to "." if empty
@@ -77,75 +124,6 @@ func NewShellRequest(
 		env:              dto.Env,
 		envFilesAbsPaths: envFilesAbs,
 	}, nil
-}
-
-// Command returns the command to execute
-func (r *ShellRequest) Command() []string {
-	return r.command
-}
-
-// WorkingDirAbs returns the absolute working directory
-func (r *ShellRequest) WorkingDirAbs() string {
-	return r.workingDirAbs
-}
-
-// WorkingDirRel returns the relative working directory
-func (r *ShellRequest) WorkingDirRel() string {
-	return r.workingDirRel
-}
-
-// TimeoutSeconds returns the timeout in seconds
-func (r *ShellRequest) TimeoutSeconds() int {
-	return r.timeoutSeconds
-}
-
-// Env returns the environment variables
-func (r *ShellRequest) Env() map[string]string {
-	return r.env
-}
-
-// EnvFilesAbsPaths returns the resolved absolute paths to env files
-func (r *ShellRequest) EnvFilesAbsPaths() []string {
-	return r.envFilesAbsPaths
-}
-
-// ShellResponse represents the result of a local command execution.
-type ShellResponse struct {
-	Stdout         string
-	Stderr         string
-	ExitCode       int
-	Truncated      bool
-	DurationMs     int64
-	WorkingDir     string
-	Notes          []string
-	BackgroundPIDs []int
-}
-
-// DockerConfig contains configuration for Docker readiness checks.
-type DockerConfig struct {
-	CheckCommand []string // e.g., ["docker", "info"]
-	StartCommand []string // e.g., ["docker", "desktop", "start"]
-}
-
-// ProcessOptions contains options for starting a process.
-type ProcessOptions struct {
-	dir string
-	env []string
-}
-
-// NewProcessOptions creates a new ProcessOptions.
-func NewProcessOptions(dir string, env []string) ProcessOptions {
-	return ProcessOptions{dir: dir, env: env}
-}
-
-// Dir returns the working directory for the process.
-func (o ProcessOptions) Dir() string {
-	return o.dir
-}
-
-// Env returns the environment variables for the process.
-func (o ProcessOptions) Env() []string {
-	return o.env
 }
 
 // resolvePathWithFS is a helper that calls pathutil.Resolve with the given filesystem

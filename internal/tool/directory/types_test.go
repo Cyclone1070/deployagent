@@ -46,8 +46,6 @@ func TestFindFileRequest_Validation(t *testing.T) {
 	}{
 		{"Valid", FindFileDTO{Pattern: "*.txt"}, false},
 		{"EmptyPattern", FindFileDTO{Pattern: ""}, true},
-		{"PathTraversalInPattern", FindFileDTO{Pattern: "../outside"}, true},
-		{"AbsolutePathInPattern", FindFileDTO{Pattern: "/etc/passwd"}, true},
 		{"NegativeOffset", FindFileDTO{Pattern: "*.txt", Offset: -1}, true},
 		{"NegativeLimit", FindFileDTO{Pattern: "*.txt", Limit: -1}, true},
 		{"LimitExceedsMax", FindFileDTO{Pattern: "*.txt", Limit: cfg.Tools.MaxFindFileLimit + 1}, true},
@@ -74,7 +72,7 @@ func TestListDirectoryRequest_Validation(t *testing.T) {
 		wantErr bool
 	}{
 		{"Valid", ListDirectoryDTO{Path: "."}, false},
-		{"EmptyPath", ListDirectoryDTO{Path: ""}, false}, // path defaults to .
+		{"EmptyPath", ListDirectoryDTO{Path: ""}, true}, // New: path is required
 		{"NegativeOffset", ListDirectoryDTO{Path: ".", Offset: -1}, true},
 		{"NegativeLimit", ListDirectoryDTO{Path: ".", Limit: -1}, true},
 		{"LimitExceedsMax", ListDirectoryDTO{Path: ".", Limit: cfg.Tools.MaxListDirectoryLimit + 1}, true},

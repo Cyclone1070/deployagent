@@ -316,3 +316,14 @@ func TestWriteFileAtomic(t *testing.T) {
 		}
 	})
 }
+
+func TestReadFileRange_InvalidOffset(t *testing.T) {
+	fs := NewOSFileSystem()
+	_, err := fs.ReadFileRange("/test.txt", -1, 100)
+	if err == nil {
+		t.Error("expected error for negative offset")
+	}
+	if !errors.Is(err, ErrInvalidOffset) {
+		t.Errorf("expected ErrInvalidOffset, got %v", err)
+	}
+}

@@ -1,28 +1,41 @@
-package shell
+package executil
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 )
 
-// osProcess wraps an os/exec.Cmd to implement the process interface.
+// CommandError represents generic command execution failures (start, output, wait).
+type CommandError struct {
+	Cmd   string
+	Cause error
+	Stage string // "start", "read output", "execution"
+}
+
+func (e *CommandError) Error() string {
+	return fmt.Sprintf("command %s failed at %s: %v", e.Cmd, e.Stage, e.Cause)
+}
+func (e *CommandError) Unwrap() error { return e.Cause }
+
+// Process defines the interface for a running process.
+type Process interface {
+	Wait() error
+	Kill() error
+	Signal(sig os.Signal) error
+}
+
+// osProcess wraps an os/exec.Cmd to implement the Process interface.
 type osProcess struct {
 	cmd *exec.Cmd
 }
 
-// newOSProcess creates a new osProcess wrapping the given command.
-func newOSProcess(cmd *exec.Cmd) *osProcess {
-	return &osProcess{cmd: cmd}
-}
-
-// Wait waits for the process to complete and returns any error.
 func (p *osProcess) Wait() error {
 	return p.cmd.Wait()
 }
 
-// Kill forcefully terminates the process.
 func (p *osProcess) Kill() error {
 	if p.cmd.Process != nil {
 		return p.cmd.Process.Kill()
@@ -30,7 +43,6 @@ func (p *osProcess) Kill() error {
 	return nil
 }
 
-// Signal sends a signal to the process.
 func (p *osProcess) Signal(sig os.Signal) error {
 	if p.cmd.Process != nil {
 		return p.cmd.Process.Signal(sig)
@@ -38,7 +50,13 @@ func (p *osProcess) Signal(sig os.Signal) error {
 	return nil
 }
 
-// OSCommandExecutor implements commandExecutor using os/exec for real system commands.
+// CommandExecutor defines the interface for executing commands.
+type CommandExecutor interface {
+	Run(ctx context.Context, command []string) ([]byte, error)
+	Start(ctx context.Context, command []string, dir string, env []string) (Process, io.Reader, io.Reader, error)
+}
+
+// OSCommandExecutor implements CommandExecutor using os/exec for real system commands.
 type OSCommandExecutor struct{}
 
 // NewOSCommandExecutor creates a new OSCommandExecutor.
@@ -47,7 +65,6 @@ func NewOSCommandExecutor() *OSCommandExecutor {
 }
 
 // Run executes a command and returns the combined output (stdout + stderr).
-// This is a convenience method for simple command execution.
 func (f *OSCommandExecutor) Run(ctx context.Context, command []string) ([]byte, error) {
 	if len(command) == 0 {
 		return nil, os.ErrInvalid
@@ -56,22 +73,18 @@ func (f *OSCommandExecutor) Run(ctx context.Context, command []string) ([]byte, 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	cmd.Stdin = nil
 
-	// CombinedOutput runs the command and returns stdout+stderr
 	return cmd.CombinedOutput()
 }
 
 // Start starts a process and returns control immediately for streaming output or process management.
-// Returns the process handle and separate readers for stdout and stderr.
-func (f *OSCommandExecutor) Start(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+func (f *OSCommandExecutor) Start(ctx context.Context, command []string, dir string, env []string) (Process, io.Reader, io.Reader, error) {
 	if len(command) == 0 {
 		return nil, nil, nil, os.ErrInvalid
 	}
 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	cmd.Dir = opts.Dir()
-	cmd.Env = opts.Env()
-
-	// Explicitly close stdin to prevent interactive hangs
+	cmd.Dir = dir
+	cmd.Env = env
 	cmd.Stdin = nil
 
 	stdout, err := cmd.StdoutPipe()
@@ -88,5 +101,5 @@ func (f *OSCommandExecutor) Start(ctx context.Context, command []string, opts Pr
 		return nil, nil, nil, err
 	}
 
-	return newOSProcess(cmd), stdout, stderr, nil
+	return &osProcess{cmd: cmd}, stdout, stderr, nil
 }

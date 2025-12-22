@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // Local mocks for directory listing tests
@@ -244,8 +242,8 @@ func TestResolve(t *testing.T) {
 		fs := newMockFileSystemForPath()
 
 		_, _, err := Resolve(workspaceRoot, fs, "/outside/file.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 		}
 	})
 
@@ -253,8 +251,8 @@ func TestResolve(t *testing.T) {
 		fs := newMockFileSystemForPath()
 
 		_, _, err := Resolve(workspaceRoot, fs, "../outside/file.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 		}
 	})
 
@@ -301,8 +299,8 @@ func TestResolve(t *testing.T) {
 		fs.createSymlink("/workspace/link.txt", "/tmp/outside.txt")
 
 		_, _, err := Resolve(workspaceRoot, fs, "link.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for escaping symlink, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for escaping symlink, got %v", err)
 		}
 	})
 
@@ -329,8 +327,8 @@ func TestResolve(t *testing.T) {
 		fs.createSymlink("/workspace/link2.txt", "/tmp/outside.txt")
 
 		_, _, err := Resolve(workspaceRoot, fs, "link1.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for escaping symlink chain, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for escaping symlink chain, got %v", err)
 		}
 	})
 
@@ -338,8 +336,8 @@ func TestResolve(t *testing.T) {
 		fs := newMockFileSystemForPath()
 
 		_, _, err := Resolve(workspaceRoot, fs, "../outside/file.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for .. escaping workspace, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for .. escaping workspace, got %v", err)
 		}
 	})
 
@@ -347,8 +345,8 @@ func TestResolve(t *testing.T) {
 		fs := newMockFileSystemForPath()
 
 		_, _, err := Resolve(workspaceRoot, fs, "..")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for .. at workspace root, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for .. at workspace root, got %v", err)
 		}
 	})
 
@@ -376,8 +374,8 @@ func TestResolve(t *testing.T) {
 		fs.createSymlink("/workspace/link", "/workspace/../outside/file.txt")
 
 		_, _, err := Resolve(workspaceRoot, fs, "link")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for symlink with .. escaping workspace, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for symlink with .. escaping workspace, got %v", err)
 		}
 	})
 
@@ -417,8 +415,8 @@ func TestResolve(t *testing.T) {
 		fs := newMockFileSystemForPath()
 
 		_, _, err := Resolve("", fs, "test.txt")
-		if !errors.Is(err, shared.ErrWorkspaceRootNotSet) {
-			t.Errorf("expected shared.ErrWorkspaceRootNotSet, got %v", err)
+		if !errors.Is(err, ErrWorkspaceRootNotSet) {
+			t.Errorf("expected ErrWorkspaceRootNotSet, got %v", err)
 		}
 	})
 }
@@ -432,8 +430,8 @@ func TestResolveSymlinkEscapePrevention(t *testing.T) {
 		fs.createDir("/outside")
 
 		_, _, err := Resolve(workspaceRoot, fs, "link/escape.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for symlink directory escape, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for symlink directory escape, got %v", err)
 		}
 	})
 
@@ -463,8 +461,8 @@ func TestResolveSymlinkEscapePrevention(t *testing.T) {
 		fs.createDir("/outside")
 
 		_, _, err := Resolve(workspaceRoot, fs, "nested/link/escape.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for nested symlink escape, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for nested symlink escape, got %v", err)
 		}
 	})
 }
@@ -537,8 +535,8 @@ func TestResolveSymlinkChains(t *testing.T) {
 		fs.createDir("/tmp/outside")
 
 		_, _, err := Resolve(workspaceRoot, fs, "link1")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for escaping chain, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for escaping chain, got %v", err)
 		}
 	})
 
@@ -549,8 +547,8 @@ func TestResolveSymlinkChains(t *testing.T) {
 		fs.createDir("/tmp/outside")
 
 		_, _, err := Resolve(workspaceRoot, fs, "link1")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for escaping chain at second hop, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for escaping chain at second hop, got %v", err)
 		}
 	})
 
@@ -560,7 +558,7 @@ func TestResolveSymlinkChains(t *testing.T) {
 		fs.createSymlink("/workspace/loop2", "/workspace/loop1")
 
 		_, _, err := Resolve(workspaceRoot, fs, "loop1")
-		if !errors.Is(err, shared.ErrSymlinkLoop) {
+		if !errors.Is(err, ErrSymlinkLoop) {
 			t.Errorf("expected ErrSymlinkLoop, got %v", err)
 		}
 	})
@@ -588,8 +586,8 @@ func TestResolveSymlinkChains(t *testing.T) {
 		fs.createSymlink("/workspace/dangling", "/tmp/outside/file.txt")
 
 		_, _, err := Resolve(workspaceRoot, fs, "dangling")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for dangling symlink outside workspace, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for dangling symlink outside workspace, got %v", err)
 		}
 	})
 
@@ -611,8 +609,8 @@ func TestResolveSymlinkChains(t *testing.T) {
 		}
 
 		_, _, err := Resolve(workspaceRoot, fs, "link0")
-		if !errors.Is(err, shared.ErrSymlinkChainTooLong) {
-			t.Errorf("expected shared.ErrSymlinkChainTooLong, got %v", err)
+		if !errors.Is(err, ErrSymlinkChainTooLong) {
+			t.Errorf("expected ErrSymlinkChainTooLong, got %v", err)
 		}
 	})
 
@@ -656,8 +654,8 @@ func TestResolveTildeExpansion(t *testing.T) {
 		// MockFileSystem.UserHomeDir returns "/home/user"
 		// Since /home/user/file.txt is outside /workspace, this should fail
 		_, _, err := Resolve(workspaceRoot, fs, "~/file.txt")
-		if err != shared.ErrOutsideWorkspace {
-			t.Errorf("expected shared.ErrOutsideWorkspace for path outside workspace after tilde expansion, got %v", err)
+		if err != ErrOutsideWorkspace {
+			t.Errorf("expected ErrOutsideWorkspace for path outside workspace after tilde expansion, got %v", err)
 		}
 	})
 }

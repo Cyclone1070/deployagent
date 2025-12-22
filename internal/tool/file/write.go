@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // fileWriter defines the minimal filesystem operations needed for writing files.
@@ -63,34 +62,34 @@ func (t *WriteFileTool) Run(ctx context.Context, req *WriteFileRequest) (*WriteF
 	// Check if file already exists
 	_, err := t.fileOps.Stat(abs)
 	if err == nil {
-		return nil, fmt.Errorf("%w: %s", shared.ErrFileExists, abs)
+		return nil, fmt.Errorf("%w: %s", ErrFileExists, abs)
 	}
 	if !os.IsNotExist(err) {
-		return nil, &shared.StatError{Path: abs, Cause: err}
+		return nil, &StatError{Path: abs, Cause: err}
 	}
 
 	parentDir := filepath.Dir(abs)
 	if err := t.fileOps.EnsureDirs(parentDir); err != nil {
-		return nil, &shared.EnsureDirsError{Path: parentDir, Cause: err}
+		return nil, &EnsureDirsError{Path: parentDir, Cause: err}
 	}
 
 	contentBytes := []byte(req.Content())
 
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
-		return nil, fmt.Errorf("%w: %s", shared.ErrBinaryFile, abs)
+		return nil, fmt.Errorf("%w: %s", ErrBinaryFile, abs)
 	}
 
 	maxFileSize := t.config.Tools.MaxFileSize
 
 	if int64(len(contentBytes)) > maxFileSize {
-		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", shared.ErrFileTooLarge, abs, len(contentBytes), maxFileSize)
+		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", ErrFileTooLarge, abs, len(contentBytes), maxFileSize)
 	}
 
 	filePerm := req.Perm()
 
 	// Write the file atomically
 	if err := t.fileOps.WriteFileAtomic(abs, contentBytes, filePerm); err != nil {
-		return nil, &shared.WriteError{Path: abs, Cause: err}
+		return nil, &WriteError{Path: abs, Cause: err}
 	}
 
 	// Compute checksum and update cache

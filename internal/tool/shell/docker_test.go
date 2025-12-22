@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"testing"
+
+	"github.com/Cyclone1070/iav/internal/tool/executil"
 )
 
 // mockCommandExecutorForDocker is a local mock for testing docker functions
@@ -19,7 +21,7 @@ func (m *mockCommandExecutorForDocker) Run(ctx context.Context, cmd []string) ([
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCommandExecutorForDocker) Start(ctx context.Context, cmd []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+func (m *mockCommandExecutorForDocker) Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 	return nil, nil, nil, errors.New("not implemented")
 }
 

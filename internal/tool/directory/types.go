@@ -1,16 +1,11 @@
 package directory
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
+
+// -- Directory Tool Contract Types --
 
 // DirectoryEntry represents a single entry in a directory listing
 type DirectoryEntry struct {
@@ -52,50 +47,45 @@ type ListDirectoryRequest struct {
 	limit          int
 }
 
-// NewListDirectoryRequest creates a validated ListDirectoryRequest from a DTO
+// NewListDirectoryRequest creates and validates a new ListDirectoryRequest.
 func NewListDirectoryRequest(
 	dto ListDirectoryDTO,
 	cfg *config.Config,
 	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
+	fs pathutil.FileSystem,
 ) (*ListDirectoryRequest, error) {
-	// Constructor validation
-	if dto.Offset < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, dto.Offset)
-	}
-	if dto.Limit < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, dto.Limit)
-	}
-	if dto.Limit > cfg.Tools.MaxListDirectoryLimit {
-		return nil, fmt.Errorf("%w: %d (max %d)", shared.ErrLimitExceeded, dto.Limit, cfg.Tools.MaxListDirectoryLimit)
+	if dto.Path == "" {
+		return nil, ErrPathRequired
 	}
 
-	// Path defaults to "." if empty
-	path := dto.Path
-	if path == "" {
-		path = "."
-	}
-
-	// Path resolution
-	abs, rel, err := resolvePathWithFS(workspaceRoot, fs, path)
+	absPath, relPath, err := pathutil.Resolve(workspaceRoot, fs, dto.Path)
 	if err != nil {
-		if errors.Is(err, shared.ErrOutsideWorkspace) {
-			return nil, fmt.Errorf("%w: %s", shared.ErrPathTraversal, path)
-		}
 		return nil, err
 	}
 
+	offset := dto.Offset
+	if offset < 0 {
+		return nil, ErrInvalidOffset
+	}
+
+	limit := dto.Limit
+	if limit < 0 {
+		return nil, ErrInvalidLimit
+	}
+	if limit == 0 {
+		limit = cfg.Tools.DefaultListDirectoryLimit
+	}
+	if limit > cfg.Tools.MaxListDirectoryLimit {
+		return nil, ErrLimitExceeded
+	}
+
 	return &ListDirectoryRequest{
-		absPath:        abs,
-		relPath:        rel,
+		absPath:        absPath,
+		relPath:        relPath,
 		maxDepth:       dto.MaxDepth,
 		includeIgnored: dto.IncludeIgnored,
-		offset:         dto.Offset,
-		limit:          dto.Limit,
+		offset:         offset,
+		limit:          limit,
 	}, nil
 }
 
@@ -135,9 +125,9 @@ type ListDirectoryResponse struct {
 	Entries          []DirectoryEntry
 	Offset           int
 	Limit            int
-	TotalCount       int    `json:"total_count"` // Total entries before pagination
-	Truncated        bool   `json:"truncated"`   // True if more entries exist beyond offset+limit
-	TruncationReason string `json:"truncation_reason,omitempty"`
+	TotalCount       int
+	Truncated        bool
+	TruncationReason string
 }
 
 // FindFileDTO is the wire format for FindFile operation
@@ -161,65 +151,51 @@ type FindFileRequest struct {
 	limit          int
 }
 
-// NewFindFileRequest creates a validated FindFileRequest from a DTO
+// NewFindFileRequest creates and validates a new FindFileRequest.
 func NewFindFileRequest(
 	dto FindFileDTO,
 	cfg *config.Config,
 	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
+	fs pathutil.FileSystem,
 ) (*FindFileRequest, error) {
-	// Constructor validation
 	if dto.Pattern == "" {
-		return nil, shared.ErrPatternRequired
+		return nil, ErrPatternRequired
 	}
 
-	// Check for path traversal or absolute path in pattern
-	if strings.Contains(dto.Pattern, "..") || filepath.IsAbs(dto.Pattern) {
-		return nil, fmt.Errorf("%w in pattern: %s", shared.ErrPathTraversal, dto.Pattern)
-	}
-
-	// Simple check for path traversal in search path if provided
-	if dto.SearchPath != "" && (dto.SearchPath == ".." || dto.SearchPath == "/" || dto.SearchPath == "\\") {
-		return nil, fmt.Errorf("%w in search path: %s", shared.ErrPathTraversal, dto.SearchPath)
-	}
-
-	if dto.Offset < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, dto.Offset)
-	}
-	if dto.Limit < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, dto.Limit)
-	}
-	if dto.Limit > cfg.Tools.MaxFindFileLimit {
-		return nil, fmt.Errorf("%w: %d (max %d)", shared.ErrLimitExceeded, dto.Limit, cfg.Tools.MaxFindFileLimit)
-	}
-
-	// SearchPath defaults to "." if empty
 	searchPath := dto.SearchPath
 	if searchPath == "" {
 		searchPath = "."
 	}
 
-	// Path resolution for search path
-	searchAbs, searchRel, err := resolvePathWithFS(workspaceRoot, fs, searchPath)
+	absPath, relPath, err := pathutil.Resolve(workspaceRoot, fs, searchPath)
 	if err != nil {
-		if errors.Is(err, shared.ErrOutsideWorkspace) {
-			return nil, fmt.Errorf("%w: %s", shared.ErrPathTraversal, searchPath)
-		}
 		return nil, err
+	}
+
+	offset := dto.Offset
+	if offset < 0 {
+		return nil, ErrInvalidOffset
+	}
+
+	limit := dto.Limit
+	if limit < 0 {
+		return nil, ErrInvalidLimit
+	}
+	if limit == 0 {
+		limit = cfg.Tools.DefaultFindFileLimit
+	}
+	if limit > cfg.Tools.MaxFindFileLimit {
+		return nil, ErrLimitExceeded
 	}
 
 	return &FindFileRequest{
 		pattern:        dto.Pattern,
-		searchAbsPath:  searchAbs,
-		searchRelPath:  searchRel,
+		searchAbsPath:  absPath,
+		searchRelPath:  relPath,
 		maxDepth:       dto.MaxDepth,
 		includeIgnored: dto.IncludeIgnored,
-		offset:         dto.Offset,
-		limit:          dto.Limit,
+		offset:         offset,
+		limit:          limit,
 	}, nil
 }
 
@@ -260,24 +236,9 @@ func (r *FindFileRequest) Limit() int {
 
 // FindFileResponse contains the result of a FindFile operation
 type FindFileResponse struct {
-	Matches    []string // List of relative paths matching the pattern
+	Matches    []string
 	Offset     int
 	Limit      int
-	TotalCount int  // Total matches found (may be capped for performance)
-	Truncated  bool // True if more matches exist
-}
-
-// resolvePathWithFS is a helper that calls pathutil.Resolve with the given filesystem
-func resolvePathWithFS(
-	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
-	path string,
-) (string, string, error) {
-	// Cast to pathutil.FileSystem (the interface is identical)
-	fsImpl := fs.(pathutil.FileSystem)
-	return pathutil.Resolve(workspaceRoot, fsImpl, path)
+	TotalCount int
+	Truncated  bool
 }

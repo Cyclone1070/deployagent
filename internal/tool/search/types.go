@@ -2,12 +2,12 @@ package search
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
+
+// -- Contract Types --
 
 // SearchContentMatch represents a single match in a file
 type SearchContentMatch struct {
@@ -57,54 +57,6 @@ type SearchContentRequest struct {
 	limit          int
 }
 
-// NewSearchContentRequest creates a validated SearchContentRequest from a DTO
-func NewSearchContentRequest(
-	dto SearchContentDTO,
-	cfg *config.Config,
-	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
-) (*SearchContentRequest, error) {
-	// Constructor validation
-	if dto.Query == "" {
-		return nil, shared.ErrQueryRequired
-	}
-	if dto.Offset < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, dto.Offset)
-	}
-	if dto.Limit < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, dto.Limit)
-	}
-	if dto.Limit > cfg.Tools.MaxSearchContentLimit {
-		return nil, fmt.Errorf("%w: %d (max %d)", shared.ErrLimitExceeded, dto.Limit, cfg.Tools.MaxSearchContentLimit)
-	}
-
-	// SearchPath defaults to "." if empty
-	searchPath := dto.SearchPath
-	if searchPath == "" {
-		searchPath = "."
-	}
-
-	// Path resolution for search path
-	searchAbs, searchRel, err := resolvePathWithFS(workspaceRoot, fs, searchPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &SearchContentRequest{
-		query:          dto.Query,
-		searchAbsPath:  searchAbs,
-		searchRelPath:  searchRel,
-		caseSensitive:  dto.CaseSensitive,
-		includeIgnored: dto.IncludeIgnored,
-		offset:         dto.Offset,
-		limit:          dto.Limit,
-	}, nil
-}
-
 // Query returns the search query
 func (r *SearchContentRequest) Query() string {
 	return r.query
@@ -140,6 +92,52 @@ func (r *SearchContentRequest) Limit() int {
 	return r.limit
 }
 
+// NewSearchContentRequest creates a validated SearchContentRequest from a DTO
+func NewSearchContentRequest(
+	dto SearchContentDTO,
+	cfg *config.Config,
+	workspaceRoot string,
+	fs pathutil.FileSystem,
+) (*SearchContentRequest, error) {
+	// Constructor validation
+	if dto.Query == "" {
+		return nil, ErrQueryRequired
+	}
+	// Common validation rules could be extracted, but for now we define them locally
+	// if we wanted to avoid redundancy.
+	if dto.Offset < 0 {
+		return nil, fmt.Errorf("%w: %d", ErrInvalidOffset, dto.Offset)
+	}
+	if dto.Limit < 0 {
+		return nil, fmt.Errorf("%w: %d", ErrInvalidLimit, dto.Limit)
+	}
+	if dto.Limit > cfg.Tools.MaxSearchContentLimit {
+		return nil, fmt.Errorf("%w: %d (max %d)", ErrLimitExceeded, dto.Limit, cfg.Tools.MaxSearchContentLimit)
+	}
+
+	// SearchPath defaults to "." if empty
+	searchPath := dto.SearchPath
+	if searchPath == "" {
+		searchPath = "."
+	}
+
+	// Path resolution for search path
+	searchAbs, searchRel, err := pathutil.Resolve(workspaceRoot, fs, searchPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SearchContentRequest{
+		query:          dto.Query,
+		searchAbsPath:  searchAbs,
+		searchRelPath:  searchRel,
+		caseSensitive:  dto.CaseSensitive,
+		includeIgnored: dto.IncludeIgnored,
+		offset:         dto.Offset,
+		limit:          dto.Limit,
+	}, nil
+}
+
 // SearchContentResponse contains the result of a SearchContent operation
 type SearchContentResponse struct {
 	Matches    []SearchContentMatch
@@ -147,19 +145,4 @@ type SearchContentResponse struct {
 	Limit      int
 	TotalCount int  // Total matches found (may be capped for performance)
 	Truncated  bool // True if more matches exist
-}
-
-// resolvePathWithFS is a helper that calls pathutil.Resolve with the given filesystem
-func resolvePathWithFS(
-	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
-	path string,
-) (string, string, error) {
-	// Cast to pathutil.FileSystem (the interface is identical)
-	fsImpl := fs.(pathutil.FileSystem)
-	return pathutil.Resolve(workspaceRoot, fsImpl, path)
 }

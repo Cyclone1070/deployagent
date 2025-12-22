@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
+
+// -- Contract Types --
 
 // TodoStatus represents the status of a todo item.
 type TodoStatus string
@@ -17,10 +18,34 @@ const (
 	TodoStatusCancelled  TodoStatus = "cancelled"
 )
 
-// Todo represents a single task item.
+// TodoDTO is the wire format for todo items
+type TodoDTO struct {
+	Description string `json:"description"`
+	Status      string `json:"status"`
+}
+
+// Todo is the domain entity for todo items
 type Todo struct {
-	Description string     `json:"description"`
-	Status      TodoStatus `json:"status"`
+	description string
+	status      TodoStatus
+}
+
+// Description returns the todo description.
+func (t Todo) Description() string {
+	return t.description
+}
+
+// Status returns the todo status.
+func (t Todo) Status() TodoStatus {
+	return t.status
+}
+
+// NewTodo creates a validated Todo domain entity.
+func NewTodo(description string, status TodoStatus) (Todo, error) {
+	if description == "" {
+		return Todo{}, ErrEmptyDescription
+	}
+	return Todo{description: description, status: status}, nil
 }
 
 // ReadTodosDTO is the wire format for ReadTodos operation
@@ -31,13 +56,17 @@ type ReadTodosRequest struct{}
 
 // NewReadTodosRequest creates a validated ReadTodosRequest from a DTO
 func NewReadTodosRequest(dto ReadTodosDTO, cfg *config.Config) (*ReadTodosRequest, error) {
-	// No validation needed
 	return &ReadTodosRequest{}, nil
+}
+
+// ReadTodosResponse contains the list of current todos.
+type ReadTodosResponse struct {
+	Todos []TodoDTO
 }
 
 // WriteTodosDTO is the wire format for WriteTodos operation
 type WriteTodosDTO struct {
-	Todos []Todo `json:"todos"`
+	Todos []TodoDTO `json:"todos"`
 }
 
 // WriteTodosRequest is the validated domain entity for WriteTodos operation
@@ -45,42 +74,42 @@ type WriteTodosRequest struct {
 	todos []Todo
 }
 
-// NewWriteTodosRequest creates a validated WriteTodosRequest from a DTO
-func NewWriteTodosRequest(dto WriteTodosDTO, cfg *config.Config) (*WriteTodosRequest, error) {
-	// Constructor validation
-	// Check for empty todos array (questionable but allow it - might be clearing all todos)
-	// But validate each todo if present
-	for i, todo := range dto.Todos {
-		// Validate status
-		switch todo.Status {
-		case TodoStatusPending, TodoStatusInProgress, TodoStatusCompleted, TodoStatusCancelled:
-			// Valid
-		default:
-			return nil, fmt.Errorf("todo[%d]: %w %q", i, shared.ErrInvalidStatus, todo.Status)
-		}
-
-		// Validate description is not empty
-		if todo.Description == "" {
-			return nil, fmt.Errorf("todo[%d]: %w", i, shared.ErrEmptyDescription)
-		}
-	}
-
-	return &WriteTodosRequest{
-		todos: dto.Todos,
-	}, nil
-}
-
 // Todos returns the list of todos
 func (r *WriteTodosRequest) Todos() []Todo {
 	return r.todos
 }
 
-// ReadTodosResponse contains the list of current todos.
-type ReadTodosResponse struct {
-	Todos []Todo `json:"todos"`
+// NewWriteTodosRequest creates a validated WriteTodosRequest from a DTO
+func NewWriteTodosRequest(dto WriteTodosDTO, cfg *config.Config) (*WriteTodosRequest, error) {
+	todos := make([]Todo, len(dto.Todos))
+	for i, tDTO := range dto.Todos {
+		status := TodoStatus(tDTO.Status)
+		// Validate status
+		switch status {
+		case TodoStatusPending, TodoStatusInProgress, TodoStatusCompleted, TodoStatusCancelled:
+			// Valid
+		default:
+			return nil, fmt.Errorf("todo[%d]: %w %q", i, ErrInvalidStatus, tDTO.Status)
+		}
+
+		// Validate description is not empty
+		if tDTO.Description == "" {
+			return nil, fmt.Errorf("todo[%d]: %w", i, ErrEmptyDescription)
+		}
+
+		var err error
+		todos[i], err = NewTodo(tDTO.Description, status)
+		if err != nil {
+			return nil, fmt.Errorf("todo[%d]: %w", i, err)
+		}
+	}
+
+	return &WriteTodosRequest{
+		todos: todos,
+	}, nil
 }
 
 // WriteTodosResponse contains the result of a WriteTodos operation.
 type WriteTodosResponse struct {
-	Count int `json:"count"`
+	Count int
 }

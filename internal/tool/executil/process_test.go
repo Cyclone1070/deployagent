@@ -1,4 +1,4 @@
-package shell
+package executil
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // mockProcessForTimeout is a local mock for testing timeout functions
@@ -67,7 +66,7 @@ func TestExecuteWithTimeout_Fail(t *testing.T) {
 	}
 
 	err := ExecuteWithTimeout(context.Background(), []string{"echo"}, 50*time.Millisecond, 2000, mock)
-	var tErr *shared.TimeoutError
+	var tErr *TimeoutError
 	if !errors.As(err, &tErr) {
 		t.Errorf("Error = %v, want a Timeout error", err)
 	}

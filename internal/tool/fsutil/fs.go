@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // writeSyncCloser defines the minimal interface for a writable file handle.
@@ -53,6 +51,10 @@ func (r *OSFileSystem) Lstat(path string) (os.FileInfo, error) {
 // ReadFileRange reads a range of bytes from a file.
 // If offset and limit are both 0, reads the entire file.
 func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, error) {
+	if offset < 0 {
+		return nil, fmt.Errorf("%w: %d", ErrInvalidOffset, offset)
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -73,11 +75,6 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 			return nil, err
 		}
 		return content, nil
-	}
-
-	// Validate offset
-	if offset < 0 {
-		return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, offset)
 	}
 
 	if offset >= fileSize {
@@ -117,7 +114,7 @@ func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.File
 
 	tmpFile, err := r.createTemp(dir, ".tmp-*")
 	if err != nil {
-		return &shared.TempFileError{Dir: dir, Cause: err}
+		return &TempFileError{Dir: dir, Cause: err}
 	}
 
 	tmpPath := tmpFile.Name()
@@ -133,28 +130,28 @@ func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.File
 	}()
 
 	if _, err := tmpFile.Write(content); err != nil {
-		return &shared.TempWriteError{Path: tmpPath, Cause: err}
+		return &TempWriteError{Path: tmpPath, Cause: err}
 	}
 
 	if err := tmpFile.Sync(); err != nil {
-		return &shared.TempSyncError{Path: tmpPath, Cause: err}
+		return &TempSyncError{Path: tmpPath, Cause: err}
 	}
 
 	// Close file before rename (required on some systems)
 	if err := tmpFile.Close(); err != nil {
 		tmpFile = nil
-		return &shared.TempCloseError{Path: tmpPath, Cause: err}
+		return &TempCloseError{Path: tmpPath, Cause: err}
 	}
 	tmpFile = nil
 
 	// Atomic rename is the critical operation that ensures consistency
 	if err := r.rename(tmpPath, path); err != nil {
-		return &shared.RenameError{Old: tmpPath, New: path, Cause: err}
+		return &RenameError{Old: tmpPath, New: path, Cause: err}
 	}
 	needsCleanup = false
 
 	if err := r.chmod(path, perm); err != nil {
-		return &shared.ChmodError{Path: path, Mode: perm, Cause: err}
+		return &ChmodError{Path: path, Mode: perm, Cause: err}
 	}
 
 	return nil

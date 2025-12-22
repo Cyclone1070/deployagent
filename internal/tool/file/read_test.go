@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // Local mocks for read tests
@@ -166,7 +165,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 
 		reqDTO := ReadFileDTO{Path: "test.txt"}
 		req, err := NewReadFileRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -174,7 +173,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := readTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -202,7 +201,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 		offset := int64(5)
 
 		reqDTO := ReadFileDTO{Path: "test.txt", Offset: &offset}
@@ -211,7 +210,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := readTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -243,7 +242,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		tool := NewReadFileTool(fs, detector, checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, detector, checksumManager, cfg, workspaceRoot)
 
 		reqDTO := ReadFileDTO{Path: "binary.bin"}
 		req, err := NewReadFileRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -251,8 +250,8 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
-		if err == nil || !errors.Is(err, shared.ErrBinaryFile) {
+		_, err = readTool.Run(context.Background(), req)
+		if err == nil || !errors.Is(err, ErrBinaryFile) {
 			t.Errorf("expected ErrBinaryFile, got %v", err)
 		}
 	})
@@ -267,7 +266,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 
 		reqDTO := ReadFileDTO{Path: "large.txt"}
 		req, err := NewReadFileRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -275,8 +274,8 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
-		if err == nil || !errors.Is(err, shared.ErrFileTooLarge) {
+		_, err = readTool.Run(context.Background(), req)
+		if err == nil || !errors.Is(err, ErrFileTooLarge) {
 			t.Errorf("expected ErrFileTooLarge, got %v", err)
 		}
 	})
@@ -289,7 +288,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 		offset := int64(10000)
 
 		reqDTO := ReadFileDTO{Path: "test.txt", Offset: &offset}
@@ -298,7 +297,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := readTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -314,7 +313,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 
 		reqDTO := ReadFileDTO{Path: "subdir"}
 		req, err := NewReadFileRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -322,8 +321,8 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
-		if err == nil || !errors.Is(err, shared.ErrIsDirectory) {
+		_, err = readTool.Run(context.Background(), req)
+		if err == nil || !errors.Is(err, ErrIsDirectory) {
 			t.Error("expected ErrIsDirectory when reading directory")
 		}
 	})
@@ -334,15 +333,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
-
-		// NewReadFileRequest does Path resolution using FS, so it might fail there if Lstat fails?
-		// resolvePathWithFS calls pathutil.Resolve which calls Lstat.
-		// If file doesn't exist, Lstat returns IsNotExist.
-		// pathutil.CanonicaliseRoot checks root existence.
-		// pathutil.Resolve checks symlinks.
-		// If file passed to Resolve doesn't exist, Resolve returns abs path and NO error (unless component is not a dir).
-		// So validation passes. Tool.Run calling Stat will fail.
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 
 		reqDTO := ReadFileDTO{Path: "nonexistent.txt"}
 		req, err := NewReadFileRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -350,33 +341,8 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
-		// Run calls fs.Stat, which on mock returns os.ErrNotExist.
-		// Run wraps it in &StatError{Cause: err}.
-		// Wait, StatError wrapped cause is os.IsNotExist.
-		// BUT wait, I replaced the behavior:
-		/*
-			60: 	info, err := t.fileOps.Stat(abs)
-			61: 	if err != nil {
-			62: 		return nil, &StatError{Path: abs, Cause: err}
-			63: 	}
-		*/
-		// So it returns &StatError.
-		// Does StatError implement specific behavior? `IOError`.
-		// If I want to check for "not found", I should probably check if cause is NotExist?
-		// Or should I have returned `FileMissingError` in Run?
-		// Run:
-		// if err != nil { return nil, &StatError... }
-		// NOT checking IsNotExist.
-		// In `edit.go` I did check IsNotExist and returned `FileMissingError`.
-		// In `read.go` I did NOT.
-		// Using strict interpretation: "failed to stat file: %w".
-		// If I want "not found" behavior, `read.go` logic should have been updated to check NotExist.
-		// BUT the original code was: `return nil, fmt.Errorf("failed to stat file: %w", err)`.
-		// It did NOT explicitly return ErrFileMissing.
-		// So expecting `StatError` is correct for now.
-
-		var statErr *shared.StatError
+		_, err = readTool.Run(context.Background(), req)
+		var statErr *StatError
 		if err == nil || !errors.As(err, &statErr) {
 			t.Errorf("expected StatError for nonexistent file, got %v", err)
 		}
@@ -390,7 +356,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		tool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, workspaceRoot)
 		limit := int64(4)
 
 		reqDTO := ReadFileDTO{Path: "test.txt", Limit: &limit}
@@ -399,7 +365,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := readTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

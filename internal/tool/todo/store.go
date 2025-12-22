@@ -1,6 +1,8 @@
 package todo
 
-import "sync"
+import (
+	"sync"
+)
 
 // InMemoryTodoStore implements todo storage using an in-memory slice.
 type InMemoryTodoStore struct {

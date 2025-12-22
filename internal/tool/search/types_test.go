@@ -1,6 +1,7 @@
 package search
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -42,20 +43,28 @@ func TestSearchContentRequest_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
 		dto     SearchContentDTO
-		wantErr bool
+		wantErr error
 	}{
-		{"Valid", SearchContentDTO{Query: "foo"}, false},
-		{"EmptyQuery", SearchContentDTO{Query: ""}, true},
-		{"NegativeOffset", SearchContentDTO{Query: "foo", Offset: -1}, true},
-		{"NegativeLimit", SearchContentDTO{Query: "foo", Limit: -1}, true},
-		{"LimitExceedsMax", SearchContentDTO{Query: "foo", Limit: cfg.Tools.MaxSearchContentLimit + 1}, true},
+		{"Valid", SearchContentDTO{Query: "foo"}, nil},
+		{"EmptyQuery", SearchContentDTO{Query: ""}, ErrQueryRequired},
+		{"NegativeOffset", SearchContentDTO{Query: "foo", Offset: -1}, ErrInvalidOffset},
+		{"NegativeLimit", SearchContentDTO{Query: "foo", Limit: -1}, ErrInvalidLimit},
+		{"LimitExceedsMax", SearchContentDTO{Query: "foo", Limit: cfg.Tools.MaxSearchContentLimit + 1}, ErrLimitExceeded},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewSearchContentRequest(tt.dto, cfg, workspaceRoot, fs)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewSearchContentRequest() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr == nil {
+				if err != nil {
+					t.Errorf("NewSearchContentRequest() error = %v, want nil", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("NewSearchContentRequest() error = nil, want %v", tt.wantErr)
+				} else if !errors.Is(err, tt.wantErr) {
+					t.Errorf("NewSearchContentRequest() error = %v, want %v", err, tt.wantErr)
+				}
 			}
 		})
 	}

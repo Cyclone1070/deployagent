@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // FileSystem defines the minimal filesystem interface needed for path resolution.
@@ -22,21 +20,21 @@ type FileSystem interface {
 func CanonicaliseRoot(root string) (string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
-		return "", &shared.WorkspaceRootError{Root: absRoot, Cause: err}
+		return "", &WorkspaceRootError{Root: absRoot, Cause: err}
 	}
 
 	// Resolve symlinks in the workspace root to get canonical path
 	resolved, err := filepath.EvalSymlinks(absRoot)
 	if err != nil {
-		return "", &shared.WorkspaceRootError{Root: resolved, Cause: err}
+		return "", &WorkspaceRootError{Root: resolved, Cause: err}
 	}
 
 	info, err := os.Stat(resolved)
 	if err != nil {
-		return "", &shared.WorkspaceRootError{Root: resolved, Cause: err}
+		return "", &WorkspaceRootError{Root: resolved, Cause: err}
 	}
 	if !info.IsDir() {
-		return "", &shared.WorkspaceRootError{Root: resolved, Cause: fmt.Errorf("%w: %s", shared.ErrNotADirectory, resolved)}
+		return "", &WorkspaceRootError{Root: resolved, Cause: fmt.Errorf("%w: %s", ErrNotADirectory, resolved)}
 	}
 	return resolved, nil
 }
@@ -47,14 +45,14 @@ func CanonicaliseRoot(root string) (string, error) {
 // Returns the absolute path, relative path, and any error.
 func Resolve(workspaceRoot string, fs FileSystem, path string) (abs string, rel string, err error) {
 	if workspaceRoot == "" {
-		return "", "", shared.ErrWorkspaceRootNotSet
+		return "", "", ErrWorkspaceRootNotSet
 	}
 
 	// Handle tilde expansion
 	if strings.HasPrefix(path, "~/") {
 		home, err := fs.UserHomeDir()
 		if err != nil {
-			return "", "", &shared.TildeExpansionError{Cause: err}
+			return "", "", &TildeExpansionError{Cause: err}
 		}
 		path = filepath.Join(home, path[2:])
 	}
@@ -73,12 +71,12 @@ func Resolve(workspaceRoot string, fs FileSystem, path string) (abs string, rel 
 	// We use filepath.Rel which handles cleaning
 	relPath, err := filepath.Rel(workspaceRootAbs, absInput)
 	if err != nil {
-		return "", "", shared.ErrOutsideWorkspace
+		return "", "", ErrOutsideWorkspace
 	}
 
 	// Check for path traversal attempts in the relative path
 	if strings.HasPrefix(relPath, "..") {
-		return "", "", shared.ErrOutsideWorkspace
+		return "", "", ErrOutsideWorkspace
 	}
 
 	// If the path is just the root, we're done
@@ -96,7 +94,7 @@ func Resolve(workspaceRoot string, fs FileSystem, path string) (abs string, rel 
 	// Calculate final relative path from the resolved absolute path
 	finalRel, err := filepath.Rel(workspaceRootAbs, resolvedAbs)
 	if err != nil {
-		return "", "", shared.ErrOutsideWorkspace
+		return "", "", ErrOutsideWorkspace
 	}
 
 	// Normalise to use forward slashes for relative path
@@ -134,12 +132,12 @@ func resolveRelativePath(workspaceRoot string, fs FileSystem, relPath string) (s
 			// Go up one level
 			if currentAbs == workspaceRootAbs {
 				// Can't go up from root
-				return "", shared.ErrOutsideWorkspace
+				return "", ErrOutsideWorkspace
 			}
 			currentAbs = filepath.Dir(currentAbs)
 			// Validate we're still within workspace after going up
 			if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-				return "", shared.ErrOutsideWorkspace
+				return "", ErrOutsideWorkspace
 			}
 			continue
 		}
@@ -161,14 +159,14 @@ func resolveRelativePath(workspaceRoot string, fs FileSystem, relPath string) (s
 				currentAbs = appendRemainingComponents(currentAbs, parts, i)
 				// Validate the complete path is within workspace
 				if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-					return "", shared.ErrOutsideWorkspace
+					return "", ErrOutsideWorkspace
 				}
 				return currentAbs, nil
 			}
 			// For final component, validate parent is within workspace
 			// (currentAbs is the parent here)
 			if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-				return "", shared.ErrOutsideWorkspace
+				return "", ErrOutsideWorkspace
 			}
 			currentAbs = resolved
 			continue
@@ -178,7 +176,7 @@ func resolveRelativePath(workspaceRoot string, fs FileSystem, relPath string) (s
 
 		// Validate current path is within workspace after each step
 		if !isWithinWorkspace(currentAbs, workspaceRootAbs) {
-			return "", shared.ErrOutsideWorkspace
+			return "", ErrOutsideWorkspace
 		}
 	}
 
@@ -195,7 +193,7 @@ func followSymlinkChain(fs FileSystem, path string, workspaceRoot string, maxHop
 	for hopCount := 0; hopCount <= maxHops; hopCount++ {
 		// Check for loops
 		if _, seen := visited[current]; seen {
-			return "", false, fmt.Errorf("%w: %s", shared.ErrSymlinkLoop, current)
+			return "", false, fmt.Errorf("%w: %s", ErrSymlinkLoop, current)
 		}
 		visited[current] = struct{}{}
 
@@ -205,14 +203,14 @@ func followSymlinkChain(fs FileSystem, path string, workspaceRoot string, maxHop
 			if os.IsNotExist(err) {
 				return current, false, nil
 			}
-			return "", false, &shared.LstatError{Path: current, Cause: err}
+			return "", false, &LstatError{Path: current, Cause: err}
 		}
 
 		// If not a symlink, we're done
 		if info.Mode()&os.ModeSymlink == 0 {
 			// Validate path is within workspace
 			if !isWithinWorkspace(current, workspaceRoot) {
-				return "", false, shared.ErrOutsideWorkspace
+				return "", false, ErrOutsideWorkspace
 			}
 			return current, true, nil
 		}
@@ -220,7 +218,7 @@ func followSymlinkChain(fs FileSystem, path string, workspaceRoot string, maxHop
 		// Read the symlink target
 		linkTarget, err := fs.Readlink(current)
 		if err != nil {
-			return "", false, &shared.ReadlinkError{Path: current, Cause: err}
+			return "", false, &ReadlinkError{Path: current, Cause: err}
 		}
 
 		// Resolve symlink target to absolute path
@@ -234,14 +232,14 @@ func followSymlinkChain(fs FileSystem, path string, workspaceRoot string, maxHop
 
 		// Validate symlink target is within workspace (reject immediately if outside)
 		if !isWithinWorkspace(targetAbs, workspaceRoot) {
-			return "", false, shared.ErrOutsideWorkspace
+			return "", false, ErrOutsideWorkspace
 		}
 
 		// Continue following the chain
 		current = targetAbs
 	}
 
-	return "", false, fmt.Errorf("%w (max %d hops)", shared.ErrSymlinkChainTooLong, maxHops)
+	return "", false, fmt.Errorf("%w (max %d hops)", ErrSymlinkChainTooLong, maxHops)
 }
 
 // buildNextPathComponent joins a path component to the current path, handling edge cases.

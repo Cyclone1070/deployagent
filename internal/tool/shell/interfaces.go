@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+
+	"github.com/Cyclone1070/iav/internal/tool/executil"
 )
 
 // fileSystem defines the minimal filesystem interface needed by shell tools.
@@ -21,15 +23,8 @@ type binaryDetector interface {
 	IsBinaryContent(content []byte) bool
 }
 
-// Process defines the minimal process interface needed by shell tools.
-type Process interface {
-	Wait() error
-	Kill() error
-	Signal(sig os.Signal) error
-}
-
 // commandExecutor defines the interface for executing shell commands.
 type commandExecutor interface {
-	Start(ctx context.Context, cmd []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error)
+	Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
 	Run(ctx context.Context, cmd []string) ([]byte, error)
 }

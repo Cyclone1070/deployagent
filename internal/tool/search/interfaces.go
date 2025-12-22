@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/Cyclone1070/iav/internal/tool/shell"
+	"github.com/Cyclone1070/iav/internal/tool/executil"
 )
 
 // fileSystem defines the minimal filesystem interface needed by search tools.
@@ -19,5 +19,5 @@ type fileSystem interface {
 
 // commandExecutor defines the interface for executing shell commands.
 type commandExecutor interface {
-	Start(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error)
+	Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
 }

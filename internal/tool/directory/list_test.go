@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
+	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // Local mocks for directory listing tests
@@ -236,15 +236,15 @@ func TestListDirectory(t *testing.T) {
 		fs.createDir("/workspace/subdir2")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -288,7 +288,7 @@ func TestListDirectory(t *testing.T) {
 		fs.createDir("/workspace/src/internal")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -296,7 +296,7 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -316,7 +316,7 @@ func TestListDirectory(t *testing.T) {
 		fs.createDir("/workspace/empty")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: "empty", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -324,7 +324,7 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -346,10 +346,10 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
-		_, err = tool.Run(context.Background(), req)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		_, err = listTool.Run(context.Background(), req)
 
-		if err == nil || !errors.Is(err, shared.ErrNotADirectory) {
+		if err == nil || !errors.Is(err, ErrNotADirectory) {
 			t.Fatalf("expected ErrNotADirectory, got %v", err)
 		}
 	})
@@ -360,29 +360,29 @@ func TestListDirectory(t *testing.T) {
 		fs.createDir("/tmp/outside")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: "../tmp/outside", MaxDepth: -1, Offset: 0, Limit: 1000}
 
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 
 		if err != nil {
-			if errors.Is(err, shared.ErrPathTraversal) {
+			if errors.Is(err, pathutil.ErrOutsideWorkspace) {
 				return // Success
 			}
 		}
 
 		// If created, run it
 		if req != nil {
-			_, err = tool.Run(context.Background(), req)
+			_, err = listTool.Run(context.Background(), req)
 		}
 
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
 
-		if !errors.Is(err, shared.ErrPathTraversal) {
-			t.Errorf("expected ErrPathTraversal, got %v", err)
+		if !errors.Is(err, pathutil.ErrOutsideWorkspace) {
+			t.Errorf("expected ErrOutsideWorkspace, got %v", err)
 		}
 	})
 
@@ -397,9 +397,9 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
-		_, err = tool.Run(context.Background(), req)
-		if err == nil || !errors.Is(err, shared.ErrFileMissing) {
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		_, err = listTool.Run(context.Background(), req)
+		if err == nil || !errors.Is(err, ErrFileMissing) {
 			t.Errorf("expected ErrFileMissing, got %v", err)
 		}
 	})
@@ -411,7 +411,7 @@ func TestListDirectory(t *testing.T) {
 		fs.createFile("/workspace/src/main.go", []byte("package main"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: "src", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -419,7 +419,7 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -436,7 +436,7 @@ func TestListDirectory(t *testing.T) {
 		fs.createFile("/workspace/src/main.go", []byte("package main"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: "/workspace/src", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -444,7 +444,7 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -460,7 +460,7 @@ func TestListDirectory(t *testing.T) {
 		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -468,7 +468,7 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -491,16 +491,16 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		// Get first 5
-		reqDTO1 := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 5}
+		reqDTO1 := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 5}
 		req1, err := NewListDirectoryRequest(reqDTO1, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request 1: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req1)
+		resp, err := listTool.Run(context.Background(), req1)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -514,13 +514,13 @@ func TestListDirectory_Pagination(t *testing.T) {
 		}
 
 		// Get next 5
-		reqDTO2 := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 5, Limit: 5}
+		reqDTO2 := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 5, Limit: 5}
 		req2, err := NewListDirectoryRequest(reqDTO2, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request 2: %v", err)
 		}
 
-		resp2, err := tool.Run(context.Background(), req2)
+		resp2, err := listTool.Run(context.Background(), req2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -543,15 +543,15 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 		fs.createSymlink("/workspace/linkdir", "/workspace/dir")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -574,15 +574,15 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 		fs.createFile("/workspace/ファイル.txt", []byte("content"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -609,15 +609,15 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 		}
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, gitignore, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, gitignore, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -644,15 +644,15 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 		fs.createFile("/workspace/.gitignore", []byte("content"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -676,15 +676,15 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 		}
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 50}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 50}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -708,15 +708,15 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 100, Limit: 10}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 100, Limit: 10}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -763,15 +763,15 @@ func TestListDirectory_EntryMetadata(t *testing.T) {
 		fs.createDir("/workspace/subdir")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -827,15 +827,15 @@ func TestListDirectory_Sorting(t *testing.T) {
 		fs.createDir("/workspace/alpha")
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -874,7 +874,7 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 		fs.createFile("/workspace/src/app/main.go", []byte("package main"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		reqDTO := ListDirectoryDTO{Path: "src/app", MaxDepth: -1, Offset: 0, Limit: 1000}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -882,7 +882,7 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -910,16 +910,16 @@ func TestListDirectory_InvalidPagination(t *testing.T) {
 		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
 
 		cfg := config.DefaultConfig()
-		tool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
+		listTool := NewListDirectoryTool(fs, nil, cfg, workspaceRoot)
 
 		// Limit=0 should use default
-		reqDTO := ListDirectoryDTO{Path: "", MaxDepth: -1, Offset: 0, Limit: 0}
+		reqDTO := ListDirectoryDTO{Path: ".", MaxDepth: -1, Offset: 0, Limit: 0}
 		req, err := NewListDirectoryRequest(reqDTO, cfg, workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

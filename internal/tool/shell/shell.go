@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/tool/executil"
 )
 
 // ShellTool executes commands on the local machine.
@@ -73,9 +74,7 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 		env = append(env, k+"="+v)
 	}
 
-	opts := NewProcessOptions(wd, env)
-
-	proc, stdout, stderr, err := t.commandExecutor.Start(ctx, req.Command(), opts)
+	proc, stdout, stderr, err := t.commandExecutor.Start(ctx, req.Command(), wd, env)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +84,7 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 	// Use configured max output size
 	maxOutputSize := t.config.Tools.DefaultMaxCommandOutputSize
 
-	stdoutStr, stderrStr, truncated, _ := CollectProcessOutput(stdout, stderr, int(maxOutputSize), sampleSize)
+	stdoutStr, stderrStr, truncated, _ := executil.CollectProcessOutput(stdout, stderr, int(maxOutputSize), sampleSize)
 
 	timeout := time.Duration(req.TimeoutSeconds()) * time.Second
 	if timeout == 0 {
@@ -95,7 +94,7 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 	// Use configured graceful shutdown
 	gracefulShutdownMs := t.config.Tools.DockerGracefulShutdownMs
 
-	execErr := ExecuteWithTimeout(ctx, req.Command(), timeout, gracefulShutdownMs, proc)
+	execErr := executil.ExecuteWithTimeout(ctx, req.Command(), timeout, gracefulShutdownMs, proc)
 
 	resp := &ShellResponse{
 		Stdout:     stdoutStr,
@@ -116,7 +115,7 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 			return resp, execErr
 		}
 		// Command ran but failed - extract exit code and return success
-		resp.ExitCode = GetExitCode(execErr)
+		resp.ExitCode = executil.GetExitCode(execErr)
 		return resp, nil
 	}
 

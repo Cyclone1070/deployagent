@@ -2,7 +2,6 @@ package search
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,8 +11,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
-	"github.com/Cyclone1070/iav/internal/tool/shell"
+	"github.com/Cyclone1070/iav/internal/tool/executil"
 )
 
 // Local mocks for search tests
@@ -64,12 +62,12 @@ func (m *mockFileSystemForSearch) UserHomeDir() (string, error) {
 }
 
 type mockCommandExecutorForSearch struct {
-	startFunc func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error)
+	startFunc func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
 }
 
-func (m *mockCommandExecutorForSearch) Start(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+func (m *mockCommandExecutorForSearch) Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 	if m.startFunc != nil {
-		return m.startFunc(ctx, cmd, opts)
+		return m.startFunc(ctx, cmd, dir, env)
 	}
 	return nil, nil, nil, fmt.Errorf("not implemented")
 }
@@ -111,11 +109,11 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func bar()"},"line_number":20}}`
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "func .*", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -123,7 +121,7 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -151,7 +149,7 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 
 	var capturedCmd []string
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		capturedCmd = cmd
 		proc := &mockProcessForSearch{}
 		proc.waitFunc = func() error {
@@ -160,7 +158,7 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "", CaseSensitive: false, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -168,7 +166,7 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, _ = tool.Run(context.Background(), req)
+	_, _ = searchTool.Run(context.Background(), req)
 
 	foundFlag := slices.Contains(capturedCmd, "-i")
 	if !foundFlag {
@@ -182,20 +180,12 @@ func TestSearchContent_PathOutsideWorkspace(t *testing.T) {
 	workspaceRoot := "/workspace"
 	cfg := config.DefaultConfig()
 
-	tool := NewSearchContentTool(fs, &mockCommandExecutorForSearch{}, cfg, workspaceRoot)
-
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "../outside", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
-	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
+	_, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
 
-	// Constructor should catch path traversal
-	if err != nil {
-		return // Expected error from constructor
-	}
-
-	_, err = tool.Run(context.Background(), req)
-
-	if !errors.Is(err, shared.ErrOutsideWorkspace) {
-		t.Errorf("expected ErrOutsideWorkspace, got %v", err)
+	// Constructor should catch path traversal or provide error
+	if err == nil {
+		t.Error("expected error for path outside workspace from constructor, got nil")
 	}
 }
 
@@ -209,11 +199,11 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 	rgOutput := fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"%s"},"line_number":1}}`, longLine)
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -221,7 +211,7 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -247,7 +237,7 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 
 	var capturedCmd []string
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		capturedCmd = cmd
 		proc := &mockProcessForSearch{}
 		proc.waitFunc = func() error {
@@ -256,7 +246,7 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 	query := "foo; rm -rf /"
 
 	reqDTO := SearchContentDTO{Query: query, SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
@@ -265,7 +255,7 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, _ = tool.Run(context.Background(), req)
+	_, _ = searchTool.Run(context.Background(), req)
 
 	found := slices.Contains(capturedCmd, query)
 	if !found {
@@ -280,7 +270,7 @@ func TestSearchContent_NoMatches(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForSearch{}
 		proc.waitFunc = func() error {
 			return newMockExitErrorForSearch(1)
@@ -288,7 +278,7 @@ func TestSearchContent_NoMatches(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "nonexistent", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -296,7 +286,7 @@ func TestSearchContent_NoMatches(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -317,17 +307,17 @@ func TestSearchContent_Pagination(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	var rgOutput string
-	for i := range 10 {
+	for i := 0; i < 10; i++ {
 		rgOutput += fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"line %d"},"line_number":%d}}
 `, i, i+1)
 	}
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 2, Limit: 2}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -335,7 +325,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -368,11 +358,11 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":5}}`
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -380,7 +370,7 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -412,11 +402,11 @@ invalid json line
 {"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"also valid"},"line_number":2}}`
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -424,7 +414,7 @@ invalid json line
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -441,7 +431,7 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForSearch{}
 		proc.waitFunc = func() error {
 			return newMockExitErrorForSearch(2)
@@ -449,7 +439,7 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "pattern", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -457,7 +447,7 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, err = tool.Run(context.Background(), req)
+	_, err = searchTool.Run(context.Background(), req)
 	if err == nil {
 		t.Fatal("expected error for command failure, got nil")
 	}
@@ -470,7 +460,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		if slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
 		}
@@ -478,7 +468,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		return &mockProcessForSearch{}, strings.NewReader(output), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, workspaceRoot)
 
 	reqDTO := SearchContentDTO{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
 	req, err := NewSearchContentRequest(reqDTO, cfg, workspaceRoot, fs)
@@ -486,7 +476,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -496,7 +486,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	}
 
 	// Test with includeIgnored=true
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		if !slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to be present when includeIgnored=true")
 		}
@@ -511,7 +501,7 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		t.Fatalf("failed to create request for includeIgnored=true: %v", err)
 	}
 
-	resp, err = tool.Run(context.Background(), req)
+	resp, err = searchTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -544,12 +534,12 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 	fs.createDir("/workspace")
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {
-		tool := NewSearchContentTool(fs, mockRunner, config.DefaultConfig(), "/workspace")
+		searchTool := NewSearchContentTool(fs, mockRunner, config.DefaultConfig(), "/workspace")
 
 		reqDTO := SearchContentDTO{Query: "test", Limit: 0}
 		req, err := NewSearchContentRequest(reqDTO, config.DefaultConfig(), "/workspace", fs)
@@ -557,7 +547,7 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := searchTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -571,7 +561,7 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 		cfg.Tools.DefaultSearchContentLimit = 25
 		cfg.Tools.MaxSearchContentLimit = 50
 
-		tool := NewSearchContentTool(fs, mockRunner, cfg, "/workspace")
+		searchTool := NewSearchContentTool(fs, mockRunner, cfg, "/workspace")
 
 		reqDTO := SearchContentDTO{Query: "test", Limit: 30}
 		req, err := NewSearchContentRequest(reqDTO, cfg, "/workspace", fs)
@@ -579,7 +569,7 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		resp, err := tool.Run(context.Background(), req)
+		resp, err := searchTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -594,11 +584,11 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 	fs.createDir("/workspace")
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error) {
+	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		return &mockProcessForSearch{}, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewSearchContentTool(fs, mockRunner, config.DefaultConfig(), "/workspace")
+	searchTool := NewSearchContentTool(fs, mockRunner, config.DefaultConfig(), "/workspace")
 
 	t.Run("zero offset is valid", func(t *testing.T) {
 		reqDTO := SearchContentDTO{Query: "test", Offset: 0, Limit: 10}
@@ -607,7 +597,7 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
+		_, err = searchTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error for offset 0: %v", err)
 		}
@@ -620,9 +610,50 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
+		_, err = searchTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error for positive offset: %v", err)
+		}
+	})
+}
+
+func TestSearchContent_SearchPathValidation(t *testing.T) {
+	workspaceRoot := "/workspace"
+	cfg := config.DefaultConfig()
+
+	t.Run("invalid search path leads to error", func(t *testing.T) {
+		fs := newMockFileSystemForSearch()
+		// No dir created
+		runner := &mockCommandExecutorForSearch{}
+		searchTool := NewSearchContentTool(fs, runner, cfg, workspaceRoot)
+
+		dto := SearchContentDTO{Query: "test", SearchPath: "nonexistent"}
+		req, err := NewSearchContentRequest(dto, cfg, workspaceRoot, fs)
+		if err != nil {
+			t.Fatalf("failed to create request: %v", err)
+		}
+
+		_, err = searchTool.Run(context.Background(), req)
+		if err == nil {
+			t.Error("expected error for nonexistent search path, got nil")
+		}
+	})
+
+	t.Run("search path must be directory", func(t *testing.T) {
+		fs := newMockFileSystemForSearch()
+		fs.dirs["/workspace/file.txt"] = false // explicitly marked as NOT a dir
+		runner := &mockCommandExecutorForSearch{}
+		searchTool := NewSearchContentTool(fs, runner, cfg, workspaceRoot)
+
+		dto := SearchContentDTO{Query: "test", SearchPath: "file.txt"}
+		req, err := NewSearchContentRequest(dto, cfg, workspaceRoot, fs)
+		if err != nil {
+			t.Fatalf("failed to create request: %v", err)
+		}
+
+		_, err = searchTool.Run(context.Background(), req)
+		if err == nil {
+			t.Error("expected error for search path that is a file, got nil")
 		}
 	})
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 // fileReader defines the minimal filesystem operations needed for reading files.
@@ -61,18 +60,18 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 	// Get file info (single stat syscall)
 	info, err := t.fileOps.Stat(abs)
 	if err != nil {
-		return nil, &shared.StatError{Path: abs, Cause: err}
+		return nil, &StatError{Path: abs, Cause: err}
 	}
 
 	// Check if it's a directory using info we already have
 	if info.IsDir() {
-		return nil, fmt.Errorf("%w: %s", shared.ErrIsDirectory, abs)
+		return nil, fmt.Errorf("%w: %s", ErrIsDirectory, abs)
 	}
 
 	// Enforce size limit
 	maxFileSize := t.config.Tools.MaxFileSize
 	if info.Size() > maxFileSize {
-		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", shared.ErrFileTooLarge, abs, info.Size(), maxFileSize)
+		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", ErrFileTooLarge, abs, info.Size(), maxFileSize)
 	}
 
 	// Get offset and limit from validated request
@@ -82,12 +81,12 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 	// Read the file range (single open+read syscall)
 	contentBytes, err := t.fileOps.ReadFileRange(abs, actualOffset, actualLimit)
 	if err != nil {
-		return nil, &shared.ReadError{Path: abs, Cause: err}
+		return nil, &ReadError{Path: abs, Cause: err}
 	}
 
 	// Check for binary using content we already read
 	if t.binaryDetector.IsBinaryContent(contentBytes) {
-		return nil, fmt.Errorf("%w: %s", shared.ErrBinaryFile, abs)
+		return nil, fmt.Errorf("%w: %s", ErrBinaryFile, abs)
 	}
 
 	// Convert to string

@@ -1,13 +1,24 @@
 package gitutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
+
+// GitignoreReadError is returned when .gitignore cannot be read.
+type GitignoreReadError struct {
+	Path  string
+	Cause error
+}
+
+func (e *GitignoreReadError) Error() string {
+	return fmt.Sprintf("failed to read .gitignore at %s: %v", e.Path, e.Cause)
+}
+func (e *GitignoreReadError) Unwrap() error { return e.Cause }
 
 // FileSystem defines the minimal filesystem interface needed for gitignore service.
 // This is a consumer-defined interface per architecture guidelines §2.
@@ -36,7 +47,7 @@ func NewService(workspaceRoot string, fs FileSystem) (*Service, error) {
 	// Read .gitignore file
 	content, err := fs.ReadFileRange(gitignorePath, 0, 0)
 	if err != nil {
-		return nil, &shared.GitignoreReadError{Path: gitignorePath, Cause: err}
+		return nil, &GitignoreReadError{Path: gitignorePath, Cause: err}
 	}
 
 	// Parse gitignore patterns line by line

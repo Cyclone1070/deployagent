@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 )
 
 func TestTodoTools(t *testing.T) {
@@ -38,9 +37,9 @@ func TestTodoTools(t *testing.T) {
 		}
 
 		// 2. Write some todos
-		todos := []Todo{
-			{Description: "Task 1", Status: TodoStatusPending},
-			{Description: "Task 2", Status: TodoStatusInProgress},
+		todos := []TodoDTO{
+			{Description: "Task 1", Status: string(TodoStatusPending)},
+			{Description: "Task 2", Status: string(TodoStatusInProgress)},
 		}
 		writeReq, err := NewWriteTodosRequest(WriteTodosDTO{Todos: todos}, cfg)
 		if err != nil {
@@ -69,7 +68,7 @@ func TestTodoTools(t *testing.T) {
 		if readResp.Todos[0].Description != "Task 1" {
 			t.Errorf("expected Task 1, got %s", readResp.Todos[0].Description)
 		}
-		if readResp.Todos[1].Status != TodoStatusInProgress {
+		if readResp.Todos[1].Status != string(TodoStatusInProgress) {
 			t.Errorf("expected InProgress, got %s", readResp.Todos[1].Status)
 		}
 	})
@@ -78,7 +77,7 @@ func TestTodoTools(t *testing.T) {
 		readTool, writeTool, _ := createTools()
 
 		// Write List A
-		listA := []Todo{{Description: "A", Status: TodoStatusPending}}
+		listA := []TodoDTO{{Description: "A", Status: string(TodoStatusPending)}}
 		writeReq, err := NewWriteTodosRequest(WriteTodosDTO{Todos: listA}, cfg)
 		if err != nil {
 			t.Fatalf("failed to create write request: %v", err)
@@ -89,7 +88,7 @@ func TestTodoTools(t *testing.T) {
 		}
 
 		// Write List B
-		listB := []Todo{{Description: "B", Status: TodoStatusCompleted}}
+		listB := []TodoDTO{{Description: "B", Status: string(TodoStatusCompleted)}}
 		writeReq, err = NewWriteTodosRequest(WriteTodosDTO{Todos: listB}, cfg)
 		if err != nil {
 			t.Fatalf("failed to create write request: %v", err)
@@ -120,11 +119,11 @@ func TestTodoTools(t *testing.T) {
 		readTool, writeTool, _ := createTools()
 
 		// Write something
-		writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []Todo{{Description: "Task", Status: TodoStatusPending}}}, cfg)
+		writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []TodoDTO{{Description: "Task", Status: string(TodoStatusPending)}}}, cfg)
 		_, _ = writeTool.Run(context.Background(), writeReq)
 
 		// Write empty
-		writeReq, err := NewWriteTodosRequest(WriteTodosDTO{Todos: []Todo{}}, cfg)
+		writeReq, err := NewWriteTodosRequest(WriteTodosDTO{Todos: []TodoDTO{}}, cfg)
 		if err != nil {
 			t.Fatalf("failed to create write request: %v", err)
 		}
@@ -151,7 +150,7 @@ func TestTodoTools(t *testing.T) {
 		readTool, writeTool, _ := createTools()
 
 		// Write initial data
-		initial := []Todo{{Description: "Original", Status: TodoStatusPending}}
+		initial := []TodoDTO{{Description: "Original", Status: string(TodoStatusPending)}}
 		writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: initial}, cfg)
 		_, _ = writeTool.Run(context.Background(), writeReq)
 
@@ -176,8 +175,8 @@ func TestTodoTools(t *testing.T) {
 		readTool2, _, _ := createTools()
 
 		// Write to store 1
-		writeReq, err := NewWriteTodosRequest(WriteTodosDTO{Todos: []Todo{
-			{Description: "Ctx1", Status: TodoStatusPending},
+		writeReq, err := NewWriteTodosRequest(WriteTodosDTO{Todos: []TodoDTO{
+			{Description: "Ctx1", Status: string(TodoStatusPending)},
 		}}, cfg)
 		if err != nil {
 			t.Fatalf("failed to create write request: %v", err)
@@ -206,12 +205,12 @@ func TestTodoTools(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Launch 100 goroutines reading and writing
-		for i := range 100 {
+		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
 				if id%2 == 0 {
-					writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []Todo{{Description: "Concurrent", Status: TodoStatusPending}}}, cfg)
+					writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []TodoDTO{{Description: "Concurrent", Status: string(TodoStatusPending)}}}, cfg)
 					_, _ = writeTool.Run(context.Background(), writeReq)
 				} else {
 					readReq, _ := NewReadTodosRequest(ReadTodosDTO{}, cfg)
@@ -229,13 +228,13 @@ func TestTodoTools(t *testing.T) {
 
 		readReq, _ := NewReadTodosRequest(ReadTodosDTO{}, cfg)
 		_, err := readTool.Run(context.Background(), readReq)
-		if err == nil || !errors.Is(err, shared.ErrStoreNotConfigured) {
+		if err == nil || !errors.Is(err, ErrStoreNotConfigured) {
 			t.Errorf("expected ErrStoreNotConfigured when reading with missing store, got %v", err)
 		}
 
-		writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []Todo{}}, cfg)
+		writeReq, _ := NewWriteTodosRequest(WriteTodosDTO{Todos: []TodoDTO{}}, cfg)
 		_, err = writeTool.Run(context.Background(), writeReq)
-		if err == nil || !errors.Is(err, shared.ErrStoreNotConfigured) {
+		if err == nil || !errors.Is(err, ErrStoreNotConfigured) {
 			t.Errorf("expected ErrStoreNotConfigured when writing with missing store, got %v", err)
 		}
 	})

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"slices"
@@ -12,7 +13,8 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
+	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
 // Local mocks for shell tests
@@ -82,7 +84,7 @@ func (m *mockFileSystemForShell) ReadFileRange(path string, offset, limit int64)
 
 type mockCommandExecutorForShell struct {
 	runFunc   func(ctx context.Context, cmd []string) ([]byte, error)
-	startFunc func(ctx context.Context, cmd []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error)
+	startFunc func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
 }
 
 func (m *mockCommandExecutorForShell) Run(ctx context.Context, cmd []string) ([]byte, error) {
@@ -92,9 +94,9 @@ func (m *mockCommandExecutorForShell) Run(ctx context.Context, cmd []string) ([]
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCommandExecutorForShell) Start(ctx context.Context, cmd []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+func (m *mockCommandExecutorForShell) Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 	if m.startFunc != nil {
-		return m.startFunc(ctx, cmd, opts)
+		return m.startFunc(ctx, cmd, dir, env)
 	}
 	return nil, nil, nil, errors.New("not implemented")
 }
@@ -132,7 +134,7 @@ type mockExitError struct {
 }
 
 func (e *mockExitError) Error() string {
-	return "exit status " + string(rune(e.exitCode))
+	return fmt.Sprintf("exit status %d", e.exitCode)
 }
 
 func (e *mockExitError) ExitCode() int {
@@ -152,7 +154,7 @@ func TestShellTool_Run_SimpleCommand(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		if command[0] != "echo" {
 			return nil, nil, nil, errors.New("unexpected command")
 		}
@@ -163,7 +165,7 @@ func TestShellTool_Run_SimpleCommand(t *testing.T) {
 		return proc, stdout, stderr, nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"echo", "hello"}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -171,7 +173,7 @@ func TestShellTool_Run_SimpleCommand(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -192,14 +194,14 @@ func TestShellTool_Run_WorkingDir(t *testing.T) {
 
 	var capturedDir string
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedDir = opts.Dir()
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+		capturedDir = dir
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"pwd"}, WorkingDir: "subdir"}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -207,7 +209,7 @@ func TestShellTool_Run_WorkingDir(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, err = tool.Run(context.Background(), req)
+	_, err = shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -226,14 +228,14 @@ func TestShellTool_Run_Env(t *testing.T) {
 
 	var capturedEnv []string
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedEnv = opts.Env()
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+		capturedEnv = env
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{
 		Command: []string{"env"},
@@ -247,7 +249,7 @@ func TestShellTool_Run_Env(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, err = tool.Run(context.Background(), req)
+	_, err = shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -289,14 +291,14 @@ CACHE_URL=redis://localhost`
 
 	var capturedEnv []string
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedEnv = opts.Env()
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+		capturedEnv = env
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	t.Run("Single env file", func(t *testing.T) {
 		dto := ShellDTO{Command: []string{"env"}, EnvFiles: []string{".env"}}
@@ -305,7 +307,7 @@ CACHE_URL=redis://localhost`
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
+		_, err = shellTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
@@ -344,7 +346,7 @@ CACHE_URL=redis://localhost`
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
+		_, err = shellTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
@@ -381,7 +383,7 @@ CACHE_URL=redis://localhost`
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		_, err = tool.Run(context.Background(), req)
+		_, err = shellTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
@@ -406,8 +408,8 @@ CACHE_URL=redis://localhost`
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		tool := NewShellTool(mockFS, &mockCommandExecutorForShell{}, cfg, DockerConfig{}, workspaceRoot)
-		_, err = tool.Run(context.Background(), req)
+		shellTool := NewShellTool(mockFS, &mockCommandExecutorForShell{}, cfg, DockerConfig{}, workspaceRoot)
+		_, err = shellTool.Run(context.Background(), req)
 		if err == nil {
 			t.Fatal("Expected error for nonexistent env file, got nil")
 		}
@@ -418,7 +420,7 @@ CACHE_URL=redis://localhost`
 
 	dto := ShellDTO{Command: []string{"env"}, EnvFiles: []string{"../../etc/passwd"}}
 	_, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
-	if !errors.Is(err, shared.ErrOutsideWorkspace) {
+	if !errors.Is(err, pathutil.ErrOutsideWorkspace) {
 		t.Errorf("Expected ErrOutsideWorkspace error from NewShellRequest, got %v", err)
 	}
 }
@@ -431,7 +433,7 @@ func TestShellTool_Run_OutsideWorkspace(t *testing.T) {
 
 	dto := ShellDTO{Command: []string{"ls"}, WorkingDir: "../outside"}
 	_, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
-	if !errors.Is(err, shared.ErrOutsideWorkspace) {
+	if !errors.Is(err, pathutil.ErrOutsideWorkspace) {
 		t.Errorf("Expected ErrOutsideWorkspace error from NewShellRequest, got %v", err)
 	}
 }
@@ -443,7 +445,7 @@ func TestShellTool_Run_NonZeroExit(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error {
 			return errors.New("exit status 1")
@@ -451,7 +453,7 @@ func TestShellTool_Run_NonZeroExit(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader("error output"), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"false"}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -459,7 +461,7 @@ func TestShellTool_Run_NonZeroExit(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -476,13 +478,13 @@ func TestShellTool_Run_BinaryOutput(t *testing.T) {
 
 	binaryData := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE}
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, bytes.NewReader(binaryData), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"cat", "binary.bin"}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -490,7 +492,7 @@ func TestShellTool_Run_BinaryOutput(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -507,14 +509,14 @@ func TestShellTool_Run_CommandInjection(t *testing.T) {
 
 	var capturedCommand []string
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		capturedCommand = command
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"echo", "hello; rm -rf /"}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -522,7 +524,7 @@ func TestShellTool_Run_CommandInjection(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, err = tool.Run(context.Background(), req)
+	_, err = shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -547,13 +549,13 @@ func TestShellTool_Run_HugeOutput(t *testing.T) {
 	}
 
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, bytes.NewReader(hugeData), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"cat", "huge.txt"}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -561,7 +563,7 @@ func TestShellTool_Run_HugeOutput(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -580,7 +582,7 @@ func TestShellTool_Run_Timeout(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error {
 			select {
@@ -595,7 +597,7 @@ func TestShellTool_Run_Timeout(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"sleep", "10"}, TimeoutSeconds: 1}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -603,7 +605,7 @@ func TestShellTool_Run_Timeout(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, err = tool.Run(context.Background(), req)
+	_, err = shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Errorf("Run failed: %v", err)
 	}
@@ -621,7 +623,7 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 		}
 		return nil, errors.New("unexpected command in RunFunc")
 	}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		if command[0] == "docker" && command[1] == "run" {
 			proc := &mockProcessForShell{}
 			proc.waitFunc = func() error { return nil }
@@ -634,7 +636,7 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 		CheckCommand: []string{"docker", "info"},
 	}
 
-	tool := NewShellTool(mockFS, factory, config.DefaultConfig(), dockerConfig, "/workspace")
+	shellTool := NewShellTool(mockFS, factory, config.DefaultConfig(), dockerConfig, "/workspace")
 
 	dto := ShellDTO{Command: []string{"docker", "run", "hello"}}
 	req, err := NewShellRequest(dto, config.DefaultConfig(), "/workspace", mockFS)
@@ -642,7 +644,7 @@ func TestShellTool_Run_DockerCheck(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -659,14 +661,14 @@ func TestShellTool_Run_EnvInjection(t *testing.T) {
 
 	var capturedEnv []string
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
-		capturedEnv = opts.Env()
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+		capturedEnv = env
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error { return nil }
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"env"}, Env: map[string]string{"PATH": ""}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -674,7 +676,7 @@ func TestShellTool_Run_EnvInjection(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	_, err = tool.Run(context.Background(), req)
+	_, err = shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -692,7 +694,7 @@ func TestShellTool_Run_ContextCancellation(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error {
 			<-ctx.Done()
@@ -701,7 +703,7 @@ func TestShellTool_Run_ContextCancellation(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"sleep", "100"}, TimeoutSeconds: 10}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -713,7 +715,7 @@ func TestShellTool_Run_ContextCancellation(t *testing.T) {
 	defer cancel()
 
 	// Test that Run handles context cancellation gracefully and returns the error
-	resp, err := tool.Run(ctx, req)
+	resp, err := shellTool.Run(ctx, req)
 	if err == nil {
 		t.Error("Expected context cancellation error, got nil")
 	}
@@ -735,7 +737,7 @@ func TestShellTool_Run_SpecificExitCode(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	factory := &mockCommandExecutorForShell{}
-	factory.startFunc = func(ctx context.Context, command []string, opts ProcessOptions) (Process, io.Reader, io.Reader, error) {
+	factory.startFunc = func(ctx context.Context, command []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
 		proc := &mockProcessForShell{}
 		proc.waitFunc = func() error {
 			// Return a specific exit code using the mock error type
@@ -744,7 +746,7 @@ func TestShellTool_Run_SpecificExitCode(t *testing.T) {
 		return proc, strings.NewReader(""), strings.NewReader(""), nil
 	}
 
-	tool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{}, workspaceRoot)
 
 	dto := ShellDTO{Command: []string{"exit42"}}
 	req, err := NewShellRequest(dto, cfg, workspaceRoot, mockFS)
@@ -752,7 +754,7 @@ func TestShellTool_Run_SpecificExitCode(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	resp, err := tool.Run(context.Background(), req)
+	resp, err := shellTool.Run(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}

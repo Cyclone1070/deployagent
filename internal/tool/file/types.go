@@ -1,32 +1,20 @@
 package file
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
-// Operation represents a single edit operation for EditFile.
-// Before must be a non-empty literal snippet that exists in the file.
-// ExpectedReplacements must match the exact number of occurrences of Before in the file.
-// If ExpectedReplacements is omitted (0), it defaults to 1.
-type Operation struct {
-	Before               string // required, non-empty literal snippet
-	After                string // required
-	ExpectedReplacements int    // optional, defaults to 1 if omitted; must be >= 1
-}
+// -- Read File --
 
-// ReadFileDTO is the wire format for ReadFile operation
 type ReadFileDTO struct {
 	Path   string `json:"path"`
 	Offset *int64 `json:"offset,omitempty"`
 	Limit  *int64 `json:"limit,omitempty"`
 }
 
-// ReadFileRequest is the validated domain entity for ReadFile operation
 type ReadFileRequest struct {
 	absPath string
 	relPath string
@@ -34,42 +22,43 @@ type ReadFileRequest struct {
 	limit   int64
 }
 
-// NewReadFileRequest creates a validated ReadFileRequest from a DTO
+func (r ReadFileRequest) AbsPath() string { return r.absPath }
+func (r ReadFileRequest) RelPath() string { return r.relPath }
+func (r ReadFileRequest) Offset() int64   { return r.offset }
+func (r ReadFileRequest) Limit() int64    { return r.limit }
+
 func NewReadFileRequest(
 	dto ReadFileDTO,
 	cfg *config.Config,
 	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
+	fs pathutil.FileSystem,
 ) (*ReadFileRequest, error) {
-	// Constructor validation - everything we can know from inputs
 	if dto.Path == "" {
-		return nil, shared.ErrPathRequired
+		return nil, ErrPathRequired
+	}
+
+	abs, rel, err := pathutil.Resolve(workspaceRoot, fs, dto.Path)
+	if err != nil {
+		return nil, err
 	}
 
 	var offset int64
 	if dto.Offset != nil {
-		if *dto.Offset < 0 {
-			return nil, fmt.Errorf("%w: %d", shared.ErrInvalidOffset, *dto.Offset)
-		}
 		offset = *dto.Offset
+		if offset < 0 {
+			return nil, ErrInvalidOffset
+		}
 	}
 
 	var limit int64
 	if dto.Limit != nil {
-		if *dto.Limit < 0 {
-			return nil, fmt.Errorf("%w: %d", shared.ErrInvalidLimit, *dto.Limit)
-		}
 		limit = *dto.Limit
+		if limit < 0 {
+			return nil, ErrInvalidLimit
+		}
 	}
-
-	// Path resolution (I/O-based validation)
-	abs, rel, err := resolvePathWithFS(workspaceRoot, fs, dto.Path)
-	if err != nil {
-		return nil, err
+	if limit == 0 {
+		limit = cfg.Tools.MaxFileSize
 	}
 
 	return &ReadFileRequest{
@@ -80,45 +69,21 @@ func NewReadFileRequest(
 	}, nil
 }
 
-// AbsPath returns the absolute path
-func (r *ReadFileRequest) AbsPath() string {
-	return r.absPath
+type ReadFileResponse struct {
+	Content      string
+	AbsolutePath string
+	RelativePath string
+	Size         int64
 }
 
-// RelPath returns the relative path
-func (r *ReadFileRequest) RelPath() string {
-	return r.relPath
-}
+// -- Write File --
 
-// Offset returns the offset
-func (r *ReadFileRequest) Offset() int64 {
-	return r.offset
-}
-
-// Limit returns the limit
-func (r *ReadFileRequest) Limit() int64 {
-	return r.limit
-}
-
-// resolvePathWithFS is a helper that calls pathutil.Resolve with the given filesystem
-func resolvePathWithFS(workspaceRoot string, fs interface {
-	Lstat(path string) (os.FileInfo, error)
-	Readlink(path string) (string, error)
-	UserHomeDir() (string, error)
-}, path string) (abs string, rel string, err error) {
-	// Cast to pathutil.FileSystem (the interface is identical)
-	fsImpl := fs.(pathutil.FileSystem)
-	return pathutil.Resolve(workspaceRoot, fsImpl, path)
-}
-
-// WriteFileDTO is the wire format for WriteFile operation
 type WriteFileDTO struct {
 	Path    string       `json:"path"`
 	Content string       `json:"content"`
 	Perm    *os.FileMode `json:"perm,omitempty"`
 }
 
-// WriteFileRequest is the validated domain entity for WriteFile operation
 type WriteFileRequest struct {
 	absPath string
 	relPath string
@@ -126,38 +91,41 @@ type WriteFileRequest struct {
 	perm    os.FileMode
 }
 
-// NewWriteFileRequest creates a validated WriteFileRequest from a DTO
+func (r WriteFileRequest) AbsPath() string { return r.absPath }
+func (r WriteFileRequest) RelPath() string { return r.relPath }
+func (r WriteFileRequest) Content() string { return r.content }
+func (r WriteFileRequest) Perm() os.FileMode {
+	if r.perm == 0 {
+		return 0644
+	}
+	return r.perm
+}
+
 func NewWriteFileRequest(
 	dto WriteFileDTO,
 	cfg *config.Config,
 	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
+	fs pathutil.FileSystem,
 ) (*WriteFileRequest, error) {
-	// Constructor validation
 	if dto.Path == "" {
-		return nil, shared.ErrPathRequired
+		return nil, ErrPathRequired
 	}
 
 	if dto.Content == "" {
-		return nil, shared.ErrContentRequired
+		return nil, ErrContentRequiredForWrite
 	}
 
-	perm := os.FileMode(0644) // default
-	if dto.Perm != nil {
-		if *dto.Perm&^os.FileMode(0777) != 0 {
-			return nil, fmt.Errorf("%w: %o", shared.ErrInvalidPermission, *dto.Perm)
-		}
-		perm = *dto.Perm & 0777
-	}
-
-	// Path resolution
-	abs, rel, err := resolvePathWithFS(workspaceRoot, fs, dto.Path)
+	abs, rel, err := pathutil.Resolve(workspaceRoot, fs, dto.Path)
 	if err != nil {
 		return nil, err
+	}
+
+	perm := os.FileMode(0644)
+	if dto.Perm != nil {
+		perm = *dto.Perm
+		if perm > 0777 {
+			return nil, ErrInvalidPermissions
+		}
 	}
 
 	return &WriteFileRequest{
@@ -168,105 +136,6 @@ func NewWriteFileRequest(
 	}, nil
 }
 
-// AbsPath returns the absolute path
-func (r *WriteFileRequest) AbsPath() string {
-	return r.absPath
-}
-
-// RelPath returns the relative path
-func (r *WriteFileRequest) RelPath() string {
-	return r.relPath
-}
-
-// Content returns the content
-func (r *WriteFileRequest) Content() string {
-	return r.content
-}
-
-// Perm returns the file permissions
-func (r *WriteFileRequest) Perm() os.FileMode {
-	return r.perm
-}
-
-// EditFileDTO is the wire format for EditFile operation
-type EditFileDTO struct {
-	Path       string      `json:"path"`
-	Operations []Operation `json:"operations"`
-}
-
-// EditFileRequest is the validated domain entity for EditFile operation
-type EditFileRequest struct {
-	absPath    string
-	relPath    string
-	operations []Operation
-}
-
-// NewEditFileRequest creates a validated EditFileRequest from a DTO
-func NewEditFileRequest(
-	dto EditFileDTO,
-	cfg *config.Config,
-	workspaceRoot string,
-	fs interface {
-		Lstat(path string) (os.FileInfo, error)
-		Readlink(path string) (string, error)
-		UserHomeDir() (string, error)
-	},
-) (*EditFileRequest, error) {
-	// Constructor validation
-	if dto.Path == "" {
-		return nil, shared.ErrPathRequired
-	}
-
-	if len(dto.Operations) == 0 {
-		return nil, shared.ErrOperationsRequired
-	}
-
-	for i, op := range dto.Operations {
-		if op.Before == "" {
-			return nil, fmt.Errorf("operation %d: %w", i+1, shared.ErrBeforeRequired)
-		}
-		if op.ExpectedReplacements < 0 {
-			return nil, fmt.Errorf("operation %d: %w: %d", i+1, shared.ErrInvalidExpectedReplacements, op.ExpectedReplacements)
-		}
-	}
-
-	// Path resolution
-	abs, rel, err := resolvePathWithFS(workspaceRoot, fs, dto.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &EditFileRequest{
-		absPath:    abs,
-		relPath:    rel,
-		operations: dto.Operations,
-	}, nil
-}
-
-// AbsPath returns the absolute path
-func (r *EditFileRequest) AbsPath() string {
-	return r.absPath
-}
-
-// RelPath returns the relative path
-func (r *EditFileRequest) RelPath() string {
-	return r.relPath
-}
-
-// Operations returns the operations
-func (r *EditFileRequest) Operations() []Operation {
-	return r.operations
-}
-
-// ReadFileResponse contains the result of a ReadFile operation
-type ReadFileResponse struct {
-	AbsolutePath string
-	RelativePath string
-	Size         int64
-	Content      string
-}
-
-// WriteFileResponse contains the result of a WriteFile operation
 type WriteFileResponse struct {
 	AbsolutePath string
 	RelativePath string
@@ -274,7 +143,81 @@ type WriteFileResponse struct {
 	FileMode     uint32
 }
 
-// EditFileResponse contains the result of an EditFile operation
+// -- Edit File --
+
+type OperationDTO struct {
+	Before               string `json:"before"`
+	After                string `json:"after"`
+	ExpectedReplacements int    `json:"expected_replacements,omitempty"`
+}
+
+type EditFileDTO struct {
+	Path       string         `json:"path"`
+	Operations []OperationDTO `json:"operations"`
+}
+
+type EditFileRequest struct {
+	absPath    string
+	relPath    string
+	operations []Operation
+}
+
+type Operation struct {
+	before               string
+	after                string
+	expectedReplacements int
+}
+
+func (o Operation) Before() string                { return o.before }
+func (o Operation) After() string                 { return o.after }
+func (o Operation) ExpectedReplacements() int     { return o.expectedReplacements }
+func (r EditFileRequest) AbsPath() string         { return r.absPath }
+func (r EditFileRequest) RelPath() string         { return r.relPath }
+func (r EditFileRequest) Operations() []Operation { return r.operations }
+
+func NewEditFileRequest(
+	dto EditFileDTO,
+	cfg *config.Config,
+	workspaceRoot string,
+	fs pathutil.FileSystem,
+) (*EditFileRequest, error) {
+	if dto.Path == "" {
+		return nil, ErrPathRequired
+	}
+
+	if len(dto.Operations) == 0 {
+		return nil, ErrOperationsRequired
+	}
+
+	abs, rel, err := pathutil.Resolve(workspaceRoot, fs, dto.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	var operations []Operation
+	for _, op := range dto.Operations {
+		if op.Before == "" {
+			return nil, ErrEmptyBefore
+		}
+
+		expected := op.ExpectedReplacements
+		if expected < 0 {
+			return nil, ErrInvalidExpectedReplacements
+		}
+		operations = append(operations, Operation{
+			before:               op.Before,
+			after:                op.After,
+			expectedReplacements: expected,
+		})
+	}
+
+	return &EditFileRequest{
+		absPath:    abs,
+		relPath:    rel,
+		operations: operations,
+	}, nil
+}
+
 type EditFileResponse struct {
 	AbsolutePath      string
 	RelativePath      string

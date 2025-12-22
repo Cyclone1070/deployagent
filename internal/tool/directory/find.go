@@ -11,9 +11,8 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	shared "github.com/Cyclone1070/iav/internal/tool/err"
+	"github.com/Cyclone1070/iav/internal/tool/executil"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
-	"github.com/Cyclone1070/iav/internal/tool/shell"
 )
 
 // dirFinder defines the filesystem operations needed for finding files.
@@ -27,7 +26,7 @@ type dirFinder interface {
 
 // commandExecutor defines the interface for executing shell commands.
 type commandExecutor interface {
-	Start(ctx context.Context, cmd []string, opts shell.ProcessOptions) (shell.Process, io.Reader, io.Reader, error)
+	Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
 }
 
 // FindFileTool handles file finding operations.
@@ -61,20 +60,20 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 
 	// Validate pattern syntax
 	if _, err := filepath.Match(req.Pattern(), ""); err != nil {
-		return nil, fmt.Errorf("%w %s: %v", shared.ErrInvalidPattern, req.Pattern(), err)
+		return nil, fmt.Errorf("%w %s: %v", ErrInvalidPattern, req.Pattern(), err)
 	}
 
 	// Verify search path exists and is a directory
 	info, err := t.fs.Stat(absSearchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("%w: %s", shared.ErrFileMissing, absSearchPath)
+			return nil, fmt.Errorf("%w: %s", ErrFileMissing, absSearchPath)
 		}
-		return nil, &shared.StatError{Path: absSearchPath, Cause: err}
+		return nil, &StatError{Path: absSearchPath, Cause: err}
 	}
 
 	if !info.IsDir() {
-		return nil, fmt.Errorf("%w: %s", shared.ErrNotADirectory, absSearchPath)
+		return nil, fmt.Errorf("%w: %s", ErrNotADirectory, absSearchPath)
 	}
 
 	// Use configured limits - constructor already checked bounds
@@ -97,9 +96,9 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	}
 
 	// Execute command with streaming
-	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, shell.NewProcessOptions(absSearchPath, nil))
+	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, absSearchPath, nil)
 	if err != nil {
-		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "start"}
+		return nil, &executil.CommandError{Cmd: "fd", Cause: err, Stage: "start"}
 	}
 	// We will wait explicitly to check for errors
 
@@ -133,12 +132,12 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	if err := scanner.Err(); err != nil {
 		// Try to wait to clean up process even on scan error
 		_ = proc.Wait()
-		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "read output"}
+		return nil, &executil.CommandError{Cmd: "fd", Cause: err, Stage: "read output"}
 	}
 
 	// Check command exit status
 	if err := proc.Wait(); err != nil {
-		return nil, &shared.CommandError{Cmd: "fd", Cause: err, Stage: "execution"}
+		return nil, &executil.CommandError{Cmd: "fd", Cause: err, Stage: "execution"}
 	}
 
 	// Sort ensures consistent pagination

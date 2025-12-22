@@ -96,11 +96,11 @@ func TestEditFileRequest_Validation(t *testing.T) {
 		dto     EditFileDTO
 		wantErr bool
 	}{
-		{"Valid", EditFileDTO{Path: "file.txt", Operations: []Operation{{Before: "old", After: "new"}}}, false},
-		{"EmptyPath", EditFileDTO{Path: "", Operations: []Operation{{Before: "old"}}}, true},
-		{"EmptyOperations", EditFileDTO{Path: "file.txt", Operations: []Operation{}}, true},
-		{"EmptyBefore", EditFileDTO{Path: "file.txt", Operations: []Operation{{Before: ""}}}, true},
-		{"NegativeReplacements", EditFileDTO{Path: "file.txt", Operations: []Operation{{Before: "old", ExpectedReplacements: -1}}}, true},
+		{"Valid", EditFileDTO{Path: "file.txt", Operations: []OperationDTO{{Before: "old", After: "new"}}}, false},
+		{"EmptyPath", EditFileDTO{Path: "", Operations: []OperationDTO{{Before: "old"}}}, true},
+		{"EmptyOperations", EditFileDTO{Path: "file.txt", Operations: []OperationDTO{}}, true},
+		{"EmptyBefore", EditFileDTO{Path: "file.txt", Operations: []OperationDTO{{Before: ""}}}, true},
+		{"NegativeReplacements", EditFileDTO{Path: "file.txt", Operations: []OperationDTO{{Before: "old", ExpectedReplacements: -1}}}, true},
 	}
 
 	for _, tt := range tests {
