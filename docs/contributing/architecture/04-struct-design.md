@@ -30,7 +30,7 @@ func NewResolver(root string, fs FileSystem) *Resolver {
 ```
 
 > [!NOTE]
-> Getters are acceptable when external code needs to read a value.
+> Getters are acceptable when external code needs to read a value. Though use sparingly, good design shouldn't have a lot of getters.
 > Avoid setters — prefer immutability.
 
 ## DTOs & Data Holders
