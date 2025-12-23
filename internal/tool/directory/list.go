@@ -55,7 +55,11 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req *ListDirectoryRequest) 
 		return nil, err
 	}
 
-	abs, rel, err := t.pathResolver.Resolve(req.Path)
+	abs, err := t.pathResolver.Abs(req.Path)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := t.pathResolver.Rel(abs)
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +183,9 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 
 		// Calculate relative path for this entry
 		entryAbs := filepath.Join(abs, entry.Name())
-		entryRel, err := filepath.Rel(t.pathResolver.WorkspaceRoot(), entryAbs)
+		entryRel, err := t.pathResolver.Rel(entryAbs)
 		if err != nil {
-			// This indicates a bug in path resolution - don't mask it
+			// This indicates a bug in path resolution or directory structure - don't mask it
 			return nil, false, &RelPathError{Path: entryAbs, Cause: err}
 		}
 

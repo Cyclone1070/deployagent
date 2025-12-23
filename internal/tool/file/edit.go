@@ -63,7 +63,11 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 		return nil, err
 	}
 
-	abs, rel, err := t.pathResolver.Resolve(req.Path)
+	abs, err := t.pathResolver.Abs(req.Path)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := t.pathResolver.Rel(abs)
 	if err != nil {
 		return nil, err
 	}

@@ -60,7 +60,11 @@ func (t *WriteFileTool) Run(ctx context.Context, req *WriteFileRequest) (*WriteF
 		return nil, err
 	}
 
-	abs, rel, err := t.pathResolver.Resolve(req.Path)
+	abs, err := t.pathResolver.Abs(req.Path)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := t.pathResolver.Rel(abs)
 	if err != nil {
 		return nil, err
 	}

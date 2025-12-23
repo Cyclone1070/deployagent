@@ -166,7 +166,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "test.txt"}
 		resp, err := readTool.Run(context.Background(), readReq)
@@ -197,7 +197,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 		offset := int64(5)
 
 		readReq := &ReadFileRequest{Path: "test.txt", Offset: &offset}
@@ -233,7 +233,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, detector, checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, detector, checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "binary.bin"}
 		_, err := readTool.Run(context.Background(), readReq)
@@ -252,7 +252,7 @@ func TestReadFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "large.txt"}
 		_, err := readTool.Run(context.Background(), readReq)
@@ -269,7 +269,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 		offset := int64(10000)
 
 		readReq := &ReadFileRequest{Path: "test.txt", Offset: &offset}
@@ -289,7 +289,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "subdir"}
 		_, err := readTool.Run(context.Background(), readReq)
@@ -304,7 +304,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "nonexistent.txt"}
 		_, err := readTool.Run(context.Background(), readReq)
@@ -322,7 +322,7 @@ func TestReadFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForRead(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 		limit := int64(4)
 
 		readReq := &ReadFileRequest{Path: "test.txt", Limit: &limit}

@@ -52,7 +52,7 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 		searchPath = "."
 	}
 
-	absSearchPath, _, err := t.pathResolver.Resolve(searchPath)
+	absSearchPath, err := t.pathResolver.Abs(searchPath)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 
 		if rgMatch.Type == "match" {
 			// Convert absolute path to workspace-relative
-			relPath, err := filepath.Rel(t.pathResolver.WorkspaceRoot(), rgMatch.Data.Path.Text)
+			relPath, err := t.pathResolver.Rel(rgMatch.Data.Path.Text)
 			if err != nil {
 				// Should work if using absolute paths, but fallback to absolute if fails
 				relPath = rgMatch.Data.Path.Text

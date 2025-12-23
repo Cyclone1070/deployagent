@@ -62,7 +62,7 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 		searchPath = "."
 	}
 
-	absSearchPath, _, err := t.pathResolver.Resolve(searchPath)
+	absSearchPath, err := t.pathResolver.Abs(searchPath)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 		}
 
 		// Convert absolute to relative
-		relPath, err := filepath.Rel(t.pathResolver.WorkspaceRoot(), line)
+		relPath, err := t.pathResolver.Rel(line)
 		if err != nil {
 			relPath = line // Fallback
 		}

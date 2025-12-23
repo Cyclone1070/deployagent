@@ -51,7 +51,11 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 		workingDir = "."
 	}
 
-	wdAbs, wdRel, err := t.pathResolver.Resolve(workingDir)
+	wdAbs, err := t.pathResolver.Abs(workingDir)
+	if err != nil {
+		return nil, err
+	}
+	wdRel, err := t.pathResolver.Rel(wdAbs)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +72,7 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 	env := os.Environ()
 
 	for _, envFile := range req.EnvFiles {
-		envFilePath, _, err := t.pathResolver.Resolve(envFile)
+		envFilePath, err := t.pathResolver.Abs(envFile)
 		if err != nil {
 			return nil, err
 		}

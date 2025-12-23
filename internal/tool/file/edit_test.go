@@ -25,8 +25,8 @@ func TestEditFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
-		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
+		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		// Read file to populate cache
 		readReq := &ReadFileRequest{Path: "test.txt"}
@@ -64,8 +64,8 @@ func TestEditFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
-		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
+		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
 		readReq := &ReadFileRequest{Path: "test.txt"}
@@ -114,8 +114,8 @@ func TestEditFile(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Tools.MaxFileSize = maxFileSize
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
-		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
+		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
 		readReq := &ReadFileRequest{Path: "test.txt"}
@@ -147,8 +147,8 @@ func TestEditFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
-		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
+		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
 		readReq := &ReadFileRequest{Path: "test.txt"}
@@ -187,8 +187,8 @@ func TestEditFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
-		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
+		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
 		readReq := &ReadFileRequest{Path: "test.txt"}
@@ -226,8 +226,8 @@ func TestEditFile(t *testing.T) {
 
 		cfg := config.DefaultConfig()
 
-		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
-		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot, fs))
+		readTool := NewReadFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
+		editTool := NewEditFileTool(fs, newMockBinaryDetectorForWrite(), checksumManager, cfg, pathutil.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "test.txt"}
 		_, _ = readTool.Run(context.Background(), readReq)
