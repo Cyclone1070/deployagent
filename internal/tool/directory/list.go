@@ -19,23 +19,23 @@ type dirLister interface {
 	ListDir(path string) ([]os.FileInfo, error)
 }
 
-// gitignoreService defines the interface for gitignore pattern matching.
-type gitignoreService interface {
+// IgnoreMatcher defines the interface for gitignore pattern matching.
+type IgnoreMatcher interface {
 	ShouldIgnore(relativePath string) bool
 }
 
 // ListDirectoryTool handles directory listing operations.
 type ListDirectoryTool struct {
-	fs               dirLister
-	gitignoreService gitignoreService
-	config           *config.Config
-	pathResolver     pathResolver
+	fs            dirLister
+	ignoreMatcher IgnoreMatcher
+	config        *config.Config
+	pathResolver  pathResolver
 }
 
 // NewListDirectoryTool creates a new ListDirectoryTool with injected dependencies.
 func NewListDirectoryTool(
 	fs dirLister,
-	gitignoreService gitignoreService,
+	ignoreMatcher IgnoreMatcher,
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *ListDirectoryTool {
@@ -49,10 +49,10 @@ func NewListDirectoryTool(
 		panic("pathResolver is required")
 	}
 	return &ListDirectoryTool{
-		fs:               fs,
-		gitignoreService: gitignoreService,
-		config:           cfg,
-		pathResolver:     pathResolver,
+		fs:            fs,
+		ignoreMatcher: ignoreMatcher,
+		config:        cfg,
+		pathResolver:  pathResolver,
 	}
 }
 
@@ -202,8 +202,8 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 		entryRel = filepath.ToSlash(entryRel)
 
 		// Apply gitignore filtering (unless IncludeIgnored is true)
-		if !includeIgnored && t.gitignoreService != nil {
-			if t.gitignoreService.ShouldIgnore(entryRel) {
+		if !includeIgnored && t.ignoreMatcher != nil {
+			if t.ignoreMatcher.ShouldIgnore(entryRel) {
 				continue // Skip gitignored files
 			}
 		}

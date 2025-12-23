@@ -47,22 +47,22 @@ func TestLoadGitignore(t *testing.T) {
 		fs := newMockFileSystem()
 		fs.createFile("/workspace/.gitignore", []byte("*.log\n*.tmp\n"))
 
-		service, err := NewService(workspaceRoot, fs)
+		matcher, err := NewIgnoreMatcher(workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if service == nil {
-			t.Fatal("expected non-nil service")
+		if matcher == nil {
+			t.Fatal("expected non-nil matcher")
 		}
 
 		// Test matching patterns
-		if !service.ShouldIgnore("test.log") {
+		if !matcher.ShouldIgnore("test.log") {
 			t.Error("expected test.log to be ignored")
 		}
-		if !service.ShouldIgnore("file.tmp") {
+		if !matcher.ShouldIgnore("file.tmp") {
 			t.Error("expected file.tmp to be ignored")
 		}
-		if service.ShouldIgnore("test.txt") {
+		if matcher.ShouldIgnore("test.txt") {
 			t.Error("expected test.txt not to be ignored")
 		}
 	})
@@ -70,7 +70,7 @@ func TestLoadGitignore(t *testing.T) {
 	t.Run("non-existent gitignore should not error", func(t *testing.T) {
 		fs := newMockFileSystem()
 
-		service, err := NewService(workspaceRoot, fs)
+		service, err := NewIgnoreMatcher(workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -88,24 +88,24 @@ func TestLoadGitignore(t *testing.T) {
 		fs := newMockFileSystem()
 		fs.createFile("/workspace/.gitignore", []byte("*.log\n"))
 
-		service, err := NewService(workspaceRoot, fs)
+		matcher, err := NewIgnoreMatcher(workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Dotfile matching pattern should be ignored
-		if !service.ShouldIgnore(".test.log") {
+		if !matcher.ShouldIgnore(".test.log") {
 			t.Error("expected .test.log to be ignored")
 		}
 
 		// Dotfile not matching pattern should not be ignored
-		if service.ShouldIgnore(".keep") {
+		if matcher.ShouldIgnore(".keep") {
 			t.Error("expected .keep not to be ignored")
 		}
 	})
 }
 
-func TestNewServiceErrors(t *testing.T) {
+func TestNewIgnoreMatcherErrors(t *testing.T) {
 	workspaceRoot := "/workspace"
 
 	t.Run("ReadError", func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestNewServiceErrors(t *testing.T) {
 		fs.createFile("/workspace/.gitignore", []byte("*.log"))
 		fs.readErr = errors.New("disk failure")
 
-		_, err := NewService(workspaceRoot, fs)
+		_, err := NewIgnoreMatcher(workspaceRoot, fs)
 		if err == nil {
 			t.Error("expected error for read failure")
 		}
@@ -132,15 +132,15 @@ func TestShouldIgnoreLogic(t *testing.T) {
 		// Use \r\n line endings
 		fs.createFile("/workspace/.gitignore", []byte("*.log\r\nnode_modules\r\n"))
 
-		service, err := NewService(workspaceRoot, fs)
+		matcher, err := NewIgnoreMatcher(workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if !service.ShouldIgnore("app.log") {
+		if !matcher.ShouldIgnore("app.log") {
 			t.Error("failed to match pattern with CRLF")
 		}
-		if !service.ShouldIgnore("node_modules/foo") {
+		if !matcher.ShouldIgnore("node_modules/foo") {
 			t.Error("failed to match directory with CRLF")
 		}
 	})
@@ -149,18 +149,18 @@ func TestShouldIgnoreLogic(t *testing.T) {
 		fs := newMockFileSystem()
 		fs.createFile("/workspace/.gitignore", []byte("*.log"))
 
-		service, err := NewService(workspaceRoot, fs)
+		matcher, err := NewIgnoreMatcher(workspaceRoot, fs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Consecutive slashes
-		if !service.ShouldIgnore("foo//bar.log") {
+		if !matcher.ShouldIgnore("foo//bar.log") {
 			t.Error("failed to ignore path with consecutive slashes")
 		}
 
 		// Dot path (current dir)
-		if !service.ShouldIgnore("./baz.log") {
+		if !matcher.ShouldIgnore("./baz.log") {
 			t.Error("failed to ignore path with dot prefix")
 		}
 	})

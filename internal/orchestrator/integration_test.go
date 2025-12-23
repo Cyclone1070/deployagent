@@ -37,7 +37,7 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	fileSystem := fs.NewOSFileSystem()
 	checksumMgr := hash.NewChecksumManager()
-	gitignoreSvc, _ := git.NewService(workspaceRoot, fileSystem)
+	ignoreMatcher, _ := git.NewIgnoreMatcher(workspaceRoot, fileSystem)
 	cfg := config.DefaultConfig()
 	pathResolver := path.NewResolver(workspaceRoot)
 
@@ -94,7 +94,7 @@ func TestOrchestratorProvider_ToolCallResponse(t *testing.T) {
 	}()
 
 	// Initialize tools and adapters
-	listTool := directory.NewListDirectoryTool(fileSystem, gitignoreSvc, cfg, pathResolver)
+	listTool := directory.NewListDirectoryTool(fileSystem, ignoreMatcher, cfg, pathResolver)
 	listAdapter := orchadapter.NewListDirectoryAdapter(listTool)
 
 	writeTool := file.NewWriteFileTool(fileSystem, checksumMgr, cfg, pathResolver)
@@ -177,7 +177,7 @@ func TestFullToolIntegration(t *testing.T) {
 	fs := fs.NewOSFileSystem()
 	cfg := config.DefaultConfig()
 	checksumMgr := hash.NewChecksumManager()
-	gitignoreSvc, _ := git.NewService(workspaceRoot, fs)
+	ignoreMatcher, _ := git.NewIgnoreMatcher(workspaceRoot, fs)
 	userInterface := mock.NewMockUI()
 	commandExecutor := executor.NewOSCommandExecutor(cfg)
 	pathResolver := path.NewResolver(workspaceRoot)
@@ -187,7 +187,7 @@ func TestFullToolIntegration(t *testing.T) {
 	}
 
 	// Initialize all real tools
-	listTool := directory.NewListDirectoryTool(fs, gitignoreSvc, cfg, pathResolver)
+	listTool := directory.NewListDirectoryTool(fs, ignoreMatcher, cfg, pathResolver)
 	findTool := directory.NewFindFileTool(fs, commandExecutor, cfg, pathResolver)
 	readTool := file.NewReadFileTool(fs, checksumMgr, cfg, pathResolver)
 	writeTool := file.NewWriteFileTool(fs, checksumMgr, cfg, pathResolver)

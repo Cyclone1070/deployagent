@@ -78,16 +78,16 @@ func createTools(cfg *config.Config, workspaceRoot string) ([]orchadapter.Tool, 
 	pathResolver := path.NewResolver(canonicalRoot)
 
 	// Initialize gitignore service
-	var gitignoreService interface {
+	var ignoreMatcher interface {
 		ShouldIgnore(relativePath string) bool
 	}
-	svc, err := git.NewService(canonicalRoot, osFS)
+	svc, err := git.NewIgnoreMatcher(canonicalRoot, osFS)
 	if err != nil {
-		// Log error but continue with NoOpService
+		// Log error but continue with NoOpMatcher
 		fmt.Fprintf(os.Stderr, "Warning: failed to initialize gitignore service: %v\n", err)
-		gitignoreService = &git.NoOpService{}
+		ignoreMatcher = &git.NoOpMatcher{}
 	} else {
-		gitignoreService = svc
+		ignoreMatcher = svc
 	}
 
 	// Docker configuration
@@ -100,7 +100,7 @@ func createTools(cfg *config.Config, workspaceRoot string) ([]orchadapter.Tool, 
 	readFileTool := file.NewReadFileTool(osFS, checksumManager, cfg, pathResolver)
 	writeFileTool := file.NewWriteFileTool(osFS, checksumManager, cfg, pathResolver)
 	editFileTool := file.NewEditFileTool(osFS, checksumManager, cfg, pathResolver)
-	listDirectoryTool := directory.NewListDirectoryTool(osFS, gitignoreService, cfg, pathResolver)
+	listDirectoryTool := directory.NewListDirectoryTool(osFS, ignoreMatcher, cfg, pathResolver)
 	findFileTool := directory.NewFindFileTool(osFS, commandExecutor, cfg, pathResolver)
 	searchContentTool := search.NewSearchContentTool(osFS, commandExecutor, cfg, pathResolver)
 	shellTool := shell.NewShellTool(osFS, commandExecutor, cfg, dockerConfig, pathResolver)

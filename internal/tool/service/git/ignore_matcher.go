@@ -26,14 +26,14 @@ type fileSystem interface {
 	ReadFileRange(path string, offset, limit int64) ([]byte, error)
 }
 
-// Service implements gitignore pattern matching using go-git's gitignore matcher.
-type Service struct {
+// IgnoreMatcher implements gitignore pattern matching using go-git's gitignore matcher.
+type IgnoreMatcher struct {
 	matcher gitignore.Matcher
 }
 
-// NewService creates a new gitignore service by loading .gitignore from workspace root.
-// Returns a service that never ignores if .gitignore doesn't exist (no error).
-func NewService(workspaceRoot string, fs fileSystem) (*Service, error) {
+// NewIgnoreMatcher creates a new gitignore matcher by loading .gitignore from workspace root.
+// Returns a matcher that never ignores if .gitignore doesn't exist (no error).
+func NewIgnoreMatcher(workspaceRoot string, fs fileSystem) (*IgnoreMatcher, error) {
 	if workspaceRoot == "" {
 		panic("workspaceRoot is required")
 	}
@@ -45,8 +45,8 @@ func NewService(workspaceRoot string, fs fileSystem) (*Service, error) {
 	// Check if .gitignore exists
 	_, err := fs.Stat(gitignorePath)
 	if err != nil {
-		// .gitignore doesn't exist - return a service that never ignores
-		return &Service{matcher: nil}, nil
+		// .gitignore doesn't exist - return a matcher that never ignores
+		return &IgnoreMatcher{matcher: nil}, nil
 	}
 
 	// Read .gitignore file
@@ -69,19 +69,19 @@ func NewService(workspaceRoot string, fs fileSystem) (*Service, error) {
 	}
 	matcher := gitignore.NewMatcher(patterns)
 
-	return &Service{matcher: matcher}, nil
+	return &IgnoreMatcher{matcher: matcher}, nil
 }
 
 // ShouldIgnore checks if a relative path matches any gitignore patterns.
 // Returns false if no .gitignore was loaded.
-func (g *Service) ShouldIgnore(relativePath string) bool {
-	if g.matcher == nil {
+func (m *IgnoreMatcher) ShouldIgnore(relativePath string) bool {
+	if m.matcher == nil {
 		return false
 	}
 
 	// Convert to gitignore format (split path into segments)
 	segments := splitPath(relativePath)
-	return g.matcher.Match(segments, false)
+	return m.matcher.Match(segments, false)
 }
 
 // splitPath splits a path into segments for gitignore matching.
@@ -126,11 +126,11 @@ func splitLines(content string) []string {
 	return lines
 }
 
-// NoOpService is a gitignore service that never ignores any files.
+// NoOpMatcher is a gitignore matcher that never ignores any files.
 // It is used when gitignore functionality is disabled or fails to initialize.
-type NoOpService struct{}
+type NoOpMatcher struct{}
 
-// ShouldIgnore always returns false for NoOpService.
-func (s *NoOpService) ShouldIgnore(relativePath string) bool {
+// ShouldIgnore always returns false for NoOpMatcher.
+func (m *NoOpMatcher) ShouldIgnore(relativePath string) bool {
 	return false
 }
