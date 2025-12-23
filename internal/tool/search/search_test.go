@@ -3,7 +3,6 @@ package search
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"slices"
 	"strings"
@@ -11,7 +10,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -63,29 +62,15 @@ func (m *mockFileSystemForSearch) UserHomeDir() (string, error) {
 }
 
 type mockCommandExecutorForSearch struct {
-	startFunc func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
+	runFunc func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error)
 }
 
-func (m *mockCommandExecutorForSearch) Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-	if m.startFunc != nil {
-		return m.startFunc(ctx, cmd, dir, env)
+func (m *mockCommandExecutorForSearch) Run(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+	if m.runFunc != nil {
+		return m.runFunc(ctx, cmd, dir, env)
 	}
-	return nil, nil, nil, fmt.Errorf("not implemented")
+	return nil, fmt.Errorf("not implemented")
 }
-
-type mockProcessForSearch struct {
-	waitFunc func() error
-}
-
-func (m *mockProcessForSearch) Wait() error {
-	if m.waitFunc != nil {
-		return m.waitFunc()
-	}
-	return nil
-}
-
-func (m *mockProcessForSearch) Signal(sig os.Signal) error { return nil }
-func (m *mockProcessForSearch) Kill() error                { return nil }
 
 type mockExitErrorForSearch struct {
 	code int
@@ -110,8 +95,8 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/file.go"},"lines":{"text":"func bar()"},"line_number":20}}`
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: rgOutput, ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -145,13 +130,9 @@ func TestSearchContent_CaseInsensitive(t *testing.T) {
 
 	var capturedCmd []string
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		capturedCmd = cmd
-		proc := &mockProcessForSearch{}
-		proc.waitFunc = func() error {
-			return newMockExitErrorForSearch(1)
-		}
-		return proc, strings.NewReader(""), strings.NewReader(""), nil
+		return &executor.Result{Stdout: "", ExitCode: 1}, newMockExitErrorForSearch(1)
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -191,8 +172,8 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 	rgOutput := fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"%s"},"line_number":1}}`, longLine)
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: rgOutput, ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -224,13 +205,9 @@ func TestSearchContent_CommandInjection(t *testing.T) {
 
 	var capturedCmd []string
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		capturedCmd = cmd
-		proc := &mockProcessForSearch{}
-		proc.waitFunc = func() error {
-			return newMockExitErrorForSearch(1)
-		}
-		return proc, strings.NewReader(""), strings.NewReader(""), nil
+		return &executor.Result{Stdout: "", ExitCode: 1}, newMockExitErrorForSearch(1)
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -252,12 +229,8 @@ func TestSearchContent_NoMatches(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		proc := &mockProcessForSearch{}
-		proc.waitFunc = func() error {
-			return newMockExitErrorForSearch(1)
-		}
-		return proc, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 1}, newMockExitErrorForSearch(1)
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -284,14 +257,14 @@ func TestSearchContent_Pagination(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	var rgOutput string
-	for i := range 10 {
+	for i := 0; i < 10; i++ {
 		rgOutput += fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"line %d"},"line_number":%d}}
 `, i, i+1)
 	}
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: rgOutput, ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -330,8 +303,8 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 {"type":"match","data":{"path":{"text":"/workspace/a.txt"},"lines":{"text":"match"},"line_number":5}}`
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: rgOutput, ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -369,8 +342,8 @@ invalid json line
 {"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"also valid"},"line_number":2}}`
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(rgOutput), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: rgOutput, ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -393,12 +366,8 @@ func TestSearchContent_CommandFailure(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		proc := &mockProcessForSearch{}
-		proc.waitFunc = func() error {
-			return newMockExitErrorForSearch(2)
-		}
-		return proc, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 2}, newMockExitErrorForSearch(2)
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -417,12 +386,12 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		if slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
 		}
 		output := `{"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-		return &mockProcessForSearch{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -438,13 +407,13 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 	}
 
 	// Test with includeIgnored=true
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		if !slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to be present when includeIgnored=true")
 		}
 		output := `{"type":"match","data":{"path":{"text":"/workspace/ignored.go"},"lines":{"text":"func main()"},"line_number":1}}
 {"type":"match","data":{"path":{"text":"/workspace/visible.go"},"lines":{"text":"func main()"},"line_number":1}}`
-		return &mockProcessForSearch{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	req = &SearchContentRequest{Query: "func main", SearchPath: "", CaseSensitive: true, IncludeIgnored: true, Offset: 0, Limit: 100}
@@ -481,8 +450,8 @@ func TestSearchContent_LimitValidation(t *testing.T) {
 	fs.createDir("/workspace")
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 0}, nil
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {
@@ -521,8 +490,8 @@ func TestSearchContent_OffsetValidation(t *testing.T) {
 	fs.createDir("/workspace")
 
 	mockRunner := &mockCommandExecutorForSearch{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForSearch{}, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 0}, nil
 	}
 
 	searchTool := NewSearchContentTool(fs, mockRunner, config.DefaultConfig(), pathutil.NewResolver("/workspace"))

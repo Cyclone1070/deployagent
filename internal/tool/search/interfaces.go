@@ -2,10 +2,9 @@ package search
 
 import (
 	"context"
-	"io"
 	"os"
 
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 )
 
 // fileSystem defines the minimal filesystem interface needed by search tools.
@@ -17,7 +16,7 @@ type fileSystem interface {
 	UserHomeDir() (string, error)
 }
 
-// commandExecutor defines the interface for executing shell commands.
+// commandExecutor defines the interface for executing search commands.
 type commandExecutor interface {
-	Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
+	Run(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error)
 }

@@ -3,26 +3,26 @@ package shell
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
+	"time"
 
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 )
 
 // mockCommandExecutorForDocker is a local mock for testing docker functions
 type mockCommandExecutorForDocker struct {
-	runFunc func(ctx context.Context, cmd []string) ([]byte, error)
+	runFunc func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error)
 }
 
-func (m *mockCommandExecutorForDocker) Run(ctx context.Context, cmd []string) ([]byte, error) {
+func (m *mockCommandExecutorForDocker) Run(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 	if m.runFunc != nil {
-		return m.runFunc(ctx, cmd)
+		return m.runFunc(ctx, cmd, dir, env)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCommandExecutorForDocker) Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-	return nil, nil, nil, errors.New("not implemented")
+func (m *mockCommandExecutorForDocker) RunWithTimeout(ctx context.Context, cmd []string, dir string, env []string, timeout time.Duration) (*executor.Result, error) {
+	return nil, errors.New("not implemented")
 }
 
 func TestEnsureDockerReady(t *testing.T) {
@@ -33,9 +33,9 @@ func TestEnsureDockerReady(t *testing.T) {
 
 	t.Run("Success immediately", func(t *testing.T) {
 		runner := &mockCommandExecutorForDocker{}
-		runner.runFunc = func(ctx context.Context, cmd []string) ([]byte, error) {
+		runner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 			if cmd[0] == "docker" && cmd[1] == "info" {
-				return nil, nil
+				return &executor.Result{Stdout: "", ExitCode: 0}, nil
 			}
 			return nil, errors.New("unexpected command")
 		}
@@ -48,16 +48,16 @@ func TestEnsureDockerReady(t *testing.T) {
 	t.Run("Start required and succeeds", func(t *testing.T) {
 		checkCalls := 0
 		runner := &mockCommandExecutorForDocker{}
-		runner.runFunc = func(ctx context.Context, cmd []string) ([]byte, error) {
+		runner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 			if cmd[0] == "docker" && cmd[1] == "info" {
 				checkCalls++
 				if checkCalls == 1 {
-					return nil, errors.New("docker not running")
+					return &executor.Result{Stdout: "", ExitCode: 1}, errors.New("docker not running")
 				}
-				return nil, nil // Success on second call
+				return &executor.Result{Stdout: "", ExitCode: 0}, nil // Success on second call
 			}
 			if cmd[0] == "open" {
-				return nil, nil // Start command succeeds
+				return &executor.Result{Stdout: "", ExitCode: 0}, nil // Start command succeeds
 			}
 			return nil, errors.New("unexpected command")
 		}
@@ -73,8 +73,8 @@ func TestEnsureDockerReady(t *testing.T) {
 
 	t.Run("Start fails", func(t *testing.T) {
 		runner := &mockCommandExecutorForDocker{}
-		runner.runFunc = func(ctx context.Context, cmd []string) ([]byte, error) {
-			return nil, errors.New("command failed")
+		runner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+			return &executor.Result{Stdout: "", ExitCode: 1}, errors.New("command failed")
 		}
 		err := EnsureDockerReady(context.Background(), runner, config, 5, 10)
 		if err == nil {

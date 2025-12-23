@@ -1,31 +1,18 @@
 package directory
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
-
-// dirFinder defines the filesystem operations needed for finding files.
-// Note: Does NOT include ListDir - this tool uses the fd command instead.
-type dirFinder interface {
-	Stat(path string) (os.FileInfo, error)
-}
-
-// commandExecutor defines the interface for executing shell commands.
-type commandExecutor interface {
-	Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
-}
 
 // FindFileTool handles file finding operations.
 type FindFileTool struct {
@@ -104,49 +91,35 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 		cmd = append(cmd, "--max-depth", fmt.Sprintf("%d", req.MaxDepth))
 	}
 
-	// Execute command with streaming
-	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, absSearchPath, nil)
+	// Execute command
+	res, err := t.commandExecutor.Run(ctx, cmd, absSearchPath, nil)
 	if err != nil {
-		return nil, &executil.CommandError{Cmd: "fd", Cause: err, Stage: "start"}
+		return nil, &executor.CommandError{Cmd: "fd", Cause: err, Stage: "execution"}
 	}
-	// We will wait explicitly to check for errors
+	if res == nil {
+		return nil, &executor.CommandError{Cmd: "fd", Cause: fmt.Errorf("no result"), Stage: "execution"}
+	}
 
-	// Capture all output to safe buffer with limit
-	// We read all matches then slice, as fd doesn't support offset/limit natively in a way that guarantees consistent sorting without reading all.
-	// For massive result sets, this could be optimized, but for now we rely on MaxFindFileResults cap.
-
-	// Max results hard cap for memory safety
+	// Capture all output
 	maxResults := t.config.Tools.MaxFindFileResults
 
 	var matches []string
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	lines := strings.Split(res.Stdout, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
-		// Convert absolute to relative
 		relPath, err := t.pathResolver.Rel(line)
 		if err != nil {
-			relPath = line // Fallback
+			relPath = line
 		}
 		matches = append(matches, filepath.ToSlash(relPath))
 
 		if len(matches) >= maxResults {
 			break
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		// Try to wait to clean up process even on scan error
-		_ = proc.Wait()
-		return nil, &executil.CommandError{Cmd: "fd", Cause: err, Stage: "read output"}
-	}
-
-	// Check command exit status
-	if err := proc.Wait(); err != nil {
-		return nil, &executil.CommandError{Cmd: "fd", Cause: err, Stage: "execution"}
 	}
 
 	// Sort ensures consistent pagination

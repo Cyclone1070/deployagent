@@ -15,7 +15,7 @@ import (
 	provider "github.com/Cyclone1070/iav/internal/provider/model"
 	"github.com/Cyclone1070/iav/internal/tool/contentutil"
 	"github.com/Cyclone1070/iav/internal/tool/directory"
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 	"github.com/Cyclone1070/iav/internal/tool/file"
 	"github.com/Cyclone1070/iav/internal/tool/fsutil"
 	"github.com/Cyclone1070/iav/internal/tool/gitutil"
@@ -75,9 +75,9 @@ func createTools(cfg *config.Config, workspaceRoot string) ([]orchadapter.Tool, 
 	osFS := fsutil.NewOSFileSystem()
 	binaryDetector := contentutil.NewSystemBinaryDetector(cfg.Tools.BinaryDetectionSampleSize)
 	checksumManager := hashutil.NewChecksumManager()
-	commandExecutor := executil.NewOSCommandExecutor()
+	commandExecutor := executor.NewOSCommandExecutor(cfg)
 	todoStore := todo.NewInMemoryTodoStore()
-	pathResolver := pathutil.NewResolver(canonicalRoot, osFS)
+	pathResolver := pathutil.NewResolver(canonicalRoot)
 
 	// Initialize gitignore service
 	var gitignoreService interface {

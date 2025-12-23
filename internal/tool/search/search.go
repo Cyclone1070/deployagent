@@ -1,7 +1,6 @@
 package search
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 	"github.com/Cyclone1070/iav/internal/tool/paginationutil"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
@@ -81,12 +80,6 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	// Hard limit on line length to avoid memory issues
 	maxLineLength := t.config.Tools.MaxLineLength
 
-	// 10MB default for crazy long lines (minified JS etc)
-	maxScanTokenSize := t.config.Tools.MaxScanTokenSize
-
-	// Configure scanner buffer
-	initialBufSize := t.config.Tools.InitialScannerBufferSize
-
 	// Build ripgrep command
 	// rg --json "query" searchPath [--no-ignore]
 	cmd := []string{"rg", "--json"}
@@ -98,22 +91,27 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	}
 	cmd = append(cmd, req.Query, absSearchPath)
 
-	// Execute command with streaming
-	proc, stdout, _, err := t.commandExecutor.Start(ctx, cmd, absSearchPath, nil)
-	if err != nil {
-		return nil, &executil.CommandError{Cmd: "rg", Cause: err, Stage: "start"}
+	// Execute command
+	res, err := t.commandExecutor.Run(ctx, cmd, absSearchPath, nil)
+	if err != nil && (res == nil || res.ExitCode != 1) { // rg returns 1 for no matches
+		return nil, &executor.CommandError{Cmd: "rg", Cause: err, Stage: "execution"}
 	}
-	// process will be waited on explicitly later
 
-	// Stream and process JSON output line by line
+	// Process output
 	var matches []SearchContentMatch
-	scanner := bufio.NewScanner(stdout)
-	// Increase buffer size to handle very long lines (e.g. minified JS)
-	buf := make([]byte, 0, initialBufSize)
-	scanner.Buffer(buf, maxScanTokenSize)
+	if res == nil {
+		return &SearchContentResponse{
+			Matches:    nil,
+			Offset:     req.Offset,
+			Limit:      limit,
+			TotalCount: 0,
+			Truncated:  false,
+		}, nil
+	}
+	lines := strings.Split(res.Stdout, "\n")
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
@@ -133,21 +131,16 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 		}
 
 		if err := json.Unmarshal([]byte(line), &rgMatch); err != nil {
-			// Skip malformed lines (though rg output should be reliable)
 			continue
 		}
 
 		if rgMatch.Type == "match" {
-			// Convert absolute path to workspace-relative
 			relPath, err := t.pathResolver.Rel(rgMatch.Data.Path.Text)
 			if err != nil {
-				// Should work if using absolute paths, but fallback to absolute if fails
 				relPath = rgMatch.Data.Path.Text
 			}
 
 			lineContent := strings.TrimSpace(rgMatch.Data.Lines.Text)
-			// Check if line is too long, truncate if necessary
-			// This prevents returning massive lines that could crash the response
 			if len(lineContent) > maxLineLength {
 				lineContent = lineContent[:maxLineLength] + "...[truncated]"
 			}
@@ -158,26 +151,9 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 				LineContent: lineContent,
 			})
 
-			// Safety check for memory
 			if len(matches) >= maxResults {
 				break
 			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, &executil.CommandError{Cmd: "rg", Cause: err, Stage: "read output"}
-	}
-
-	// Wait for command to complete
-	if err := proc.Wait(); err != nil {
-		exitCode := executil.GetExitCode(err)
-		if exitCode == 1 {
-			// rg returns 1 for no matches (valid case)
-			// We just continue with empty matches
-		} else {
-			// Exit code 2+ = real error
-			return nil, &executil.CommandError{Cmd: "rg", Cause: err, Stage: "execution"}
 		}
 	}
 

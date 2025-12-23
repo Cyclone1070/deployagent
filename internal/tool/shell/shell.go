@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -93,52 +93,35 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 		env = append(env, k+"="+v)
 	}
 
-	proc, stdout, stderr, err := t.commandExecutor.Start(ctx, req.Command, wdAbs, env)
-	if err != nil {
-		return nil, err
-	}
-
-	// Use configured binary detection sample size
-	sampleSize := t.config.Tools.BinaryDetectionSampleSize
-	// Use configured max output size
-	maxOutputSize := t.config.Tools.DefaultMaxCommandOutputSize
-
-	stdoutStr, stderrStr, truncated, _ := executil.CollectProcessOutput(stdout, stderr, int(maxOutputSize), sampleSize)
-
 	timeout := time.Duration(req.TimeoutSeconds) * time.Second
 	if timeout == 0 {
 		timeout = time.Duration(t.config.Tools.DefaultShellTimeout) * time.Second
 	}
 
-	// Use configured graceful shutdown
-	gracefulShutdownMs := t.config.Tools.DockerGracefulShutdownMs
-
-	execErr := executil.ExecuteWithTimeout(ctx, req.Command, timeout, gracefulShutdownMs, proc)
+	result, execErr := t.commandExecutor.RunWithTimeout(ctx, req.Command, wdAbs, env, timeout)
+	if result == nil {
+		result = &executor.Result{ExitCode: -1}
+	}
 
 	resp := &ShellResponse{
-		Stdout:     stdoutStr,
-		Stderr:     stderrStr,
+		Stdout:     result.Stdout,
+		Stderr:     result.Stderr,
 		WorkingDir: wdRel,
-		Truncated:  truncated,
+		ExitCode:   result.ExitCode,
+		Truncated:  result.Truncated,
 	}
 
 	if execErr != nil {
-		var t interface{ Timeout() bool }
-		if errors.As(execErr, &t) && t.Timeout() {
-			resp.ExitCode = -1
+		if errors.Is(execErr, executor.ErrTimeout) {
 			return resp, execErr
 		}
 		// Check for context cancellation
 		if errors.Is(execErr, context.Canceled) || errors.Is(execErr, context.DeadlineExceeded) {
-			resp.ExitCode = -1
 			return resp, execErr
 		}
-		// Command ran but failed - extract exit code and return success
-		resp.ExitCode = executil.GetExitCode(execErr)
+		// Command ran but failed - we already have the exit code in resp
 		return resp, nil
 	}
-
-	resp.ExitCode = 0
 
 	if IsDockerComposeUpDetached(req.Command) {
 		ids, err := CollectComposeContainers(ctx, t.commandExecutor, wdAbs)

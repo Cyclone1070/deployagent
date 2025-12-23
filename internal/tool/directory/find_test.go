@@ -4,15 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/executil"
+	"github.com/Cyclone1070/iav/internal/tool/executor"
 	"github.com/Cyclone1070/iav/internal/tool/pathutil"
 )
 
@@ -68,29 +66,15 @@ func (m *mockFileSystemForFind) ListDir(path string) ([]os.FileInfo, error) {
 }
 
 type mockCommandExecutorForFind struct {
-	startFunc func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error)
+	runFunc func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error)
 }
 
-func (m *mockCommandExecutorForFind) Start(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-	if m.startFunc != nil {
-		return m.startFunc(ctx, cmd, dir, env)
+func (m *mockCommandExecutorForFind) Run(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+	if m.runFunc != nil {
+		return m.runFunc(ctx, cmd, dir, env)
 	}
-	return nil, nil, nil, fmt.Errorf("not implemented")
+	return nil, fmt.Errorf("not implemented")
 }
-
-type mockProcessForFind struct {
-	waitFunc func() error
-}
-
-func (m *mockProcessForFind) Wait() error {
-	if m.waitFunc != nil {
-		return m.waitFunc()
-	}
-	return nil
-}
-
-func (m *mockProcessForFind) Signal(sig os.Signal) error { return nil }
-func (m *mockProcessForFind) Kill() error                { return nil }
 
 type mockExitErrorForFind struct {
 	code int
@@ -112,9 +96,9 @@ func TestFindFile_BasicGlob(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		output := "/workspace/a/b/file.go\n/workspace/a/file.go\n"
-		return &mockProcessForFind{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -144,13 +128,13 @@ func TestFindFile_Pagination(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	var output string
-	for i := range 10 {
+	for i := 0; i < 10; i++ {
 		output += fmt.Sprintf("/workspace/file%d.txt\n", i)
 	}
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForFind{}, strings.NewReader(output), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -185,12 +169,8 @@ func TestFindFile_InvalidGlob(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		proc := &mockProcessForFind{}
-		proc.waitFunc = func() error {
-			return newMockExitErrorForFind(2)
-		}
-		return proc, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 2}, newMockExitErrorForFind(2)
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -240,12 +220,8 @@ func TestFindFile_CommandFailure(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		proc := &mockProcessForFind{}
-		proc.waitFunc = func() error {
-			return newMockExitErrorForFind(2)
-		}
-		return proc, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 2}, newMockExitErrorForFind(2)
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -265,9 +241,9 @@ func TestFindFile_ShellInjection(t *testing.T) {
 
 	var capturedCmd []string
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		capturedCmd = cmd
-		return &mockProcessForFind{}, strings.NewReader(""), strings.NewReader(""), nil
+		return &executor.Result{Stdout: "", ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -289,9 +265,9 @@ func TestFindFile_UnicodeFilenames(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		output := "/workspace/🚀.txt\n/workspace/文件.txt\n"
-		return &mockProcessForFind{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -332,14 +308,14 @@ func TestFindFile_DeeplyNested(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	deepPath := "/workspace"
-	for i := range 100 {
+	for i := 0; i < 100; i++ {
 		deepPath += fmt.Sprintf("/dir%d", i)
 	}
 	deepPath += "/file.txt"
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForFind{}, strings.NewReader(deepPath + "\n"), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: deepPath + "\n", ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -362,8 +338,8 @@ func TestFindFile_NoMatches(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForFind{}, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -390,12 +366,12 @@ func TestFindFile_IncludeIgnored(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		if slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to NOT be present when includeIgnored=false")
 		}
 		output := "/workspace/visible.go\n"
-		return &mockProcessForFind{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	findTool := NewFindFileTool(fs, mockRunner, cfg, pathutil.NewResolver(workspaceRoot))
@@ -411,12 +387,12 @@ func TestFindFile_IncludeIgnored(t *testing.T) {
 	}
 
 	// Test with includeIgnored=true
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
 		if !slices.Contains(cmd, "--no-ignore") {
 			t.Error("expected --no-ignore to be present when includeIgnored=true")
 		}
 		output := "/workspace/ignored.go\n/workspace/visible.go\n"
-		return &mockProcessForFind{}, strings.NewReader(output), strings.NewReader(""), nil
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
 	}
 
 	req = &FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: true, Offset: 0, Limit: 100}
@@ -458,8 +434,8 @@ func TestFindFile_LimitValidation(t *testing.T) {
 	cfg.Tools.MaxFindFileLimit = 50
 
 	mockRunner := &mockCommandExecutorForFind{}
-	mockRunner.startFunc = func(ctx context.Context, cmd []string, dir string, env []string) (executil.Process, io.Reader, io.Reader, error) {
-		return &mockProcessForFind{}, strings.NewReader(""), strings.NewReader(""), nil
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		return &executor.Result{Stdout: "", ExitCode: 0}, nil
 	}
 
 	t.Run("zero limit uses default", func(t *testing.T) {

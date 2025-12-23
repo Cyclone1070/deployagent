@@ -60,11 +60,11 @@ func IsDockerComposeUpDetached(command []string) bool {
 // EnsureDockerReady checks if Docker is running and attempts to start it if not.
 // It retries the check up to retryAttempts times with retryIntervalMs formatted as milliseconds after starting Docker.
 func EnsureDockerReady(ctx context.Context, runner commandExecutor, config DockerConfig, retryAttempts int, retryIntervalMs int) error {
-	if _, err := runner.Run(ctx, config.CheckCommand); err == nil {
+	if res, err := runner.Run(ctx, config.CheckCommand, "", nil); err == nil && res.ExitCode == 0 {
 		return nil
 	}
 
-	if _, err := runner.Run(ctx, config.StartCommand); err != nil {
+	if _, err := runner.Run(ctx, config.StartCommand, "", nil); err != nil {
 		return err
 	}
 
@@ -76,26 +76,34 @@ func EnsureDockerReady(ctx context.Context, runner commandExecutor, config Docke
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if _, err := runner.Run(ctx, config.CheckCommand); err == nil {
+			if res, err := runner.Run(ctx, config.CheckCommand, "", nil); err == nil && res.ExitCode == 0 {
 				return nil
 			}
 		}
 	}
 
-	_, err := runner.Run(ctx, config.CheckCommand)
-	return err
+	res, err := runner.Run(ctx, config.CheckCommand, "", nil)
+	if err != nil {
+		return err
+	}
+	if res.ExitCode != 0 {
+		return fmt.Errorf("docker not ready: exit code %d", res.ExitCode)
+	}
+	return nil
 }
 
 // CollectComposeContainers collects container IDs from a docker compose project in the specified directory.
 // It uses 'docker compose ps -q' to get the list of container IDs.
 func CollectComposeContainers(ctx context.Context, runner commandExecutor, dir string) ([]string, error) {
 	cmd := []string{"docker", "compose", "--project-directory", dir, "ps", "-q"}
-	output, err := runner.Run(ctx, cmd)
+	res, err := runner.Run(ctx, cmd, dir, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	stdout := res.Stdout
+
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	var ids []string
 	for _, line := range lines {
 		if line != "" {
