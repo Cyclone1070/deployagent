@@ -55,6 +55,36 @@ func TestEditFile(t *testing.T) {
 		}
 	})
 
+	t.Run("no cached checksum skips revalidation", func(t *testing.T) {
+		fs := newMockFileSystemForWrite()
+		checksumManager := newMockChecksumManagerForWrite()
+		// File content
+		content := []byte("some content")
+		fs.createFile("/workspace/test.txt", content, 0644)
+
+		cfg := config.DefaultConfig()
+
+		// Skip reading first, so no cache
+		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
+
+		ops := []EditOperation{
+			{
+				Before:               "some",
+				After:                "new",
+				ExpectedReplacements: 1,
+			},
+		}
+
+		editReq := &EditFileRequest{Path: "test.txt", Operations: ops}
+		resp, err := editTool.Run(context.Background(), editReq)
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		if resp.OperationsApplied != 1 {
+			t.Errorf("expected 1 op applied, got %d", resp.OperationsApplied)
+		}
+	})
+
 	t.Run("multiple operations", func(t *testing.T) {
 		fs := newMockFileSystemForWrite()
 		checksumManager := newMockChecksumManagerForWrite()

@@ -2,11 +2,32 @@ package todo
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
 )
+
+// mockTodoStoreWithErrors is a local mock for testing store errors
+type mockTodoStoreWithErrors struct {
+	readErr  error
+	writeErr error
+}
+
+func (m *mockTodoStoreWithErrors) Read() ([]Todo, error) {
+	if m.readErr != nil {
+		return nil, m.readErr
+	}
+	return []Todo{}, nil
+}
+
+func (m *mockTodoStoreWithErrors) Write(todos []Todo) error {
+	if m.writeErr != nil {
+		return m.writeErr
+	}
+	return nil
+}
 
 func TestTodoTools(t *testing.T) {
 	cfg := config.DefaultConfig()
@@ -188,5 +209,87 @@ func TestTodoTools(t *testing.T) {
 			}(i)
 		}
 		wg.Wait()
+	})
+}
+
+func TestTodoValidation(t *testing.T) {
+	cfg := config.DefaultConfig()
+	store := NewInMemoryTodoStore()
+	writeTool := NewWriteTodosTool(store, cfg)
+
+	t.Run("InvalidStatus", func(t *testing.T) {
+		req := &WriteTodosRequest{
+			Todos: []Todo{{Description: "Foo", Status: "unknown"}},
+		}
+		_, err := writeTool.Run(context.Background(), req)
+		if err == nil {
+			t.Error("expected error for invalid status")
+		}
+		if !errors.Is(err, ErrInvalidStatus) {
+			t.Errorf("expected ErrInvalidStatus, got %v", err)
+		}
+	})
+
+	t.Run("EmptyDescription", func(t *testing.T) {
+		req := &WriteTodosRequest{
+			Todos: []Todo{{Description: "", Status: TodoStatusPending}},
+		}
+		_, err := writeTool.Run(context.Background(), req)
+		if err == nil {
+			t.Error("expected error for empty description")
+		}
+		if !errors.Is(err, ErrEmptyDescription) {
+			t.Errorf("expected ErrEmptyDescription, got %v", err)
+		}
+	})
+
+	t.Run("AllValidStatuses", func(t *testing.T) {
+		statuses := []TodoStatus{
+			TodoStatusPending,
+			TodoStatusInProgress,
+			TodoStatusCompleted,
+			TodoStatusCancelled,
+		}
+		for _, s := range statuses {
+			req := &WriteTodosRequest{
+				Todos: []Todo{{Description: "Valid", Status: s}},
+			}
+			_, err := writeTool.Run(context.Background(), req)
+			if err != nil {
+				t.Errorf("expected success for status %s, got %v", s, err)
+			}
+		}
+	})
+}
+
+func TestTodoStoreErrors(t *testing.T) {
+	cfg := config.DefaultConfig()
+
+	t.Run("ReadError", func(t *testing.T) {
+		mockStore := &mockTodoStoreWithErrors{readErr: errors.New("read failed")}
+		readTool := NewReadTodosTool(mockStore, cfg)
+
+		_, err := readTool.Run(context.Background(), &ReadTodosRequest{})
+		if err == nil {
+			t.Error("expected error for store read failure")
+		}
+		var storeErr *StoreReadError
+		if !errors.As(err, &storeErr) {
+			t.Errorf("expected StoreReadError, got %T: %v", err, err)
+		}
+	})
+
+	t.Run("WriteError", func(t *testing.T) {
+		mockStore := &mockTodoStoreWithErrors{writeErr: errors.New("write failed")}
+		writeTool := NewWriteTodosTool(mockStore, cfg)
+
+		_, err := writeTool.Run(context.Background(), &WriteTodosRequest{Todos: []Todo{}})
+		if err == nil {
+			t.Error("expected error for store write failure")
+		}
+		var storeErr *StoreWriteError
+		if !errors.As(err, &storeErr) {
+			t.Errorf("expected StoreWriteError, got %T: %v", err, err)
+		}
 	})
 }

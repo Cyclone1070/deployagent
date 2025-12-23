@@ -69,3 +69,25 @@ func TestChecksumManagerClear(t *testing.T) {
 		t.Error("cache should be empty after Clear")
 	}
 }
+
+func TestCompute(t *testing.T) {
+	manager := NewChecksumManager()
+
+	t.Run("EmptyData", func(t *testing.T) {
+		hash := manager.Compute([]byte{})
+		expected := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" // known empty sha256
+		if hash != expected {
+			t.Errorf("got %s, want %s", hash, expected)
+		}
+	})
+
+	t.Run("KnownHash", func(t *testing.T) {
+		data := []byte("hello")
+		hash := manager.Compute(data)
+		// echo -n "hello" | shasum -a 256
+		expected := "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+		if hash != expected {
+			t.Errorf("got %s, want %s", hash, expected)
+		}
+	})
+}

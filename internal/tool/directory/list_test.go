@@ -797,23 +797,41 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 
 func TestListDirectory_InvalidPagination(t *testing.T) {
 	workspaceRoot := "/workspace"
-
-	t.Run("zero limit uses default", func(t *testing.T) {
+	t.Run("negative offset", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+		cfg := config.DefaultConfig()
+		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
+
+		req := &ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: -1, Limit: 10}
+		_, err := listTool.Run(context.Background(), req)
+		if err == nil {
+			t.Error("expected error for negative offset")
+		}
+	})
+}
+
+func TestListDirectory_ContextCancellation(t *testing.T) {
+	workspaceRoot := "/workspace"
+
+	t.Run("context cancellation stops listing", func(t *testing.T) {
+		fs := newMockFileSystemForList()
+		fs.createDir("/workspace")
+		fs.createFile("/workspace/files.txt", []byte("content"), 0644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
 
-		// Limit=0 should use default
-		req := &ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: 0, Limit: 0}
-		resp, err := listTool.Run(context.Background(), req)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		req := &ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: 0, Limit: 1000}
+		_, err := listTool.Run(ctx, req)
+		if err == nil {
+			t.Error("expected error for cancelled context")
 		}
-		if resp.Limit != cfg.Tools.DefaultListDirectoryLimit {
-			t.Errorf("expected default limit %d, got %d", cfg.Tools.DefaultListDirectoryLimit, resp.Limit)
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
 }

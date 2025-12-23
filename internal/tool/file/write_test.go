@@ -142,6 +142,9 @@ func (m *mockFileSystemForWrite) ReadFileRange(path string, offset, limit int64)
 }
 
 func (m *mockFileSystemForWrite) EnsureDirs(path string) error {
+	if m.operationErrors["EnsureDirs"] != nil {
+		return m.operationErrors["EnsureDirs"]
+	}
 	// Create all parent directories
 	dir := filepath.Dir(path)
 	parts := strings.Split(dir, "/")
@@ -390,6 +393,25 @@ func TestWriteFile(t *testing.T) {
 		}
 		if string(fileContent) != "content" {
 			t.Errorf("expected content %q, got %q", "content", string(fileContent))
+		}
+	})
+
+	t.Run("ensure dirs failure", func(t *testing.T) {
+		fs := newMockFileSystemForWrite()
+		checksumManager := newMockChecksumManagerForWrite()
+		fs.setOperationError("EnsureDirs", errors.New("failed to mkdir"))
+
+		cfg := config.DefaultConfig()
+		writeTool := NewWriteFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
+
+		req := &WriteFileRequest{Path: "nested/deep/file.txt", Content: "content"}
+		_, err := writeTool.Run(context.Background(), req)
+		if err == nil {
+			t.Error("expected error when EnsureDirs fails")
+		}
+		var ensureErr *EnsureDirsError
+		if !errors.As(err, &ensureErr) {
+			t.Errorf("expected EnsureDirsError, got %T: %v", err, err)
 		}
 	})
 

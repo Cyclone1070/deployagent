@@ -1,13 +1,15 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"testing"
 )
 
 // mockFileSystem is a local mock implementing gitignore.FileSystem for testing
 type mockFileSystem struct {
-	files map[string][]byte
+	files   map[string][]byte
+	readErr error
 }
 
 func newMockFileSystem() *mockFileSystem {
@@ -22,12 +24,15 @@ func (m *mockFileSystem) createFile(path string, content []byte) {
 
 func (m *mockFileSystem) Stat(path string) (os.FileInfo, error) {
 	if _, ok := m.files[path]; ok {
-		return nil, nil // File exists (we don't need full FileInfo for this test)
+		return nil, nil // File exists
 	}
 	return nil, os.ErrNotExist
 }
 
 func (m *mockFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, error) {
+	if m.readErr != nil {
+		return nil, m.readErr
+	}
 	content, ok := m.files[path]
 	if !ok {
 		return nil, os.ErrNotExist
@@ -96,6 +101,67 @@ func TestLoadGitignore(t *testing.T) {
 		// Dotfile not matching pattern should not be ignored
 		if service.ShouldIgnore(".keep") {
 			t.Error("expected .keep not to be ignored")
+		}
+	})
+}
+
+func TestNewServiceErrors(t *testing.T) {
+	workspaceRoot := "/workspace"
+
+	t.Run("ReadError", func(t *testing.T) {
+		fs := newMockFileSystem()
+		fs.createFile("/workspace/.gitignore", []byte("*.log"))
+		fs.readErr = errors.New("disk failure")
+
+		_, err := NewService(workspaceRoot, fs)
+		if err == nil {
+			t.Error("expected error for read failure")
+		}
+		var gitErr *GitignoreReadError
+		if !errors.As(err, &gitErr) {
+			t.Errorf("expected GitignoreReadError, got %T: %v", err, err)
+		}
+	})
+}
+
+func TestShouldIgnoreLogic(t *testing.T) {
+	workspaceRoot := "/workspace"
+
+	t.Run("WindowsLineEndings", func(t *testing.T) {
+		fs := newMockFileSystem()
+		// Use \r\n line endings
+		fs.createFile("/workspace/.gitignore", []byte("*.log\r\nnode_modules\r\n"))
+
+		service, err := NewService(workspaceRoot, fs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !service.ShouldIgnore("app.log") {
+			t.Error("failed to match pattern with CRLF")
+		}
+		if !service.ShouldIgnore("node_modules/foo") {
+			t.Error("failed to match directory with CRLF")
+		}
+	})
+
+	t.Run("PathNormalization", func(t *testing.T) {
+		fs := newMockFileSystem()
+		fs.createFile("/workspace/.gitignore", []byte("*.log"))
+
+		service, err := NewService(workspaceRoot, fs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Consecutive slashes
+		if !service.ShouldIgnore("foo//bar.log") {
+			t.Error("failed to ignore path with consecutive slashes")
+		}
+
+		// Dot path (current dir)
+		if !service.ShouldIgnore("./baz.log") {
+			t.Error("failed to ignore path with dot prefix")
 		}
 	})
 }
