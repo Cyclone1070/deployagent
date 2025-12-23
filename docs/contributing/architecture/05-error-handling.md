@@ -1,4 +1,4 @@
-# 7. Error Handling
+# 5. Error Handling
 
 **Goal**: Errors live with the code that returns them.
 
@@ -9,7 +9,7 @@
     *   **Mechanism**: `type PathError struct { Path string }` in the same package.
 
 > [!NOTE]
-> **Multiple Implementations**: If multiple packages return the same error (e.g., `storage/memory/` and `storage/file/` both return `ErrNotFound`), define the error in the parent package.
+> **Multiple Implementations**: If multiple packages return the same error, each will define their own local version. This has minimal impact on the caller, they will just import error from the same package as the function they are calling. The benefit is that each package is self-contained.
 
 > [!CAUTION]
 > **FORBIDDEN ERROR PATTERNS**

@@ -29,11 +29,11 @@ Before submitting code, verify **every** item.
 - [ ] Services & domain entities use private fields + `NewT()` constructor
 - [ ] DTOs & data holders use public fields + `Validate()` method if needed
 
-### Testing
-- [ ] All mocks defined locally in `*_test.go` files (no shared `mock/` package)
-- [ ] All test helpers defined locally in test files
-
 ### Error Handling
 - [ ] Errors defined in the same package as the code that returns them
 - [ ] Exception: Shared errors in parent ONLY for multiple implementations
 - [ ] Cross-package error checks use **Sentinel Errors** (via `errors.Is`)
+
+### Testing
+- [ ] All mocks defined locally in `*_test.go` files (no shared `mock/` package)
+- [ ] All test helpers defined locally in test files
