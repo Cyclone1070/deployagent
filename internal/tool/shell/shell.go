@@ -28,6 +28,15 @@ func NewShellTool(
 	dockerConfig DockerConfig,
 	pathResolver pathResolver,
 ) *ShellTool {
+	if commandExecutor == nil {
+		panic("commandExecutor is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &ShellTool{
 		envFileOps:      envFileOps,
 		commandExecutor: commandExecutor,

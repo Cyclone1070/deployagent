@@ -38,6 +38,18 @@ func NewWriteFileTool(
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *WriteFileTool {
+	if fileOps == nil {
+		panic("fileOps is required")
+	}
+	if checksumManager == nil {
+		panic("checksumManager is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &WriteFileTool{
 		fileOps:         fileOps,
 		checksumManager: checksumManager,

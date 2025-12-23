@@ -21,6 +21,12 @@ type ReadTodosTool struct {
 
 // NewReadTodosTool creates a new ReadTodosTool with injected dependencies.
 func NewReadTodosTool(store todoStore, cfg *config.Config) *ReadTodosTool {
+	if store == nil {
+		panic("store is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
 	return &ReadTodosTool{
 		store:  store,
 		config: cfg,
@@ -32,9 +38,6 @@ func NewReadTodosTool(store todoStore, cfg *config.Config) *ReadTodosTool {
 func (t *ReadTodosTool) Run(ctx context.Context, req *ReadTodosRequest) (*ReadTodosResponse, error) {
 	if err := req.Validate(t.config); err != nil {
 		return nil, err
-	}
-	if t.store == nil {
-		return nil, ErrStoreNotConfigured
 	}
 
 	todos, err := t.store.Read()
@@ -55,6 +58,12 @@ type WriteTodosTool struct {
 
 // NewWriteTodosTool creates a new WriteTodosTool with injected dependencies.
 func NewWriteTodosTool(store todoStore, cfg *config.Config) *WriteTodosTool {
+	if store == nil {
+		panic("store is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
 	return &WriteTodosTool{
 		store:  store,
 		config: cfg,
@@ -66,9 +75,6 @@ func NewWriteTodosTool(store todoStore, cfg *config.Config) *WriteTodosTool {
 func (t *WriteTodosTool) Run(ctx context.Context, req *WriteTodosRequest) (*WriteTodosResponse, error) {
 	if err := req.Validate(t.config); err != nil {
 		return nil, err
-	}
-	if t.store == nil {
-		return nil, ErrStoreNotConfigured
 	}
 
 	todos := req.Todos

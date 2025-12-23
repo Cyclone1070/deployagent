@@ -34,6 +34,12 @@ type Service struct {
 // NewService creates a new gitignore service by loading .gitignore from workspace root.
 // Returns a service that never ignores if .gitignore doesn't exist (no error).
 func NewService(workspaceRoot string, fs fileSystem) (*Service, error) {
+	if workspaceRoot == "" {
+		panic("workspaceRoot is required")
+	}
+	if fs == nil {
+		panic("fs is required")
+	}
 	gitignorePath := filepath.Join(workspaceRoot, ".gitignore")
 
 	// Check if .gitignore exists

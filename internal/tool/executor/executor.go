@@ -27,6 +27,9 @@ type OSCommandExecutor struct {
 
 // NewOSCommandExecutor creates a new OSCommandExecutor with injected config.
 func NewOSCommandExecutor(cfg *config.Config) *OSCommandExecutor {
+	if cfg == nil {
+		panic("cfg is required")
+	}
 	return &OSCommandExecutor{config: cfg}
 }
 

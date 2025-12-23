@@ -36,6 +36,18 @@ func NewReadFileTool(
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *ReadFileTool {
+	if fileOps == nil {
+		panic("fileOps is required")
+	}
+	if checksumManager == nil {
+		panic("checksumManager is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &ReadFileTool{
 		fileOps:         fileOps,
 		checksumManager: checksumManager,

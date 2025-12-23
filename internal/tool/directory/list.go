@@ -39,6 +39,15 @@ func NewListDirectoryTool(
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *ListDirectoryTool {
+	if fs == nil {
+		panic("fs is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &ListDirectoryTool{
 		fs:               fs,
 		gitignoreService: gitignoreService,

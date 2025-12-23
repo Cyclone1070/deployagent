@@ -14,6 +14,9 @@ type Resolver struct {
 
 // NewResolver creates a new path resolver for the given workspace.
 func NewResolver(workspaceRoot string) *Resolver {
+	if workspaceRoot == "" {
+		panic("workspaceRoot is required")
+	}
 	return &Resolver{
 		workspaceRoot: workspaceRoot,
 	}

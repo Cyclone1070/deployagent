@@ -40,6 +40,18 @@ func NewFindFileTool(
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *FindFileTool {
+	if fs == nil {
+		panic("fs is required")
+	}
+	if commandExecutor == nil {
+		panic("commandExecutor is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &FindFileTool{
 		fs:              fs,
 		commandExecutor: commandExecutor,

@@ -39,6 +39,18 @@ func NewEditFileTool(
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *EditFileTool {
+	if fileOps == nil {
+		panic("fileOps is required")
+	}
+	if checksumManager == nil {
+		panic("checksumManager is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &EditFileTool{
 		fileOps:         fileOps,
 		checksumManager: checksumManager,

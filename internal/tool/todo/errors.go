@@ -26,7 +26,6 @@ func (e *StoreWriteError) Unwrap() error { return e.Cause }
 // -- Sentinels --
 
 var (
-	ErrInvalidStatus      = errors.New("invalid status")
-	ErrEmptyDescription   = errors.New("description cannot be empty")
-	ErrStoreNotConfigured = errors.New("todo store not configured")
+	ErrInvalidStatus    = errors.New("invalid status")
+	ErrEmptyDescription = errors.New("description cannot be empty")
 )

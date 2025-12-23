@@ -29,6 +29,18 @@ func NewSearchContentTool(
 	cfg *config.Config,
 	pathResolver pathResolver,
 ) *SearchContentTool {
+	if fs == nil {
+		panic("fs is required")
+	}
+	if commandExecutor == nil {
+		panic("commandExecutor is required")
+	}
+	if cfg == nil {
+		panic("cfg is required")
+	}
+	if pathResolver == nil {
+		panic("pathResolver is required")
+	}
 	return &SearchContentTool{
 		fs:              fs,
 		commandExecutor: commandExecutor,

@@ -2,7 +2,6 @@ package todo
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 
@@ -189,23 +188,5 @@ func TestTodoTools(t *testing.T) {
 			}(i)
 		}
 		wg.Wait()
-	})
-
-	t.Run("Missing Store", func(t *testing.T) {
-		// Create tools with nil store
-		readTool := NewReadTodosTool(nil, cfg)
-		writeTool := NewWriteTodosTool(nil, cfg)
-
-		readReq := &ReadTodosRequest{}
-		_, err := readTool.Run(context.Background(), readReq)
-		if err == nil || !errors.Is(err, ErrStoreNotConfigured) {
-			t.Errorf("expected ErrStoreNotConfigured when reading with missing store, got %v", err)
-		}
-
-		writeReq := &WriteTodosRequest{Todos: []Todo{}}
-		_, err = writeTool.Run(context.Background(), writeReq)
-		if err == nil || !errors.Is(err, ErrStoreNotConfigured) {
-			t.Errorf("expected ErrStoreNotConfigured when writing with missing store, got %v", err)
-		}
 	})
 }
