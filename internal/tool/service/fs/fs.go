@@ -7,35 +7,12 @@ import (
 	"path/filepath"
 )
 
-// writeSyncCloser defines the minimal interface for a writable file handle.
-// This abstraction allows testing without depending on concrete *os.File.
-type writeSyncCloser interface {
-	io.Writer
-	Sync() error
-	Close() error
-	Name() string
-}
-
 // OSFileSystem implements filesystem operations using the local OS filesystem primitives.
-// It uses internal function fields to enable testability via functional injection.
-type OSFileSystem struct {
-	// Internal syscall wrappers for testability
-	createTemp func(dir, pattern string) (writeSyncCloser, error)
-	rename     func(oldpath, newpath string) error
-	chmod      func(name string, mode os.FileMode) error
-	remove     func(name string) error
-}
+type OSFileSystem struct{}
 
-// NewOSFileSystem creates a new OSFileSystem with real OS syscalls.
+// NewOSFileSystem creates a new OSFileSystem.
 func NewOSFileSystem() *OSFileSystem {
-	return &OSFileSystem{
-		createTemp: func(dir, pattern string) (writeSyncCloser, error) {
-			return os.CreateTemp(dir, pattern)
-		},
-		rename: os.Rename,
-		chmod:  os.Chmod,
-		remove: os.Remove,
-	}
+	return &OSFileSystem{}
 }
 
 // Stat returns file info for a path (follows symlinks).
@@ -112,7 +89,7 @@ func (r *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, 
 func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 
-	tmpFile, err := r.createTemp(dir, ".tmp-*")
+	tmpFile, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
 		return &TempFileError{Dir: dir, Cause: err}
 	}
@@ -125,7 +102,7 @@ func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.File
 			_ = tmpFile.Close()
 		}
 		if needsCleanup {
-			_ = r.remove(tmpPath)
+			_ = os.Remove(tmpPath)
 		}
 	}()
 
@@ -145,12 +122,12 @@ func (r *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.File
 	tmpFile = nil
 
 	// Atomic rename is the critical operation that ensures consistency
-	if err := r.rename(tmpPath, path); err != nil {
+	if err := os.Rename(tmpPath, path); err != nil {
 		return &RenameError{Old: tmpPath, New: path, Cause: err}
 	}
 	needsCleanup = false
 
-	if err := r.chmod(path, perm); err != nil {
+	if err := os.Chmod(path, perm); err != nil {
 		return &ChmodError{Path: path, Mode: perm, Cause: err}
 	}
 
