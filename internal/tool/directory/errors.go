@@ -40,15 +40,11 @@ func (e *RelPathError) Unwrap() error { return e.Cause }
 // -- Sentinels --
 
 var (
-	ErrFileMissing       = errors.New("file or path does not exist")
-	ErrIsDirectory       = errors.New("path is a directory")
-	ErrNotADirectory     = errors.New("path is not a directory")
-	ErrPathTraversal     = errors.New("path traversal detected")
-	ErrPathRequired      = errors.New("path is required")
-	ErrInvalidOffset     = errors.New("offset cannot be negative")
-	ErrInvalidLimit      = errors.New("limit cannot be negative")
-	ErrLimitExceeded     = errors.New("limit exceeds maximum")
-	ErrInvalidPermission = errors.New("invalid permissions")
-	ErrPatternRequired   = errors.New("pattern is required")
-	ErrInvalidPattern    = errors.New("invalid glob pattern")
+	ErrFileMissing     = errors.New("file or path does not exist")
+	ErrIsDirectory     = errors.New("path is a directory")
+	ErrNotADirectory   = errors.New("path is not a directory")
+	ErrPathTraversal   = errors.New("path traversal detected")
+	ErrPathRequired    = errors.New("path is required")
+	ErrPatternRequired = errors.New("pattern is required")
+	ErrInvalidPattern  = errors.New("invalid glob pattern")
 )

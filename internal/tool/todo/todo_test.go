@@ -269,13 +269,12 @@ func TestTodoStoreErrors(t *testing.T) {
 		mockStore := &mockTodoStoreWithErrors{readErr: errors.New("read failed")}
 		readTool := NewReadTodosTool(mockStore, cfg)
 
-		_, err := readTool.Run(context.Background(), &ReadTodosRequest{})
-		if err == nil {
-			t.Error("expected error for store read failure")
+		resp, err := readTool.Run(context.Background(), &ReadTodosRequest{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
-		var storeErr *StoreReadError
-		if !errors.As(err, &storeErr) {
-			t.Errorf("expected StoreReadError, got %T: %v", err, err)
+		if len(resp.Todos) != 0 {
+			t.Errorf("expected empty todos on read error, got %d", len(resp.Todos))
 		}
 	})
 

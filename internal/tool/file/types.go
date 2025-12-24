@@ -17,10 +17,7 @@ func (r *ReadFileRequest) Validate(cfg *config.Config) error {
 		return ErrPathRequired
 	}
 	if r.Offset != nil && *r.Offset < 0 {
-		return ErrInvalidOffset
-	}
-	if r.Limit != nil && *r.Limit < 0 {
-		return ErrInvalidLimit
+		*r.Offset = 0
 	}
 	if r.Limit == nil || *r.Limit <= 0 {
 		limit := cfg.Tools.MaxFileSize

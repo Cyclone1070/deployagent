@@ -7,14 +7,6 @@ import (
 
 // -- Errors --
 
-// StoreReadError is returned when reading from a store (e.g., todo) fails.
-type StoreReadError struct {
-	Cause error
-}
-
-func (e *StoreReadError) Error() string { return fmt.Sprintf("failed to read store: %v", e.Cause) }
-func (e *StoreReadError) Unwrap() error { return e.Cause }
-
 // StoreWriteError is returned when writing to a store fails.
 type StoreWriteError struct {
 	Cause error

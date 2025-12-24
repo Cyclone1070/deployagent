@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -29,7 +28,7 @@ func (fs *OSFileSystem) Lstat(path string) (os.FileInfo, error) {
 // If offset and limit are both 0, reads the entire file.
 func (fs *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte, error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("%w: %d", ErrInvalidOffset, offset)
+		offset = 0
 	}
 
 	file, err := os.Open(path)

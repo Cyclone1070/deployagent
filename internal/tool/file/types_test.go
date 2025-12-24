@@ -1,51 +1,37 @@
 package file
 
 import (
-	"os"
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
 )
 
-// Minimal mock for validation tests
-type mockFSForTypes struct {
-	dirs map[string]bool
-}
-
-func (m *mockFSForTypes) Lstat(path string) (os.FileInfo, error) {
-	if m.dirs[path] {
-		return &mockFileInfoForTypes{isDir: true}, nil
-	}
-	return nil, os.ErrNotExist
-}
-
-func (m *mockFSForTypes) Readlink(path string) (string, error) {
-	return "", os.ErrInvalid
-}
-
-func (m *mockFSForTypes) UserHomeDir() (string, error) {
-	return "/home/user", nil
-}
-
-type mockFileInfoForTypes struct {
-	os.FileInfo
-	isDir bool
-}
-
-func (m *mockFileInfoForTypes) IsDir() bool { return m.isDir }
-
 func TestReadFileRequest_Validation(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	tests := []struct {
-		name    string
-		req     ReadFileRequest
-		wantErr bool
+		name         string
+		req          ReadFileRequest
+		wantErr      bool
+		verifyValues func(t *testing.T, req ReadFileRequest)
 	}{
-		{"Valid", ReadFileRequest{Path: "file.txt"}, false},
-		{"EmptyPath", ReadFileRequest{Path: ""}, true},
-		{"NegativeOffset", ReadFileRequest{Path: "file.txt", Offset: ptr(int64(-1))}, true},
-		{"NegativeLimit", ReadFileRequest{Path: "file.txt", Limit: ptr(int64(-1))}, true},
+		{"Valid", ReadFileRequest{Path: "file.txt"}, false, nil},
+		{"EmptyPath", ReadFileRequest{Path: ""}, true, nil},
+		{"NegativeOffset_Clamps", ReadFileRequest{Path: "file.txt", Offset: ptr(int64(-1))}, false, func(t *testing.T, req ReadFileRequest) {
+			if *req.Offset != 0 {
+				t.Errorf("expected offset 0, got %d", *req.Offset)
+			}
+		}},
+		{"NegativeLimit_Defaults", ReadFileRequest{Path: "file.txt", Limit: ptr(int64(-1))}, false, func(t *testing.T, req ReadFileRequest) {
+			if *req.Limit != cfg.Tools.MaxFileSize {
+				t.Errorf("expected limit %d, got %d", cfg.Tools.MaxFileSize, *req.Limit)
+			}
+		}},
+		{"NilLimit_Defaults", ReadFileRequest{Path: "file.txt", Limit: nil}, false, func(t *testing.T, req ReadFileRequest) {
+			if *req.Limit != cfg.Tools.MaxFileSize {
+				t.Errorf("expected limit %d, got %d", cfg.Tools.MaxFileSize, *req.Limit)
+			}
+		}},
 	}
 
 	for _, tt := range tests {
@@ -53,6 +39,9 @@ func TestReadFileRequest_Validation(t *testing.T) {
 			err := tt.req.Validate(cfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && tt.verifyValues != nil {
+				tt.verifyValues(t, tt.req)
 			}
 		})
 	}
@@ -85,15 +74,20 @@ func TestEditFileRequest_Validation(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	tests := []struct {
-		name    string
-		req     EditFileRequest
-		wantErr bool
+		name         string
+		req          EditFileRequest
+		wantErr      bool
+		verifyValues func(t *testing.T, req EditFileRequest)
 	}{
-		{"Valid", EditFileRequest{Path: "file.txt", Operations: []EditOperation{{Before: "old", After: "new"}}}, false},
-		{"EmptyPath", EditFileRequest{Path: "", Operations: []EditOperation{{Before: "old"}}}, true},
-		{"EmptyOperations", EditFileRequest{Path: "file.txt", Operations: []EditOperation{}}, true},
-		{"EmptyBeforeIsAppend", EditFileRequest{Path: "file.txt", Operations: []EditOperation{{Before: ""}}}, false},
-		{"NegativeReplacements", EditFileRequest{Path: "file.txt", Operations: []EditOperation{{Before: "old", ExpectedReplacements: -1}}}, false},
+		{"Valid", EditFileRequest{Path: "file.txt", Operations: []EditOperation{{Before: "old", After: "new"}}}, false, nil},
+		{"EmptyPath", EditFileRequest{Path: "", Operations: []EditOperation{{Before: "old"}}}, true, nil},
+		{"EmptyOperations", EditFileRequest{Path: "file.txt", Operations: []EditOperation{}}, true, nil},
+		{"EmptyBeforeIsAppend", EditFileRequest{Path: "file.txt", Operations: []EditOperation{{Before: ""}}}, false, nil},
+		{"NegativeReplacements_Clamps", EditFileRequest{Path: "file.txt", Operations: []EditOperation{{Before: "old", ExpectedReplacements: -1}}}, false, func(t *testing.T, req EditFileRequest) {
+			if req.Operations[0].ExpectedReplacements != 1 {
+				t.Errorf("expected ExpectedReplacements 1, got %d", req.Operations[0].ExpectedReplacements)
+			}
+		}},
 	}
 
 	for _, tt := range tests {
@@ -101,6 +95,9 @@ func TestEditFileRequest_Validation(t *testing.T) {
 			err := tt.req.Validate(cfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && tt.verifyValues != nil {
+				tt.verifyValues(t, tt.req)
 			}
 		})
 	}

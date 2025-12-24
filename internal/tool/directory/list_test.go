@@ -816,7 +816,7 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 	})
 }
 
-func TestListDirectory_InvalidPagination(t *testing.T) {
+func TestListDirectory_NegativeOffset_Clamps(t *testing.T) {
 	workspaceRoot := "/workspace"
 	t.Run("negative offset", func(t *testing.T) {
 		fs := newMockFileSystemForList()
@@ -826,8 +826,8 @@ func TestListDirectory_InvalidPagination(t *testing.T) {
 
 		req := &ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: -1, Limit: 10}
 		_, err := listTool.Run(context.Background(), req)
-		if err == nil {
-			t.Error("expected error for negative offset")
+		if err != nil {
+			t.Errorf("unexpected error for negative offset: %v", err)
 		}
 	})
 }

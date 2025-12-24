@@ -23,16 +23,13 @@ type ListDirectoryRequest struct {
 
 func (r *ListDirectoryRequest) Validate(cfg *config.Config) error {
 	if r.Offset < 0 {
-		return ErrInvalidOffset
+		r.Offset = 0
 	}
-	if r.Limit < 0 {
-		return ErrInvalidLimit
-	}
-	if r.Limit != 0 && r.Limit > cfg.Tools.MaxListDirectoryLimit {
-		return ErrLimitExceeded
-	}
-	if r.Limit == 0 {
+	if r.Limit <= 0 {
 		r.Limit = cfg.Tools.DefaultListDirectoryLimit
+	}
+	if r.Limit > cfg.Tools.MaxListDirectoryLimit {
+		r.Limit = cfg.Tools.MaxListDirectoryLimit
 	}
 	if r.MaxDepth < 0 {
 		r.MaxDepth = -1 // unlimited
@@ -66,16 +63,13 @@ func (r *FindFileRequest) Validate(cfg *config.Config) error {
 		return ErrPatternRequired
 	}
 	if r.Offset < 0 {
-		return ErrInvalidOffset
+		r.Offset = 0
 	}
-	if r.Limit < 0 {
-		return ErrInvalidLimit
-	}
-	if r.Limit != 0 && r.Limit > cfg.Tools.MaxFindFileLimit {
-		return ErrLimitExceeded
-	}
-	if r.Limit == 0 {
+	if r.Limit <= 0 {
 		r.Limit = cfg.Tools.DefaultFindFileLimit
+	}
+	if r.Limit > cfg.Tools.MaxFindFileLimit {
+		r.Limit = cfg.Tools.MaxFindFileLimit
 	}
 	return nil
 }

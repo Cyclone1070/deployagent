@@ -21,7 +21,4 @@ var (
 	ErrQueryRequired = errors.New("query is required")
 	ErrFileMissing   = errors.New("file or path does not exist")
 	ErrNotADirectory = errors.New("path is not a directory")
-	ErrInvalidOffset = errors.New("offset cannot be negative")
-	ErrInvalidLimit  = errors.New("limit cannot be negative")
-	ErrLimitExceeded = errors.New("limit exceeds maximum")
 )

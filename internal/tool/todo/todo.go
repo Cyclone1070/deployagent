@@ -42,7 +42,10 @@ func (t *ReadTodosTool) Run(ctx context.Context, req *ReadTodosRequest) (*ReadTo
 
 	todos, err := t.store.Read()
 	if err != nil {
-		return nil, &StoreReadError{Cause: err}
+		// Graceful degradation: return empty list on read error
+		return &ReadTodosResponse{
+			Todos: []Todo{},
+		}, nil
 	}
 
 	return &ReadTodosResponse{

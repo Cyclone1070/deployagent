@@ -1,8 +1,6 @@
 package search
 
 import (
-	"fmt"
-
 	"github.com/Cyclone1070/iav/internal/config"
 )
 
@@ -30,16 +28,13 @@ func (r *SearchContentRequest) Validate(cfg *config.Config) error {
 		return ErrQueryRequired
 	}
 	if r.Offset < 0 {
-		return fmt.Errorf("%w: %d", ErrInvalidOffset, r.Offset)
+		r.Offset = 0
 	}
-	if r.Limit < 0 {
-		return fmt.Errorf("%w: %d", ErrInvalidLimit, r.Limit)
-	}
-	if r.Limit != 0 && r.Limit > cfg.Tools.MaxSearchContentLimit {
-		return fmt.Errorf("%w: %d (max %d)", ErrLimitExceeded, r.Limit, cfg.Tools.MaxSearchContentLimit)
-	}
-	if r.Limit == 0 {
+	if r.Limit <= 0 {
 		r.Limit = cfg.Tools.DefaultSearchContentLimit
+	}
+	if r.Limit > cfg.Tools.MaxSearchContentLimit {
+		r.Limit = cfg.Tools.MaxSearchContentLimit
 	}
 	return nil
 }

@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"os"
 )
@@ -69,9 +68,3 @@ func (e *ChmodError) Error() string {
 	return fmt.Sprintf("failed to set permissions for %s to %v: %v", e.Path, e.Mode, e.Cause)
 }
 func (e *ChmodError) Unwrap() error { return e.Cause }
-
-// -- Sentinels --
-
-var (
-	ErrInvalidOffset = errors.New("invalid offset")
-)
