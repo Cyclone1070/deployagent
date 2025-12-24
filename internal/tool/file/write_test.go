@@ -344,32 +344,32 @@ func TestWriteFile(t *testing.T) {
 		}
 	})
 
-	t.Run("custom permissions", func(t *testing.T) {
+	t.Run("verify default permissions 0644", func(t *testing.T) {
 		fs := newMockFileSystemForWrite()
 		checksumManager := newMockChecksumManagerForWrite()
 
 		cfg := config.DefaultConfig()
 		writeTool := NewWriteFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
-		perm := os.FileMode(0755)
+		expectedPerm := os.FileMode(0644)
 
-		req := &WriteFileRequest{Path: "executable.txt", Content: "content", Perm: &perm}
+		req := &WriteFileRequest{Path: "default_perm.txt", Content: "content"}
 		resp, err := writeTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		info, err := fs.Stat("/workspace/executable.txt")
+		info, err := fs.Stat("/workspace/default_perm.txt")
 		if err != nil {
 			t.Fatalf("failed to stat file: %v", err)
 		}
 
-		if info.Mode().Perm() != os.FileMode(perm) {
-			t.Errorf("expected permissions %o, got %o", perm, info.Mode().Perm())
+		if info.Mode().Perm() != expectedPerm {
+			t.Errorf("expected permissions %o, got %o", expectedPerm, info.Mode().Perm())
 		}
 
-		if resp.FileMode != uint32(perm) {
-			t.Errorf("expected FileMode %o, got %o", perm, resp.FileMode)
+		if resp.FileMode != uint32(expectedPerm) {
+			t.Errorf("expected FileMode %o, got %o", expectedPerm, resp.FileMode)
 		}
 	})
 

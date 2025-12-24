@@ -465,3 +465,35 @@ func TestFindFile_LimitValidation(t *testing.T) {
 		}
 	})
 }
+
+func TestFindFile_EmptySearchPath(t *testing.T) {
+	fs := newMockFileSystemForFind()
+	fs.createDir("/workspace")
+	workspaceRoot := "/workspace"
+	cfg := config.DefaultConfig()
+
+	var capturedCmd []string
+	mockRunner := &mockCommandExecutorForFind{}
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		capturedCmd = cmd
+		return &executor.Result{Stdout: "/workspace/file.go\n", ExitCode: 0}, nil
+	}
+
+	findTool := NewFindFileTool(fs, mockRunner, cfg, path.NewResolver(workspaceRoot))
+
+	// SearchPath is empty, should default to "." (workspace root)
+	req := &FindFileRequest{Pattern: "*.go", SearchPath: ""}
+	_, err := findTool.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The last argument to fd should be the search path
+	if len(capturedCmd) < 1 {
+		t.Fatal("expected non-empty command")
+	}
+	lastArg := capturedCmd[len(capturedCmd)-1]
+	if lastArg != "/workspace" {
+		t.Errorf("expected search path '/workspace', got %q", lastArg)
+	}
+}

@@ -543,3 +543,35 @@ func TestSearchContent_SearchPathValidation(t *testing.T) {
 		}
 	})
 }
+
+func TestSearchContent_EmptySearchPath(t *testing.T) {
+	fs := newMockFileSystemForSearch()
+	fs.createDir("/workspace")
+	workspaceRoot := "/workspace"
+	cfg := config.DefaultConfig()
+
+	var capturedCmd []string
+	mockRunner := &mockCommandExecutorForSearch{}
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		capturedCmd = cmd
+		return &executor.Result{Stdout: "", ExitCode: 0}, nil
+	}
+
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, path.NewResolver(workspaceRoot))
+
+	// SearchPath is empty, should default to "." (workspace root)
+	req := &SearchContentRequest{Query: "pattern", SearchPath: ""}
+	_, err := searchTool.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The last argument to rg should be the search path
+	if len(capturedCmd) < 1 {
+		t.Fatal("expected non-empty command")
+	}
+	lastArg := capturedCmd[len(capturedCmd)-1]
+	if lastArg != "/workspace" {
+		t.Errorf("expected search path '/workspace', got %q", lastArg)
+	}
+}

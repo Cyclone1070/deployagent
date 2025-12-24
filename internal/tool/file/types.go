@@ -1,8 +1,6 @@
 package file
 
 import (
-	"os"
-
 	"github.com/Cyclone1070/iav/internal/config"
 )
 
@@ -37,9 +35,8 @@ type ReadFileResponse struct {
 // -- Write File --
 
 type WriteFileRequest struct {
-	Path    string       `json:"path"`
-	Content string       `json:"content"`
-	Perm    *os.FileMode `json:"perm,omitempty"`
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 func (r *WriteFileRequest) Validate(cfg *config.Config) error {
@@ -48,9 +45,6 @@ func (r *WriteFileRequest) Validate(cfg *config.Config) error {
 	}
 	if r.Content == "" {
 		return ErrContentRequiredForWrite
-	}
-	if r.Perm != nil && *r.Perm > 0777 {
-		return ErrInvalidPermissions
 	}
 	if int64(len(r.Content)) > cfg.Tools.MaxFileSize {
 		return ErrFileTooLarge

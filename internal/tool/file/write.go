@@ -106,9 +106,6 @@ func (t *WriteFileTool) Run(ctx context.Context, req *WriteFileRequest) (*WriteF
 	}
 
 	perm := os.FileMode(0644)
-	if req.Perm != nil {
-		perm = *req.Perm
-	}
 
 	// Write the file atomically
 	if err := t.fileOps.WriteFileAtomic(abs, contentBytes, perm); err != nil {

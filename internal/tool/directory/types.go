@@ -22,9 +22,6 @@ type ListDirectoryRequest struct {
 }
 
 func (r *ListDirectoryRequest) Validate(cfg *config.Config) error {
-	if r.Path == "" {
-		return ErrPathRequired
-	}
 	if r.Offset < 0 {
 		return ErrInvalidOffset
 	}

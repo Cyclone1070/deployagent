@@ -63,8 +63,11 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req *ListDirectoryRequest) 
 	if err := req.Validate(t.config); err != nil {
 		return nil, err
 	}
-
-	abs, err := t.pathResolver.Abs(req.Path)
+	path := req.Path
+	if path == "" {
+		path = "."
+	}
+	abs, err := t.pathResolver.Abs(path)
 	if err != nil {
 		return nil, err
 	}

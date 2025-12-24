@@ -69,7 +69,6 @@ func TestWriteFileRequest_Validation(t *testing.T) {
 		{"Valid", WriteFileRequest{Path: "file.txt", Content: "content"}, false},
 		{"EmptyPath", WriteFileRequest{Path: "", Content: "content"}, true},
 		{"EmptyContent", WriteFileRequest{Path: "file.txt", Content: ""}, true},
-		{"InvalidPerm", WriteFileRequest{Path: "file.txt", Content: "content", Perm: ptr(os.FileMode(07777))}, true},
 	}
 
 	for _, tt := range tests {

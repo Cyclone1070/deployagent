@@ -40,7 +40,7 @@ func TestListDirectoryRequest_Validation(t *testing.T) {
 		wantErr bool
 	}{
 		{"Valid", ListDirectoryRequest{Path: "."}, false},
-		{"EmptyPath", ListDirectoryRequest{Path: ""}, true},
+		{"EmptyPath", ListDirectoryRequest{Path: ""}, false},
 		{"NegativeOffset", ListDirectoryRequest{Path: ".", Offset: -1}, true},
 		{"NegativeLimit", ListDirectoryRequest{Path: ".", Limit: -1}, true},
 		{"LimitExceedsMax", ListDirectoryRequest{Path: ".", Limit: cfg.Tools.MaxListDirectoryLimit + 1}, true},

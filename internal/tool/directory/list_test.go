@@ -425,6 +425,27 @@ func TestListDirectory(t *testing.T) {
 			t.Errorf("expected DirectoryPath to be empty for '.', got %q", resp.DirectoryPath)
 		}
 	})
+	t.Run("empty path defaults to workspace root", func(t *testing.T) {
+		fs := newMockFileSystemForList()
+		fs.createDir("/workspace")
+		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+
+		cfg := config.DefaultConfig()
+		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
+
+		req := &ListDirectoryRequest{Path: "", MaxDepth: -1, Offset: 0, Limit: 1000}
+		resp, err := listTool.Run(context.Background(), req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if resp.DirectoryPath != "" {
+			t.Errorf("expected DirectoryPath to be empty for '', got %q", resp.DirectoryPath)
+		}
+		if len(resp.Entries) != 1 {
+			t.Errorf("expected 1 entry, got %d", len(resp.Entries))
+		}
+	})
 }
 
 func TestListDirectory_Pagination(t *testing.T) {
