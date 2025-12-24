@@ -160,7 +160,7 @@ func TestCanonicaliseRoot(t *testing.T) {
 
 	t.Run("file instead of directory", func(t *testing.T) {
 		tmpFile := filepath.Join(resolvedTmpDir, "file.txt")
-		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+		if err := os.WriteFile(tmpFile, []byte("test"), 0o644); err != nil {
 			t.Fatalf("failed to create tmp file: %v", err)
 		}
 		_, err := CanonicaliseRoot(tmpFile)

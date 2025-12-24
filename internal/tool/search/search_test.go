@@ -23,7 +23,7 @@ type mockFileInfoForSearch struct {
 
 func (m *mockFileInfoForSearch) Name() string       { return m.name }
 func (m *mockFileInfoForSearch) Size() int64        { return 0 }
-func (m *mockFileInfoForSearch) Mode() os.FileMode  { return 0644 }
+func (m *mockFileInfoForSearch) Mode() os.FileMode  { return 0o644 }
 func (m *mockFileInfoForSearch) ModTime() time.Time { return time.Time{} }
 func (m *mockFileInfoForSearch) IsDir() bool        { return m.isDir }
 func (m *mockFileInfoForSearch) Sys() any           { return nil }

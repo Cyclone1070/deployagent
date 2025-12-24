@@ -297,7 +297,7 @@ func TestWriteFile(t *testing.T) {
 	t.Run("existing file rejection", func(t *testing.T) {
 		fs := newMockFileSystemForWrite()
 		checksumManager := newMockChecksumManagerForWrite()
-		fs.createFile("/workspace/existing.txt", []byte("existing"), 0644)
+		fs.createFile("/workspace/existing.txt", []byte("existing"), 0o644)
 
 		writeTool := NewWriteFileTool(fs, checksumManager, config.DefaultConfig(), path.NewResolver(workspaceRoot))
 
@@ -344,14 +344,14 @@ func TestWriteFile(t *testing.T) {
 		}
 	})
 
-	t.Run("verify default permissions 0644", func(t *testing.T) {
+	t.Run("verify default permissions 0o644", func(t *testing.T) {
 		fs := newMockFileSystemForWrite()
 		checksumManager := newMockChecksumManagerForWrite()
 
 		cfg := config.DefaultConfig()
 		writeTool := NewWriteFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
-		expectedPerm := os.FileMode(0644)
+		expectedPerm := os.FileMode(0o644)
 
 		req := &WriteFileRequest{Path: "default_perm.txt", Content: "content"}
 		_, err := writeTool.Run(context.Background(), req)

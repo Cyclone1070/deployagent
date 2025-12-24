@@ -83,7 +83,7 @@ func (m *mockFileSystemForList) Stat(path string) (os.FileInfo, error) {
 	if isDir, ok := m.dirs[finalPath]; ok {
 		mode := os.FileMode(0755)
 		if !isDir {
-			mode = 0644
+			mode = 0o644
 		}
 		if isDir {
 			mode |= os.ModeDir
@@ -100,7 +100,7 @@ func (m *mockFileSystemForList) Stat(path string) (os.FileInfo, error) {
 		return &mockFileInfoForList{
 			name:  filepath.Base(finalPath),
 			size:  int64(len(content)),
-			mode:  0644,
+			mode:  0o644,
 			isDir: false,
 		}, nil
 	}
@@ -230,8 +230,8 @@ func TestListDirectory(t *testing.T) {
 	t.Run("list workspace root with mixed files and directories", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file1.txt", []byte("content1"), 0644)
-		fs.createFile("/workspace/file2.txt", []byte("content2"), 0644)
+		fs.createFile("/workspace/file1.txt", []byte("content1"), 0o644)
+		fs.createFile("/workspace/file2.txt", []byte("content2"), 0o644)
 		fs.createDir("/workspace/subdir1")
 		fs.createDir("/workspace/subdir2")
 
@@ -278,8 +278,8 @@ func TestListDirectory(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
 		fs.createDir("/workspace/src")
-		fs.createFile("/workspace/src/main.go", []byte("package main"), 0644)
-		fs.createFile("/workspace/src/utils.go", []byte("package main"), 0644)
+		fs.createFile("/workspace/src/main.go", []byte("package main"), 0o644)
+		fs.createFile("/workspace/src/utils.go", []byte("package main"), 0o644)
 		fs.createDir("/workspace/src/internal")
 
 		cfg := config.DefaultConfig()
@@ -322,7 +322,7 @@ func TestListDirectory(t *testing.T) {
 	t.Run("path resolves to file not directory", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
 		cfg := config.DefaultConfig()
 
 		req := &ListDirectoryRequest{Path: "file.txt", MaxDepth: -1, Offset: 0, Limit: 1000}
@@ -371,7 +371,7 @@ func TestListDirectory(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
 		fs.createDir("/workspace/src")
-		fs.createFile("/workspace/src/main.go", []byte("package main"), 0644)
+		fs.createFile("/workspace/src/main.go", []byte("package main"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -391,7 +391,7 @@ func TestListDirectory(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
 		fs.createDir("/workspace/src")
-		fs.createFile("/workspace/src/main.go", []byte("package main"), 0644)
+		fs.createFile("/workspace/src/main.go", []byte("package main"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -410,7 +410,7 @@ func TestListDirectory(t *testing.T) {
 	t.Run("dot path alias for workspace root", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -428,7 +428,7 @@ func TestListDirectory(t *testing.T) {
 	t.Run("empty path defaults to workspace root", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -456,7 +456,7 @@ func TestListDirectory_Pagination(t *testing.T) {
 		fs.createDir("/workspace")
 		// Create 10 files
 		for i := 1; i <= 10; i++ {
-			fs.createFile(fmt.Sprintf("/workspace/file%02d.txt", i), []byte("content"), 0644)
+			fs.createFile(fmt.Sprintf("/workspace/file%02d.txt", i), []byte("content"), 0o644)
 		}
 
 		cfg := config.DefaultConfig()
@@ -496,7 +496,7 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 	t.Run("directory with symlinks", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
 		fs.createSymlink("/workspace/link.txt", "/workspace/file.txt")
 		fs.createDir("/workspace/dir")
 		fs.createSymlink("/workspace/linkdir", "/workspace/dir")
@@ -523,9 +523,9 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 	t.Run("unicode and special characters", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/文件.txt", []byte("content"), 0644)
-		fs.createFile("/workspace/файл.txt", []byte("content"), 0644)
-		fs.createFile("/workspace/ファイル.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/文件.txt", []byte("content"), 0o644)
+		fs.createFile("/workspace/файл.txt", []byte("content"), 0o644)
+		fs.createFile("/workspace/ファイル.txt", []byte("content"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -548,9 +548,9 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 	t.Run("dotfiles filtered by gitignore", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
-		fs.createFile("/workspace/.hidden", []byte("content"), 0644)
-		fs.createFile("/workspace/.gitignore", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
+		fs.createFile("/workspace/.hidden", []byte("content"), 0o644)
+		fs.createFile("/workspace/.gitignore", []byte("content"), 0o644)
 
 		gitignore := newMockGitignoreService()
 		gitignore.shouldIgnore = func(path string) bool {
@@ -583,9 +583,9 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 	t.Run("all dotfiles included when gitignore service is nil", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
-		fs.createFile("/workspace/.hidden", []byte("content"), 0644)
-		fs.createFile("/workspace/.gitignore", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
+		fs.createFile("/workspace/.hidden", []byte("content"), 0o644)
+		fs.createFile("/workspace/.gitignore", []byte("content"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -611,7 +611,7 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 		fs.createDir("/workspace")
 		// Create 100 files
 		for i := 1; i <= 100; i++ {
-			fs.createFile(fmt.Sprintf("/workspace/file%03d.txt", i), []byte("content"), 0644)
+			fs.createFile(fmt.Sprintf("/workspace/file%03d.txt", i), []byte("content"), 0o644)
 		}
 
 		cfg := config.DefaultConfig()
@@ -639,7 +639,7 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 	t.Run("offset beyond end returns empty", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("content"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -689,7 +689,7 @@ func TestListDirectory_EntryMetadata(t *testing.T) {
 	t.Run("verify entry metadata correctness", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/file.txt", []byte("hello world"), 0644)
+		fs.createFile("/workspace/file.txt", []byte("hello world"), 0o644)
 		fs.createDir("/workspace/subdir")
 
 		cfg := config.DefaultConfig()
@@ -746,8 +746,8 @@ func TestListDirectory_Sorting(t *testing.T) {
 	t.Run("sorting: directories before files, alphabetical within each group", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/zebra.txt", []byte("z"), 0644)
-		fs.createFile("/workspace/alpha.txt", []byte("a"), 0644)
+		fs.createFile("/workspace/zebra.txt", []byte("z"), 0o644)
+		fs.createFile("/workspace/alpha.txt", []byte("a"), 0o644)
 		fs.createDir("/workspace/zulu")
 		fs.createDir("/workspace/alpha")
 
@@ -791,7 +791,7 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 		fs.createDir("/workspace")
 		fs.createDir("/workspace/src")
 		fs.createDir("/workspace/src/app")
-		fs.createFile("/workspace/src/app/main.go", []byte("package main"), 0644)
+		fs.createFile("/workspace/src/app/main.go", []byte("package main"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
@@ -838,7 +838,7 @@ func TestListDirectory_ContextCancellation(t *testing.T) {
 	t.Run("context cancellation stops listing", func(t *testing.T) {
 		fs := newMockFileSystemForList()
 		fs.createDir("/workspace")
-		fs.createFile("/workspace/files.txt", []byte("content"), 0644)
+		fs.createFile("/workspace/files.txt", []byte("content"), 0o644)
 
 		cfg := config.DefaultConfig()
 		listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))

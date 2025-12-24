@@ -113,7 +113,7 @@ func (a *WriteFileAdapter) Definition() provider.ToolDefinition {
 				},
 				"perm": {
 					Type:        "integer",
-					Description: "File permissions (octal, e.g., 0644)",
+					Description: "File permissions (octal, e.g., 0o644)",
 				},
 			},
 			Required: []string{"path", "content"},

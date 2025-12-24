@@ -30,7 +30,7 @@ func TestToolAdapter_ReadFile(t *testing.T) {
 	// Create temporary workspace with test file
 	workspaceRoot := t.TempDir()
 	testFile := filepath.Join(workspaceRoot, "test.txt")
-	err := os.WriteFile(testFile, []byte("Hello World"), 0644)
+	err := os.WriteFile(testFile, []byte("Hello World"), 0o644)
 	assert.NoError(t, err)
 
 	// Canonicalize workspace root
