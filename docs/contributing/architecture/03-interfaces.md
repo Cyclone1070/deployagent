@@ -17,7 +17,7 @@
 
 *   **No Shared Interfaces**: Interfaces are local to the package that uses them. NOT shared across packages, even siblings.
     *   **Why**: Sibling packages should not know each other exist. Each defines its own interface with only the methods IT needs.
-    *   **Trade-off**: This creates duplication. You accept small duplication in exchange for massive decoupling. This is correct.
+    *   **Trade-off**: This creates duplication. You accept small duplication in exchange for more decoupling. This is correct.
 
 > [!CAUTION]
 > **ANTI-PATTERN**: Shared Interface Library

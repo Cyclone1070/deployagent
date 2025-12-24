@@ -9,7 +9,7 @@
     *   **Mechanism**: `type PathError struct { Path string }` in the same package.
 
 > [!NOTE]
-> **Multiple Implementations**: If multiple packages return the same error, each will define their own local version. This has minimal impact on the caller, they will just import error from the same package as the function they are calling. The benefit is that each package is self-contained.
+> **Multiple Implementations**: If there are multiple implementations (e.g., different storage backends), define errors in the parent package and all implementations import.
 
 > [!CAUTION]
 > **FORBIDDEN ERROR PATTERNS**
