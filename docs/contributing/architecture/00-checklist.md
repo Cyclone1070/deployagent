@@ -1,7 +1,7 @@
 # Go Architecture & Design Guidelines
 
 > [!IMPORTANT]
-> **Design Goals**: Future proofing code over initial convenience. Decoupling is the key to maintainable, testable, and robust Go code.
+> **Design Goals**: Prioritize high cohesion and testability.
 >
 > These principles are strict guidelines to ensure maintainable, testable, and robust Go code. Any violations, no matter how small, will be rejected immediately during code review.
 
