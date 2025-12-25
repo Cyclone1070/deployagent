@@ -190,7 +190,7 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 		entryRel, err := t.pathResolver.Rel(entryAbs)
 		if err != nil {
 			// This indicates a bug in path resolution or directory structure - don't mask it
-			return nil, false, &RelPathError{Path: entryAbs, Cause: err}
+			return nil, false, fmt.Errorf("relative path for %s: %w", entryAbs, err)
 		}
 
 		// Normalize to forward slashes

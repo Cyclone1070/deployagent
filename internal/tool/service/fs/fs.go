@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -90,7 +91,7 @@ func (fs *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.Fil
 
 	tmpFile, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
-		return &TempFileError{Dir: dir, Cause: err}
+		return fmt.Errorf("create temp in %s: %w", dir, err)
 	}
 
 	tmpPath := tmpFile.Name()
@@ -106,29 +107,29 @@ func (fs *OSFileSystem) WriteFileAtomic(path string, content []byte, perm os.Fil
 	}()
 
 	if _, err := tmpFile.Write(content); err != nil {
-		return &TempWriteError{Path: tmpPath, Cause: err}
+		return fmt.Errorf("write temp %s: %w", tmpPath, err)
 	}
 
 	if err := tmpFile.Sync(); err != nil {
-		return &TempSyncError{Path: tmpPath, Cause: err}
+		return fmt.Errorf("sync temp %s: %w", tmpPath, err)
+	}
+
+	if err := tmpFile.Chmod(perm); err != nil {
+		return fmt.Errorf("chmod temp %s: %w", tmpPath, err)
 	}
 
 	// Close file before rename (required on some systems)
 	if err := tmpFile.Close(); err != nil {
 		tmpFile = nil
-		return &TempCloseError{Path: tmpPath, Cause: err}
+		return fmt.Errorf("close temp %s: %w", tmpPath, err)
 	}
 	tmpFile = nil
 
 	// Atomic rename is the critical operation that ensures consistency
 	if err := os.Rename(tmpPath, path); err != nil {
-		return &RenameError{Old: tmpPath, New: path, Cause: err}
+		return fmt.Errorf("rename %s to %s: %w", tmpPath, path, err)
 	}
 	needsCleanup = false
-
-	if err := os.Chmod(path, perm); err != nil {
-		return &ChmodError{Path: path, Mode: perm, Cause: err}
-	}
 
 	return nil
 }

@@ -26,24 +26,11 @@ func (e *ListDirError) Error() string {
 }
 func (e *ListDirError) Unwrap() error { return e.Cause }
 
-// RelPathError is returned when relative path calculation fails.
-type RelPathError struct {
-	Path  string
-	Cause error
-}
-
-func (e *RelPathError) Error() string {
-	return fmt.Sprintf("failed to calculate relative path for %s: %v", e.Path, e.Cause)
-}
-func (e *RelPathError) Unwrap() error { return e.Cause }
-
 // -- Sentinels --
 
 var (
 	ErrFileMissing     = errors.New("file or path does not exist")
-	ErrIsDirectory     = errors.New("path is a directory")
 	ErrNotADirectory   = errors.New("path is not a directory")
-	ErrPathTraversal   = errors.New("path traversal detected")
 	ErrPathRequired    = errors.New("path is required")
 	ErrPatternRequired = errors.New("pattern is required")
 	ErrInvalidPattern  = errors.New("invalid glob pattern")

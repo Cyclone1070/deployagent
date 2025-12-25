@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"bufio"
 	"fmt"
 	"strings"
 )
@@ -24,12 +23,11 @@ func ParseEnvFile(fs envFileReader, path string) (map[string]string, error) {
 	}
 
 	env := make(map[string]string)
-	scanner := bufio.NewScanner(strings.NewReader(string(content)))
-	lineNum := 0
+	lines := strings.Split(string(content), "\n")
 
-	for scanner.Scan() {
-		lineNum++
-		line := strings.TrimSpace(scanner.Text())
+	for i, rawLine := range lines {
+		lineNum := i + 1
+		line := strings.TrimSpace(rawLine)
 
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -54,10 +52,6 @@ func ParseEnvFile(fs envFileReader, path string) (map[string]string, error) {
 		}
 
 		env[key] = value
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("%w: %s: %v", ErrEnvFileScan, path, err)
 	}
 
 	return env, nil
