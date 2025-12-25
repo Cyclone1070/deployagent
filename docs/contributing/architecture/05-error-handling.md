@@ -1,5 +1,15 @@
 # 5. Error Handling
 
+> [!IMPORTANT]
+> **Minimize Error Returns**
+> 
+> Every returned error forces the caller to handle it, adding complexity. Before returning an error, ask:
+> * Can this be handled internally (clamp, default, fallback)?
+> * Can the caller actually do anything different?
+> * Is this truly exceptional, or just an edge case we can normalize?
+> 
+> Only return errors that the caller can meaningfully act upon. Some errors provide critical information to the caller and must be returned.
+
 **Goal**: Errors live with the code that returns them.
 
 *   **Sentinel Errors**: Use sentinels for standard domain conditions ("Not Found", "Invalid Input").
