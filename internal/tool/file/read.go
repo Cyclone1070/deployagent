@@ -59,7 +59,7 @@ func NewReadFileTool(
 // Run reads a file from the workspace with optional offset and limit for partial reads.
 // It validates the path is within workspace boundaries, checks for binary content,
 // enforces size limits, and caches checksums for full file reads.
-// Returns an error if the file is binary, too large, or outside the workspace.
+// Returns an error if the file is binary or outside the workspace. Large files are truncated.
 //
 // Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
 func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFileResponse, error) {
@@ -84,13 +84,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 
 	// Check if it's a directory using info we already have
 	if info.IsDir() {
-		return nil, fmt.Errorf("%w: %s", ErrIsDirectory, abs)
-	}
-
-	// Enforce size limit
-	maxFileSize := t.config.Tools.MaxFileSize
-	if info.Size() > maxFileSize {
-		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", ErrFileTooLarge, abs, info.Size(), maxFileSize)
+		return nil, fmt.Errorf("path is a directory: %s", abs)
 	}
 
 	var offset int64
@@ -107,7 +101,7 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 	}
 
 	if content.IsBinaryContent(contentBytes) {
-		return nil, fmt.Errorf("%w: %s", ErrBinaryFile, abs)
+		return nil, fmt.Errorf("file is binary: %s", abs)
 	}
 
 	content := string(contentBytes)
@@ -120,10 +114,14 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 		t.checksumManager.Update(abs, checksum)
 	}
 
+	truncated := (offset + int64(len(contentBytes))) < info.Size()
 	return &ReadFileResponse{
 		AbsolutePath: abs,
 		RelativePath: rel,
 		Size:         info.Size(),
 		Content:      content,
+		Offset:       offset,
+		Limit:        limit,
+		Truncated:    truncated,
 	}, nil
 }

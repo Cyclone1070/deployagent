@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -216,8 +215,8 @@ func TestReadFile(t *testing.T) {
 
 		readReq := &ReadFileRequest{Path: "binary.bin"}
 		_, err := readTool.Run(context.Background(), readReq)
-		if err == nil || !errors.Is(err, ErrBinaryFile) {
-			t.Errorf("expected ErrBinaryFile, got %v", err)
+		if err == nil {
+			t.Errorf("expected error for binary file, got nil")
 		}
 	})
 
@@ -226,6 +225,9 @@ func TestReadFile(t *testing.T) {
 		checksumManager := newMockChecksumManagerForRead()
 		// Create file larger than limit
 		largeContent := make([]byte, maxFileSize+1)
+		for i := range largeContent {
+			largeContent[i] = ' '
+		}
 		fs.createFile("/workspace/large.txt", largeContent)
 
 		cfg := config.DefaultConfig()
@@ -234,9 +236,15 @@ func TestReadFile(t *testing.T) {
 		readTool := NewReadFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "large.txt"}
-		_, err := readTool.Run(context.Background(), readReq)
-		if err == nil || !errors.Is(err, ErrFileTooLarge) {
-			t.Errorf("expected ErrFileTooLarge, got %v", err)
+		resp, err := readTool.Run(context.Background(), readReq)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !resp.Truncated {
+			t.Error("expected Truncated: true for large file")
+		}
+		if int64(len(resp.Content)) != maxFileSize {
+			t.Errorf("expected truncated content length %d, got %d", maxFileSize, len(resp.Content))
 		}
 	})
 
@@ -272,8 +280,8 @@ func TestReadFile(t *testing.T) {
 
 		readReq := &ReadFileRequest{Path: "subdir"}
 		_, err := readTool.Run(context.Background(), readReq)
-		if err == nil || !errors.Is(err, ErrIsDirectory) {
-			t.Error("expected ErrIsDirectory when reading directory")
+		if err == nil {
+			t.Error("expected error when reading directory")
 		}
 	})
 

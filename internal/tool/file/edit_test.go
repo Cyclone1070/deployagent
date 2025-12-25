@@ -5,7 +5,6 @@ package file
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/Cyclone1070/iav/internal/config"
@@ -50,8 +49,8 @@ func TestEditFile(t *testing.T) {
 
 		editReq := &EditFileRequest{Path: "test.txt", Operations: ops}
 		_, err = editTool.Run(context.Background(), editReq)
-		if err == nil || !errors.Is(err, ErrEditConflict) {
-			t.Errorf("expected ErrEditConflict, got %v", err)
+		if err == nil {
+			t.Errorf("expected conflict error, got nil")
 		}
 	})
 
@@ -164,8 +163,8 @@ func TestEditFile(t *testing.T) {
 
 		editReq := &EditFileRequest{Path: "test.txt", Operations: ops}
 		_, err = editTool.Run(context.Background(), editReq)
-		if err == nil || !errors.Is(err, ErrReplacementCountMismatch) {
-			t.Errorf("expected ErrReplacementCountMismatch, got %v", err)
+		if err == nil {
+			t.Errorf("expected count mismatch error, got nil")
 		}
 	})
 
@@ -234,8 +233,8 @@ func TestEditFile(t *testing.T) {
 
 		editReq := &EditFileRequest{Path: "test.txt", Operations: ops}
 		_, err := editTool.Run(context.Background(), editReq)
-		if err == nil || !errors.Is(err, ErrReplacementCountMismatch) {
-			t.Errorf("expected ErrReplacementCountMismatch, got %v", err)
+		if err == nil {
+			t.Errorf("expected count mismatch error, got nil")
 		}
 	})
 
@@ -261,8 +260,8 @@ func TestEditFile(t *testing.T) {
 
 		editReq := &EditFileRequest{Path: "test.txt", Operations: ops}
 		_, err := editTool.Run(context.Background(), editReq)
-		if err == nil || !errors.Is(err, ErrSnippetNotFound) {
-			t.Errorf("expected ErrSnippetNotFound, got %v", err)
+		if err == nil {
+			t.Errorf("expected snippet not found error, got nil")
 		}
 	})
 
@@ -421,8 +420,8 @@ func TestEditFile(t *testing.T) {
 
 		editReq := &EditFileRequest{Path: "test.txt", Operations: ops}
 		_, err := editTool.Run(context.Background(), editReq)
-		if err == nil || !errors.Is(err, ErrReplacementCountMismatch) {
-			t.Errorf("expected ErrReplacementCountMismatch, got %v", err)
+		if err == nil {
+			t.Errorf("expected count mismatch error, got nil")
 		}
 	})
 }

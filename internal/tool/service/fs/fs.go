@@ -75,12 +75,12 @@ func (fs *OSFileSystem) ReadFileRange(path string, offset, limit int64) ([]byte,
 	}
 
 	content := make([]byte, readSize)
-	n, err := file.Read(content)
-	if err != nil && err != io.EOF {
+	_, err = io.ReadFull(file, content)
+	if err != nil {
 		return nil, err
 	}
 
-	return content[:n], nil
+	return content, nil
 }
 
 // WriteFileAtomic writes content to a file atomically using temp file + rename pattern.

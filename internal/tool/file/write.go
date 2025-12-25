@@ -81,7 +81,7 @@ func (t *WriteFileTool) Run(ctx context.Context, req *WriteFileRequest) (*WriteF
 	// Check if file already exists
 	_, err = t.fileOps.Stat(abs)
 	if err == nil {
-		return nil, fmt.Errorf("%w: %s", ErrFileExists, abs)
+		return nil, fmt.Errorf("file already exists: %s", abs)
 	}
 	if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to stat %s: %w", abs, err)
@@ -96,7 +96,7 @@ func (t *WriteFileTool) Run(ctx context.Context, req *WriteFileRequest) (*WriteF
 
 	// Check for binary content
 	if content.IsBinaryContent(contentBytes) {
-		return nil, fmt.Errorf("%w: %s", ErrBinaryFile, abs)
+		return nil, fmt.Errorf("cannot write binary content to: %s", abs)
 	}
 
 	perm := os.FileMode(0o644)

@@ -85,7 +85,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	info, err := t.fileOps.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("%w: %s", ErrFileMissing, abs)
+			return nil, fmt.Errorf("file does not exist: %s", abs)
 		}
 		return nil, fmt.Errorf("failed to stat %s: %w", abs, err)
 	}
@@ -98,7 +98,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 
 	// Check for binary content
 	if content.IsBinaryContent(contentBytes) {
-		return nil, fmt.Errorf("%w: %s", ErrBinaryFile, abs)
+		return nil, fmt.Errorf("file is binary: %s", abs)
 	}
 
 	content := string(contentBytes)
@@ -109,7 +109,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	// Check for conflicts with cached version
 	priorChecksum, ok := t.checksumManager.Get(abs)
 	if ok && priorChecksum != currentChecksum {
-		return nil, fmt.Errorf("%w: %s", ErrEditConflict, abs)
+		return nil, fmt.Errorf("edit conflict: file changed since last read: %s", abs)
 	}
 
 	// Preserve original permissions
@@ -123,7 +123,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 			// Append has exactly 1 logical "target" (end of file).
 			// If count > 1 is specified, it's a mismatch since there's only 1 place to append.
 			if op.ExpectedReplacements > 1 {
-				return nil, fmt.Errorf("%w: append has 1 target, got %d", ErrReplacementCountMismatch, op.ExpectedReplacements)
+				return nil, fmt.Errorf("replacement count mismatch: append has 1 target, got %d", op.ExpectedReplacements)
 			}
 			content += op.After
 			operationsApplied++
@@ -132,13 +132,13 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 
 		count := strings.Count(content, op.Before)
 		if count == 0 {
-			return nil, fmt.Errorf("%w: %s in %s", ErrSnippetNotFound, op.Before, abs)
+			return nil, fmt.Errorf("snippet not found: %q in %s", op.Before, abs)
 		}
 
 		expected := op.ExpectedReplacements
 
 		if count != expected {
-			return nil, fmt.Errorf("%w in %s: expected %d, found %d", ErrReplacementCountMismatch, abs, expected, count)
+			return nil, fmt.Errorf("replacement count mismatch in %s: expected %d, found %d", abs, expected, count)
 		}
 
 		content = strings.Replace(content, op.Before, op.After, expected)
@@ -150,7 +150,7 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 	// Check size limit
 	maxFileSize := t.config.Tools.MaxFileSize
 	if int64(len(newContentBytes)) > maxFileSize {
-		return nil, fmt.Errorf("%w: %s (size %d, limit %d)", ErrFileTooLarge, abs, len(newContentBytes), maxFileSize)
+		return nil, fmt.Errorf("file too large after edit: %s (size %d, limit %d)", abs, len(newContentBytes), maxFileSize)
 	}
 
 	// Write the modified content atomically

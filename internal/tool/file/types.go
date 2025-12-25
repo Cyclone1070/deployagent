@@ -1,6 +1,8 @@
 package file
 
 import (
+	"fmt"
+
 	"github.com/Cyclone1070/iav/internal/config"
 )
 
@@ -14,7 +16,7 @@ type ReadFileRequest struct {
 
 func (r *ReadFileRequest) Validate(cfg *config.Config) error {
 	if r.Path == "" {
-		return ErrPathRequired
+		return fmt.Errorf("path is required")
 	}
 	if r.Offset != nil && *r.Offset < 0 {
 		*r.Offset = 0
@@ -31,6 +33,9 @@ type ReadFileResponse struct {
 	AbsolutePath string
 	RelativePath string
 	Size         int64
+	Offset       int64
+	Limit        int64
+	Truncated    bool
 }
 
 // -- Write File --
@@ -42,13 +47,13 @@ type WriteFileRequest struct {
 
 func (r *WriteFileRequest) Validate(cfg *config.Config) error {
 	if r.Path == "" {
-		return ErrPathRequired
+		return fmt.Errorf("path is required")
 	}
 	if r.Content == "" {
-		return ErrContentRequiredForWrite
+		return fmt.Errorf("content is required")
 	}
 	if int64(len(r.Content)) > cfg.Tools.MaxFileSize {
-		return ErrFileTooLarge
+		return fmt.Errorf("content too large: %d bytes exceeds limit %d", len(r.Content), cfg.Tools.MaxFileSize)
 	}
 	return nil
 }
@@ -74,10 +79,10 @@ type EditFileRequest struct {
 
 func (r *EditFileRequest) Validate(cfg *config.Config) error {
 	if r.Path == "" {
-		return ErrPathRequired
+		return fmt.Errorf("path is required")
 	}
 	if len(r.Operations) == 0 {
-		return ErrOperationsRequired
+		return fmt.Errorf("operations cannot be empty")
 	}
 	for i := range r.Operations {
 		if r.Operations[i].ExpectedReplacements <= 0 {
