@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/genai"
 
-	provider "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/provider"
 )
 
 // GeminiClient defines the interface for interacting with the Gemini API.

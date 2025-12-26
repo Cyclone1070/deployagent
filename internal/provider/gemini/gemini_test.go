@@ -7,7 +7,7 @@ import (
 
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/orchestrator/model"
-	provider "github.com/Cyclone1070/iav/internal/provider/model"
+	"github.com/Cyclone1070/iav/internal/provider"
 	"github.com/Cyclone1070/iav/internal/testing/mock"
 	"google.golang.org/genai"
 )

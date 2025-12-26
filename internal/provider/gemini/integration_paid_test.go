@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	orchmodel "github.com/Cyclone1070/iav/internal/orchestrator/model"
-	"github.com/Cyclone1070/iav/internal/provider/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"

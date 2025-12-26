@@ -1,4 +1,4 @@
-package model
+package provider
 
 import (
 	"github.com/Cyclone1070/iav/internal/orchestrator/model"
