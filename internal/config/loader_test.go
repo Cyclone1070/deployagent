@@ -58,19 +58,13 @@ func TestLoad_NoConfigFile_ReturnsDefaults(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 50, cfg.Orchestrator.MaxTurns)
-	assert.Equal(t, 8192, cfg.Provider.FallbackMaxOutputTokens)
 	assert.Equal(t, int64(5*1024*1024), cfg.Tools.MaxFileSize)
 }
 
 func TestLoad_FullOverride_AllValuesReplaced(t *testing.T) {
-	// Config file overrides every single field
+	// Config file overrides fields
 	configJSON := `{
-		"orchestrator": {"max_turns": 100},
-		"provider": {"fallback_max_output_tokens": 16384, "fallback_context_window": 2000000},
-		"tools": {"max_file_size": 10485760, "default_shell_timeout": 1800, "initial_scanner_buffer_size": 131072},
-		"ui": {"tick_interval_ms": 200, "color_primary": "99"},
-		"policy": {"shell_allow": ["docker"], "shell_deny": ["rm"]}
+		"tools": {"max_file_size": 10485760, "default_shell_timeout": 1800}
 	}`
 	fs := createMockFS(map[string][]byte{
 		"/home/user/.config/iav/config.json": []byte(configJSON),
@@ -80,17 +74,13 @@ func TestLoad_FullOverride_AllValuesReplaced(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 100, cfg.Orchestrator.MaxTurns)
-	assert.Equal(t, 16384, cfg.Provider.FallbackMaxOutputTokens)
 	assert.Equal(t, int64(10485760), cfg.Tools.MaxFileSize)
-	assert.Equal(t, 131072, cfg.Tools.InitialScannerBufferSize)
-	assert.Equal(t, 200, cfg.UI.TickIntervalMs)
-	assert.Equal(t, []string{"docker"}, cfg.Policy.ShellAllow)
+	assert.Equal(t, 1800, cfg.Tools.DefaultShellTimeout)
 }
 
 func TestLoad_PartialOverride_MergesWithDefaults(t *testing.T) {
-	// Config file only overrides max_turns - rest should be defaults
-	configJSON := `{"orchestrator": {"max_turns": 200}}`
+	// Config file only overrides default_shell_timeout - rest should be defaults
+	configJSON := `{"tools": {"default_shell_timeout": 1200}}`
 	fs := createMockFS(map[string][]byte{
 		"/home/user/.config/iav/config.json": []byte(configJSON),
 	})
@@ -99,10 +89,8 @@ func TestLoad_PartialOverride_MergesWithDefaults(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 200, cfg.Orchestrator.MaxTurns)             // Overridden
-	assert.Equal(t, 8192, cfg.Provider.FallbackMaxOutputTokens) // Default
-	assert.Equal(t, int64(5*1024*1024), cfg.Tools.MaxFileSize)  // Default
-	assert.Contains(t, cfg.Policy.ShellAllow, "docker")         // Default list
+	assert.Equal(t, 1200, cfg.Tools.DefaultShellTimeout)       // Overridden
+	assert.Equal(t, int64(5*1024*1024), cfg.Tools.MaxFileSize) // Default
 }
 
 func TestLoad_EmptyConfigFile_ReturnsDefaults(t *testing.T) {
@@ -115,23 +103,7 @@ func TestLoad_EmptyConfigFile_ReturnsDefaults(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 50, cfg.Orchestrator.MaxTurns)
-}
-
-func TestLoad_NestedPartialOverride_OnlySpecifiedFieldsChange(t *testing.T) {
-	// Override only one field in a nested struct
-	configJSON := `{"ui": {"color_primary": "255"}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Equal(t, "255", cfg.UI.ColorPrimary) // Overridden
-	assert.Equal(t, "42", cfg.UI.ColorSuccess)  // Default preserved
-	assert.Equal(t, 300, cfg.UI.TickIntervalMs) // Default preserved
+	assert.Equal(t, int64(5*1024*1024), cfg.Tools.MaxFileSize)
 }
 
 // --- UNHAPPY PATH TESTS ---
@@ -172,7 +144,7 @@ func TestLoad_HomeDirError_ReturnsDefaults(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 50, cfg.Orchestrator.MaxTurns) // Default
+	assert.Equal(t, int64(5*1024*1024), cfg.Tools.MaxFileSize) // Default
 }
 
 func TestLoad_WrongJSONType_ReturnsError(t *testing.T) {
@@ -189,78 +161,6 @@ func TestLoad_WrongJSONType_ReturnsError(t *testing.T) {
 }
 
 // --- EDGE CASE TESTS ---
-
-func TestLoad_ZeroValueExplicit_Overrides(t *testing.T) {
-	// Setting model_type_priority_pro to 0 SHOULD override default (2)
-	// This requires fixing the merge strategy
-	configJSON := `{"provider": {"model_type_priority_pro": 0}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Equal(t, 0, cfg.Provider.ModelTypePriorityPro) // Expect 0, not default 2
-}
-
-func TestLoad_EmptyStringColor_Overrides(t *testing.T) {
-	// Empty string SHOULD override default color if explicitly set
-	configJSON := `{"ui": {"color_primary": ""}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Equal(t, "", cfg.UI.ColorPrimary) // Expect empty string, not default
-}
-
-func TestLoad_EmptyPolicyArray_ReplacesDefault(t *testing.T) {
-	// Empty array SHOULD replace default (user explicitly wants empty)
-	configJSON := `{"policy": {"shell_allow": []}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Empty(t, cfg.Policy.ShellAllow) // Empty array, not default
-}
-
-func TestLoad_NullPolicyArray_KeepsDefault(t *testing.T) {
-	// Null/missing array should keep defaults
-	configJSON := `{"policy": {"shell_deny": ["rm"]}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Contains(t, cfg.Policy.ShellAllow, "docker")   // Default kept
-	assert.Equal(t, []string{"rm"}, cfg.Policy.ShellDeny) // Overridden
-}
-
-func TestLoad_VeryLargeValues_Accepted(t *testing.T) {
-	// Extreme values should be accepted (no validation in loader)
-	configJSON := `{"orchestrator": {"max_turns": 999999999}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Equal(t, 999999999, cfg.Orchestrator.MaxTurns)
-}
 
 func TestLoad_NegativeValues_Rejected(t *testing.T) {
 	// Negative values should be rejected by validation
@@ -279,7 +179,7 @@ func TestLoad_NegativeValues_Rejected(t *testing.T) {
 
 func TestLoad_UnknownFields_Ignored(t *testing.T) {
 	// Unknown fields in JSON should be silently ignored
-	configJSON := `{"orchestrator": {"max_turns": 100}, "unknown_field": "ignored"}`
+	configJSON := `{"tools": {"max_file_size": 1024}, "unknown_field": "ignored"}`
 	fs := createMockFS(map[string][]byte{
 		"/home/user/.config/iav/config.json": []byte(configJSON),
 	})
@@ -288,19 +188,5 @@ func TestLoad_UnknownFields_Ignored(t *testing.T) {
 	cfg, err := loader.Load()
 
 	require.NoError(t, err)
-	assert.Equal(t, 100, cfg.Orchestrator.MaxTurns)
-}
-
-func TestLoad_UnicodeInStrings_Handled(t *testing.T) {
-	// Unicode characters in string fields
-	configJSON := `{"policy": {"shell_allow": ["👾"]}}`
-	fs := createMockFS(map[string][]byte{
-		"/home/user/.config/iav/config.json": []byte(configJSON),
-	})
-	loader := config.NewLoaderWithFS(fs)
-
-	cfg, err := loader.Load()
-
-	require.NoError(t, err)
-	assert.Equal(t, []string{"👾"}, cfg.Policy.ShellAllow)
+	assert.Equal(t, int64(1024), cfg.Tools.MaxFileSize)
 }

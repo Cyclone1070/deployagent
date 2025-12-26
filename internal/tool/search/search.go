@@ -110,9 +110,9 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 
 	// Process output
 	var matches []SearchContentMatch
-	lines := strings.Split(res.Stdout, "\n")
+	lines := strings.SplitSeq(res.Stdout, "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

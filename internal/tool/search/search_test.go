@@ -257,7 +257,7 @@ func TestSearchContent_Pagination(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	var rgOutput string
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		rgOutput += fmt.Sprintf(`{"type":"match","data":{"path":{"text":"/workspace/file.txt"},"lines":{"text":"line %d"},"line_number":%d}}
 `, i, i+1)
 	}

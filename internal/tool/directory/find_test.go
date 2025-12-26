@@ -128,7 +128,7 @@ func TestFindFile_Pagination(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	var output string
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		output += fmt.Sprintf("/workspace/file%d.txt\n", i)
 	}
 
@@ -308,7 +308,7 @@ func TestFindFile_DeeplyNested(t *testing.T) {
 	cfg := config.DefaultConfig()
 
 	deepPath := "/workspace"
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		deepPath += fmt.Sprintf("/dir%d", i)
 	}
 	deepPath += "/file.txt"
