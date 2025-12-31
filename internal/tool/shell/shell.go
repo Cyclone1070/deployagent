@@ -131,9 +131,9 @@ func (t *ShellTool) Run(ctx context.Context, req *ShellRequest) (*ShellResponse,
 	if IsDockerComposeUpDetached(req.Command) {
 		ids, err := CollectComposeContainers(ctx, t.commandExecutor, wdAbs)
 		if err == nil {
-			resp.Notes = append(resp.Notes, FormatContainerStartedNote(ids))
+			resp.Note = FormatContainerStartedNote(ids)
 		} else {
-			resp.Notes = append(resp.Notes, fmt.Sprintf("Warning: Could not list started containers: %v", err))
+			resp.Note = fmt.Sprintf("Warning: Could not list started containers: %v", err)
 		}
 	}
 

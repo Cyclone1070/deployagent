@@ -8,12 +8,6 @@ import (
 
 // -- Directory Tool Contract Types --
 
-// DirectoryEntry represents a single entry in a directory listing
-type DirectoryEntry struct {
-	RelativePath string
-	IsDir        bool
-}
-
 // ListDirectoryRequest represents the parameters for a ListDirectory operation
 type ListDirectoryRequest struct {
 	Path           string `json:"path"`
@@ -42,12 +36,12 @@ func (r *ListDirectoryRequest) Validate(cfg *config.Config) error {
 // ListDirectoryResponse contains the result of a ListDirectory operation
 type ListDirectoryResponse struct {
 	DirectoryPath    string
-	Entries          []DirectoryEntry
+	FormattedEntries string // newline-separated, dirs have "/" suffix
 	Offset           int
 	Limit            int
 	TotalCount       int
 	Truncated        bool
-	TruncationReason string
+	HitMaxResults    bool
 }
 
 // FindFileRequest represents the parameters for a FindFile operation
@@ -78,9 +72,10 @@ func (r *FindFileRequest) Validate(cfg *config.Config) error {
 
 // FindFileResponse contains the result of a FindFile operation
 type FindFileResponse struct {
-	Matches    []string
-	Offset     int
-	Limit      int
-	TotalCount int
-	Truncated  bool
+	FormattedMatches string // newline-separated paths
+	Offset           int
+	Limit            int
+	TotalCount       int
+	Truncated        bool
+	HitMaxResults    bool
 }

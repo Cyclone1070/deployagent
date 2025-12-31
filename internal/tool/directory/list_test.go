@@ -142,64 +142,58 @@ func (m *mockFileSystemForList) ListDir(path string) ([]os.FileInfo, error) {
 		return nil, err
 	}
 
-	if isDir, ok := m.dirs[path]; !ok || !isDir {
+	// Follow symlinks for the directory check
+	finalPath := path
+	for {
+		if target, ok := m.symlinks[finalPath]; ok {
+			finalPath = target
+		} else {
+			break
+		}
+	}
+
+	if isDir, ok := m.dirs[finalPath]; !ok || !isDir {
 		return nil, fmt.Errorf("not a directory")
 	}
 
 	var entries []os.FileInfo
-	prefix := path
+	prefix := finalPath
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
 
 	// Find all direct children
 	seen := make(map[string]bool)
+
+	// Helper to collect direct children
+	collectChildren := func(pathStr string) {
+		if after, ok := strings.CutPrefix(pathStr, prefix); ok {
+			rel := after
+			parts := strings.Split(rel, "/")
+			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
+				seen[parts[0]] = true
+				childPath := filepath.Join(finalPath, parts[0])
+				info, _ := m.Lstat(childPath)
+				if info != nil {
+					entries = append(entries, info)
+				}
+			}
+		}
+	}
+
+	// Check files
 	for p := range m.files {
-		if after, ok := strings.CutPrefix(p, prefix); ok {
-			rel := after
-			parts := strings.Split(rel, "/")
-			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
-				seen[parts[0]] = true
-				childPath := filepath.Join(path, parts[0])
-				info, _ := m.Lstat(childPath)
-				if info != nil {
-					entries = append(entries, info)
-				}
-			}
+		collectChildren(p)
+	}
+	// Also check dirs
+	for p, isDir := range m.dirs {
+		if isDir {
+			collectChildren(p)
 		}
 	}
-
-	for p := range m.dirs {
-		if p == path {
-			continue
-		}
-		if after, ok := strings.CutPrefix(p, prefix); ok {
-			rel := after
-			parts := strings.Split(rel, "/")
-			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
-				seen[parts[0]] = true
-				childPath := filepath.Join(path, parts[0])
-				info, _ := m.Lstat(childPath)
-				if info != nil {
-					entries = append(entries, info)
-				}
-			}
-		}
-	}
-
+	// Also check symlinks
 	for p := range m.symlinks {
-		if after, ok := strings.CutPrefix(p, prefix); ok {
-			rel := after
-			parts := strings.Split(rel, "/")
-			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
-				seen[parts[0]] = true
-				childPath := filepath.Join(path, parts[0])
-				info, _ := m.Lstat(childPath)
-				if info != nil {
-					entries = append(entries, info)
-				}
-			}
-		}
+		collectChildren(p)
 	}
 
 	return entries, nil
@@ -248,29 +242,14 @@ func TestListDirectory(t *testing.T) {
 			t.Errorf("expected DirectoryPath to be empty for workspace root, got %q", resp.DirectoryPath)
 		}
 
-		if len(resp.Entries) != 4 {
-			t.Fatalf("expected 4 entries, got %d", len(resp.Entries))
+		if resp.TotalCount != 4 {
+			t.Fatalf("expected 4 entries, got %d", resp.TotalCount)
 		}
 
-		// Verify sorting: directories first, then files alphabetically
-		expectedOrder := []struct {
-			name  string
-			isDir bool
-		}{
-			{"subdir1", true},
-			{"subdir2", true},
-			{"file1.txt", false},
-			{"file2.txt", false},
-		}
-
-		for i, expected := range expectedOrder {
-			entry := resp.Entries[i]
-			if entry.RelativePath != expected.name {
-				t.Errorf("entry %d: expected RelativePath %q, got %q", i, expected.name, entry.RelativePath)
-			}
-			if entry.IsDir != expected.isDir {
-				t.Errorf("entry %d: expected IsDir %v, got %v", i, expected.isDir, entry.IsDir)
-			}
+		// Verify formatting and sorting: directories first (with /), then files alphabetically
+		expected := "subdir1/\nsubdir2/\nfile1.txt\nfile2.txt\n"
+		if resp.FormattedEntries != expected {
+			t.Errorf("expected FormattedEntries:\n%q\ngot:\n%q", expected, resp.FormattedEntries)
 		}
 	})
 
@@ -295,8 +274,12 @@ func TestListDirectory(t *testing.T) {
 			t.Errorf("expected DirectoryPath 'src', got %q", resp.DirectoryPath)
 		}
 
-		if len(resp.Entries) != 3 {
-			t.Fatalf("expected 3 entries, got %d", len(resp.Entries))
+		if resp.TotalCount != 3 {
+			t.Fatalf("expected 3 entries, got %d", resp.TotalCount)
+		}
+		expected := "src/internal/\nsrc/main.go\nsrc/utils.go\n"
+		if resp.FormattedEntries != expected {
+			t.Errorf("expected FormattedEntries:\n%q\ngot:\n%q", expected, resp.FormattedEntries)
 		}
 	})
 
@@ -314,8 +297,8 @@ func TestListDirectory(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if len(resp.Entries) != 0 {
-			t.Errorf("expected 0 entries for empty directory, got %d", len(resp.Entries))
+		if resp.FormattedEntries != "" {
+			t.Errorf("expected empty string for empty directory, got %q", resp.FormattedEntries)
 		}
 	})
 
@@ -442,8 +425,11 @@ func TestListDirectory(t *testing.T) {
 		if resp.DirectoryPath != "" {
 			t.Errorf("expected DirectoryPath to be empty for '', got %q", resp.DirectoryPath)
 		}
-		if len(resp.Entries) != 1 {
-			t.Errorf("expected 1 entry, got %d", len(resp.Entries))
+		if resp.FormattedEntries == "" {
+			t.Error("expected non-empty FormattedEntries for root")
+		}
+		if resp.TotalCount != 1 {
+			t.Errorf("expected 1 entry, got %d", resp.TotalCount)
 		}
 	})
 }
@@ -469,10 +455,6 @@ func TestListDirectory_Pagination(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if len(resp.Entries) != 5 {
-			t.Errorf("expected 5 entries, got %d", len(resp.Entries))
-		}
-
 		if resp.TotalCount != 10 {
 			t.Errorf("expected TotalCount 10, got %d", resp.TotalCount)
 		}
@@ -484,8 +466,8 @@ func TestListDirectory_Pagination(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if len(resp2.Entries) != 5 {
-			t.Errorf("expected 5 entries in second page, got %d", len(resp2.Entries))
+		if resp2.TotalCount != 10 {
+			t.Errorf("expected TotalCount 10 in second page, got %d", resp2.TotalCount)
 		}
 	})
 }
@@ -511,8 +493,12 @@ func TestListDirectory_WithSymlinks(t *testing.T) {
 		}
 
 		// Should have 4 entries: dir, linkdir, file.txt, link.txt
-		if len(resp.Entries) != 4 {
-			t.Fatalf("expected 4 entries, got %d", len(resp.Entries))
+		if resp.TotalCount != 4 {
+			t.Fatalf("expected 4 entries, got %d", resp.TotalCount)
+		}
+		expected := "dir/\nlinkdir/\nfile.txt\nlink.txt\n" // Assuming linkdir points to a dir
+		if resp.FormattedEntries != expected {
+			t.Errorf("expected:\n%q\ngot:\n%q", expected, resp.FormattedEntries)
 		}
 	})
 }
@@ -536,8 +522,8 @@ func TestListDirectory_UnicodeFilenames(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if len(resp.Entries) != 3 {
-			t.Fatalf("expected 3 entries, got %d", len(resp.Entries))
+		if resp.TotalCount != 3 {
+			t.Fatalf("expected 3 entries, got %d", resp.TotalCount)
 		}
 	})
 }
@@ -567,12 +553,12 @@ func TestListDirectory_DotfilesWithGitignore(t *testing.T) {
 		}
 
 		// Should only have file.txt, dotfiles filtered
-		if len(resp.Entries) != 1 {
-			t.Fatalf("expected 1 entry (dotfiles filtered), got %d", len(resp.Entries))
+		if resp.TotalCount != 1 {
+			t.Fatalf("expected 1 entry (dotfiles filtered), got %d", resp.TotalCount)
 		}
 
-		if resp.Entries[0].RelativePath != "file.txt" {
-			t.Errorf("expected file.txt, got %s", resp.Entries[0].RelativePath)
+		if resp.FormattedEntries != "file.txt\n" {
+			t.Errorf("expected 'file.txt\\n', got %q", resp.FormattedEntries)
 		}
 	})
 }
@@ -597,8 +583,8 @@ func TestListDirectory_DotfilesWithoutGitignore(t *testing.T) {
 		}
 
 		// Should have all 3 files
-		if len(resp.Entries) != 3 {
-			t.Fatalf("expected 3 entries, got %d", len(resp.Entries))
+		if resp.TotalCount != 3 {
+			t.Fatalf("expected 3 entries, got %d", resp.TotalCount)
 		}
 	})
 }
@@ -621,10 +607,6 @@ func TestListDirectory_LargeDirectory(t *testing.T) {
 		resp, err := listTool.Run(context.Background(), req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(resp.Entries) != 50 {
-			t.Errorf("expected 50 entries, got %d", len(resp.Entries))
 		}
 
 		if resp.TotalCount != 100 {
@@ -650,8 +632,8 @@ func TestListDirectory_OffsetBeyondEnd(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if len(resp.Entries) != 0 {
-			t.Errorf("expected 0 entries for offset beyond end, got %d", len(resp.Entries))
+		if resp.FormattedEntries != "" {
+			t.Errorf("expected empty string for offset beyond end, got %q", resp.FormattedEntries)
 		}
 
 		if resp.TotalCount != 1 {
@@ -701,41 +683,15 @@ func TestListDirectory_EntryMetadata(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		// Find file and directory entries
-		var fileEntry, dirEntry *DirectoryEntry
-		for i := range resp.Entries {
-			switch resp.Entries[i].RelativePath {
-			case "file.txt":
-				fileEntry = &resp.Entries[i]
-			case "subdir":
-				dirEntry = &resp.Entries[i]
-			}
+		if resp.TotalCount != 2 {
+			t.Fatalf("expected 2 entries, got %d", resp.TotalCount)
 		}
 
-		if fileEntry == nil {
-			t.Fatal("expected to find file.txt entry")
+		if !strings.Contains(resp.FormattedEntries, "file.txt\n") {
+			t.Error("expected FormattedEntries to contain file.txt")
 		}
-
-		if dirEntry == nil {
-			t.Fatal("expected to find subdir entry")
-		}
-
-		// Verify file entry
-		if fileEntry.IsDir {
-			t.Error("file.txt should not be marked as directory")
-		}
-
-		if fileEntry.RelativePath != "file.txt" {
-			t.Errorf("expected RelativePath 'file.txt', got %q", fileEntry.RelativePath)
-		}
-
-		// Verify directory entry
-		if !dirEntry.IsDir {
-			t.Error("subdir should be marked as directory")
-		}
-
-		if dirEntry.RelativePath != "subdir" {
-			t.Errorf("expected RelativePath 'subdir', got %q", dirEntry.RelativePath)
+		if !strings.Contains(resp.FormattedEntries, "subdir/\n") {
+			t.Error("expected FormattedEntries to contain subdir/")
 		}
 	})
 }
@@ -760,25 +716,14 @@ func TestListDirectory_Sorting(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if len(resp.Entries) != 4 {
-			t.Fatalf("expected 4 entries, got %d", len(resp.Entries))
+		if resp.TotalCount != 4 {
+			t.Fatalf("expected 4 entries, got %d", resp.TotalCount)
 		}
 
 		// Verify order: alpha (dir), zulu (dir), alpha.txt (file), zebra.txt (file)
-		expectedOrder := []string{"alpha", "zulu", "alpha.txt", "zebra.txt"}
-		for i, expected := range expectedOrder {
-			if resp.Entries[i].RelativePath != expected {
-				t.Errorf("entry %d: expected %q, got %q", i, expected, resp.Entries[i].RelativePath)
-			}
-		}
-
-		// Verify directories come first
-		if !resp.Entries[0].IsDir || !resp.Entries[1].IsDir {
-			t.Error("directories should come before files")
-		}
-
-		if resp.Entries[2].IsDir || resp.Entries[3].IsDir {
-			t.Error("files should come after directories")
+		expected := "alpha/\nzulu/\nalpha.txt\nzebra.txt\n"
+		if resp.FormattedEntries != expected {
+			t.Errorf("expected sorted output:\n%q\ngot:\n%q", expected, resp.FormattedEntries)
 		}
 	})
 }
@@ -806,12 +751,12 @@ func TestListDirectory_NestedRelativePath(t *testing.T) {
 			t.Errorf("expected DirectoryPath 'src/app', got %q", resp.DirectoryPath)
 		}
 
-		if len(resp.Entries) != 1 {
-			t.Fatalf("expected 1 entry, got %d", len(resp.Entries))
+		if resp.TotalCount != 1 {
+			t.Fatalf("expected 1 entry, got %d", resp.TotalCount)
 		}
 
-		if resp.Entries[0].RelativePath != "src/app/main.go" {
-			t.Errorf("expected RelativePath 'src/app/main.go', got %q", resp.Entries[0].RelativePath)
+		if resp.FormattedEntries != "src/app/main.go\n" {
+			t.Errorf("expected 'src/app/main.go\\n', got %q", resp.FormattedEntries)
 		}
 	})
 }
@@ -855,4 +800,37 @@ func TestListDirectory_ContextCancellation(t *testing.T) {
 			t.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
+}
+
+func TestListDirectory_HitMaxResults(t *testing.T) {
+	workspaceRoot := "/workspace"
+	fs := newMockFileSystemForList()
+	fs.createDir("/workspace")
+	// Create 10 files
+	for i := 1; i <= 10; i++ {
+		fs.createFile(fmt.Sprintf("/workspace/file%d.txt", i), []byte("content"), 0o644)
+	}
+
+	cfg := config.DefaultConfig()
+	// Set a very low limit to trigger cap
+	cfg.Tools.MaxListDirectoryResults = 5
+	listTool := NewListDirectoryTool(fs, nil, cfg, path.NewResolver(workspaceRoot))
+
+	req := &ListDirectoryRequest{Path: ".", MaxDepth: -1, Offset: 0, Limit: 100}
+	resp, err := listTool.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !resp.HitMaxResults {
+		t.Error("expected HitMaxResults to be true")
+	}
+
+	if !resp.Truncated {
+		t.Error("expected Truncated to be true")
+	}
+
+	if resp.TotalCount != 5 {
+		t.Errorf("expected TotalCount 5 (capped), got %d", resp.TotalCount)
+	}
 }

@@ -156,8 +156,9 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if resp.Content != string(content) {
-			t.Errorf("expected content %q, got %q", string(content), resp.Content)
+		expected := formatFileContent(string(content), 0)
+		if resp.Content != expected {
+			t.Errorf("expected content %q, got %q", expected, resp.Content)
 		}
 
 		// Verify cache was updated
@@ -188,7 +189,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		expected := string(content[5:])
+		expected := formatFileContent(string(content[5:]), offset)
 		if resp.Content != expected {
 			t.Errorf("expected content %q, got %q", expected, resp.Content)
 		}
@@ -243,8 +244,9 @@ func TestReadFile(t *testing.T) {
 		if !resp.Truncated {
 			t.Error("expected Truncated: true for large file")
 		}
-		if int64(len(resp.Content)) != maxFileSize {
-			t.Errorf("expected truncated content length %d, got %d", maxFileSize, len(resp.Content))
+		expected := formatFileContent(string(largeContent[:maxFileSize]), 0)
+		if resp.Content != expected {
+			t.Errorf("expected formatted content length %d, got %d", len(expected), len(resp.Content))
 		}
 	})
 
@@ -264,8 +266,9 @@ func TestReadFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resp.Content != "" {
-			t.Errorf("expected empty content for offset beyond EOF, got %q", resp.Content)
+		expected := formatFileContent("", offset)
+		if resp.Content != expected {
+			t.Errorf("expected content %q, got %q", expected, resp.Content)
 		}
 	})
 
@@ -317,7 +320,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		expected := string(content[:4])
+		expected := formatFileContent(string(content[:4]), 0)
 		if resp.Content != expected {
 			t.Errorf("expected content %q, got %q", expected, resp.Content)
 		}

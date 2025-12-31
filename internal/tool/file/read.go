@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"strings"
+
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tool/helper/content"
 )
@@ -104,6 +106,20 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 		return nil, fmt.Errorf("file is binary: %s", abs)
 	}
 
+	var startLine int64 = 1
+	if offset > 0 {
+		// To get the correct line number, we must count newlines in the preceding content
+		prefixBytes, err := t.fileOps.ReadFileRange(abs, 0, offset)
+		if err != nil {
+			// If we fail to read prefix, we can't determine line number accurately.
+			// Fallback to 1 or return error?
+			// Providing inaccurate line numbers (like 1) is better than failing the read, 
+			// but we should probably note it. For now, let's propagate the error as it suggests FS issues.
+			return nil, fmt.Errorf("failed to read file prefix for line counting: %w", err)
+		}
+		startLine = int64(strings.Count(string(prefixBytes), "\n")) + 1
+	}
+
 	content := string(contentBytes)
 
 	// Only cache checksum if we read the entire file
@@ -119,9 +135,33 @@ func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFile
 		AbsolutePath: abs,
 		RelativePath: rel,
 		Size:         info.Size(),
-		Content:      content,
+		Content:      formatFileContent(content, startLine),
 		Offset:       offset,
 		Limit:        limit,
 		Truncated:    truncated,
 	}, nil
+}
+
+// formatFileContent wraps file content in <file> tags and adds line number prefixes.
+func formatFileContent(text string, startLine int64) string {
+	if text == "" {
+		return "<file>\n(Empty file)\n</file>"
+	}
+
+	var sb strings.Builder
+	sb.WriteString("<file>\n")
+
+	lines := strings.Split(text, "\n")
+	// If the file ends with a newline, strings.Split returns an empty string as the last element.
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	for i, line := range lines {
+		lineNum := startLine + int64(i)
+		sb.WriteString(fmt.Sprintf("%05d| %s\n", lineNum, line))
+	}
+
+	sb.WriteString("</file>")
+	return sb.String()
 }

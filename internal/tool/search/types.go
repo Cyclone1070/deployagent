@@ -8,8 +8,8 @@ import (
 
 // -- Contract Types --
 
-// SearchContentMatch represents a single match in a file
-type SearchContentMatch struct {
+// searchContentMatch represents a single match in a file
+type searchContentMatch struct {
 	File        string `json:"file"`         // Relative path to the file
 	LineNumber  int    `json:"line_number"`  // 1-based line number
 	LineContent string `json:"line_content"` // Content of the matching line
@@ -43,9 +43,10 @@ func (r *SearchContentRequest) Validate(cfg *config.Config) error {
 
 // SearchContentResponse contains the result of a SearchContent operation
 type SearchContentResponse struct {
-	Matches    []SearchContentMatch `json:"matches"`
-	Offset     int                  `json:"offset"`
-	Limit      int                  `json:"limit"`
-	TotalCount int                  `json:"total_count"` // Total matches found (may be capped for performance)
-	Truncated  bool                 `json:"truncated"`   // True if more matches exist
+	FormattedMatches string `json:"formatted_matches"` // grep-style for LLM
+	Offset           int    `json:"offset"`
+	Limit            int    `json:"limit"`
+	TotalCount       int    `json:"total_count"` // Total matches found (may be capped for performance)
+	Truncated        bool   `json:"truncated"`   // True if more matches exist
+	HitMaxResults    bool   `json:"hit_max_results"`
 }

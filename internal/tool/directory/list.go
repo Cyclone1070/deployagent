@@ -7,11 +7,18 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
 	"github.com/Cyclone1070/iav/internal/tool/helper/pagination"
 	"github.com/Cyclone1070/iav/internal/tool/service/path"
 )
+
+// directoryEntry is a private helper struct for internal processing of directory entries.
+type directoryEntry struct {
+	RelativePath string
+	IsDir        bool
+}
 
 // dirLister defines the filesystem operations needed for listing directories.
 type dirLister interface {
@@ -119,28 +126,33 @@ func (t *ListDirectoryTool) Run(ctx context.Context, req *ListDirectoryRequest) 
 	// Apply pagination
 	directoryEntries, paginationResult := pagination.ApplyPagination(directoryEntries, req.Offset, limit)
 
-	var truncationReason string
 	if capHit {
 		paginationResult.Truncated = true
-		truncationReason = fmt.Sprintf("Results capped at %d entries.", maxResults)
-	} else if paginationResult.Truncated {
-		truncationReason = fmt.Sprintf("Page limit reached. More results at offset %d.", req.Offset+limit)
+	}
+
+	var sb strings.Builder
+	for _, entry := range directoryEntries {
+		path := entry.RelativePath
+		if entry.IsDir && !strings.HasSuffix(path, "/") {
+			path += "/"
+		}
+		sb.WriteString(path + "\n")
 	}
 
 	return &ListDirectoryResponse{
 		DirectoryPath:    rel,
-		Entries:          directoryEntries,
+		FormattedEntries: sb.String(),
 		Offset:           req.Offset,
 		Limit:            limit,
 		TotalCount:       paginationResult.TotalCount,
 		Truncated:        paginationResult.Truncated,
-		TruncationReason: truncationReason,
+		HitMaxResults:    capHit,
 	}, nil
 }
 
 // listRecursive recursively lists all entries up to maxDepth
 // Returns entries, boolean (true if cap hit), error
-func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, currentDepth int, maxDepth int, visited map[string]bool, includeIgnored bool, maxResults int, currentCount *int) ([]DirectoryEntry, bool, error) {
+func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, currentDepth int, maxDepth int, visited map[string]bool, includeIgnored bool, maxResults int, currentCount *int) ([]directoryEntry, bool, error) {
 	// Check cap
 	if *currentCount >= maxResults {
 		return nil, true, nil
@@ -152,7 +164,7 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 	}
 	// Check depth limit (-1 = unlimited, 0 = current level only, 1 = current + 1 level, etc.)
 	if maxDepth >= 0 && currentDepth > maxDepth {
-		return []DirectoryEntry{}, false, nil
+		return []directoryEntry{}, false, nil
 	}
 
 	// Detect symlink loops using canonical path
@@ -164,7 +176,7 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 
 	if visited[canonicalPath] {
 		// Symlink loop detected, skip
-		return []DirectoryEntry{}, false, nil
+		return []directoryEntry{}, false, nil
 	}
 	visited[canonicalPath] = true
 
@@ -179,7 +191,7 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 		return nil, false, fmt.Errorf("failed to list directory %s: %w", abs, err)
 	}
 
-	var directoryEntries []DirectoryEntry
+	var directoryEntries []directoryEntry
 	for _, entry := range allEntries {
 		if *currentCount >= maxResults {
 			return directoryEntries, true, nil
@@ -203,16 +215,24 @@ func (t *ListDirectoryTool) listRecursive(ctx context.Context, abs string, curre
 			}
 		}
 
-		directoryEntry := DirectoryEntry{
+		isDir := entry.IsDir()
+		if !isDir && (entry.Mode()&os.ModeSymlink != 0) {
+			// Check if symlink points to a directory
+			if target, err := t.fs.Stat(entryAbs); err == nil {
+				isDir = target.IsDir()
+			}
+		}
+
+		directoryEntry := directoryEntry{
 			RelativePath: entryRel,
-			IsDir:        entry.IsDir(),
+			IsDir:        isDir,
 		}
 
 		directoryEntries = append(directoryEntries, directoryEntry)
 		*currentCount++
 
 		// Recurse into subdirectories
-		if entry.IsDir() {
+		if isDir {
 			subEntries, capHit, err := t.listRecursive(ctx, entryAbs, currentDepth+1, maxDepth, visited, includeIgnored, maxResults, currentCount)
 			if err != nil {
 				return nil, false, err

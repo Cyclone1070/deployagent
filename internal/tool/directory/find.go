@@ -126,6 +126,7 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	maxResults := t.config.Tools.MaxFindFileResults
 
 	var matches []string
+	hitMaxResults := false
 	lines := strings.SplitSeq(res.Stdout, "\n")
 	for line := range lines {
 		line = strings.TrimSpace(line)
@@ -140,6 +141,7 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 		matches = append(matches, filepath.ToSlash(relPath))
 
 		if len(matches) >= maxResults {
+			hitMaxResults = true
 			break
 		}
 	}
@@ -150,11 +152,17 @@ func (t *FindFileTool) Run(ctx context.Context, req *FindFileRequest) (*FindFile
 	// Apply pagination
 	paginatedMatches, paginationResult := pagination.ApplyPagination(matches, req.Offset, limit)
 
+	formattedMatches := strings.Join(paginatedMatches, "\n")
+	if len(matches) == 0 {
+		formattedMatches = "No matches found."
+	}
+
 	return &FindFileResponse{
-		Matches:    paginatedMatches,
-		Offset:     req.Offset,
-		Limit:      limit,
-		TotalCount: paginationResult.TotalCount,
-		Truncated:  paginationResult.Truncated,
+		FormattedMatches: formattedMatches,
+		Offset:           req.Offset,
+		Limit:            limit,
+		TotalCount:       paginationResult.TotalCount,
+		Truncated:        paginationResult.Truncated,
+		HitMaxResults:    hitMaxResults,
 	}, nil
 }

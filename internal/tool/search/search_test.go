@@ -107,18 +107,9 @@ func TestSearchContent_BasicRegex(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
-	}
-
-	if resp.Matches[0].File != "file.go" {
-		t.Errorf("expected file.go, got %s", resp.Matches[0].File)
-	}
-	if resp.Matches[0].LineNumber != 10 {
-		t.Errorf("expected line 10, got %d", resp.Matches[0].LineNumber)
-	}
-	if resp.Matches[0].LineContent != "func foo()" {
-		t.Errorf("expected 'func foo()', got %q", resp.Matches[0].LineContent)
+	expected := "file.go:\n  Line 10: func foo()\n  Line 20: func bar()\n"
+	if resp.FormattedMatches != expected {
+		t.Errorf("expected FormattedMatches:\n%q\ngot:\n%q", expected, resp.FormattedMatches)
 	}
 }
 
@@ -184,16 +175,12 @@ func TestSearchContent_VeryLongLine(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(resp.Matches))
+	if resp.TotalCount != 1 {
+		t.Fatalf("expected 1 match, got %d", resp.TotalCount)
 	}
 
-	if len(resp.Matches[0].LineContent) > 10100 {
-		t.Errorf("expected line to be truncated to ~10000 chars, got %d", len(resp.Matches[0].LineContent))
-	}
-
-	if !strings.Contains(resp.Matches[0].LineContent, "[truncated]") {
-		t.Error("expected truncation marker in line content")
+	if !strings.Contains(resp.FormattedMatches, "[truncated]") {
+		t.Error("expected truncation marker in formatted matches")
 	}
 }
 
@@ -241,8 +228,8 @@ func TestSearchContent_NoMatches(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 0 {
-		t.Errorf("expected 0 matches, got %d", len(resp.Matches))
+	if resp.FormattedMatches != "No matches found." {
+		t.Errorf("expected 'No matches found.', got %q", resp.FormattedMatches)
 	}
 
 	if resp.Truncated {
@@ -275,10 +262,6 @@ func TestSearchContent_Pagination(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
-	}
-
 	if resp.TotalCount != 10 {
 		t.Errorf("expected TotalCount 10, got %d", resp.TotalCount)
 	}
@@ -287,8 +270,8 @@ func TestSearchContent_Pagination(t *testing.T) {
 		t.Error("expected Truncated=true")
 	}
 
-	if resp.Matches[0].LineNumber != 3 {
-		t.Errorf("expected line 3, got %d", resp.Matches[0].LineNumber)
+	if !strings.Contains(resp.FormattedMatches, "Line 3") {
+		t.Errorf("expected page to contain Line 3, got output: %q", resp.FormattedMatches)
 	}
 }
 
@@ -315,19 +298,14 @@ func TestSearchContent_MultipleFiles(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 3 {
-		t.Fatalf("expected 3 matches, got %d", len(resp.Matches))
+	if resp.TotalCount != 3 {
+		t.Fatalf("expected 3 matches, got %d", resp.TotalCount)
 	}
 
-	// Verify sorting (by file, then line number)
-	if resp.Matches[0].File != "a.txt" || resp.Matches[0].LineNumber != 5 {
-		t.Errorf("expected a.txt:5, got %s:%d", resp.Matches[0].File, resp.Matches[0].LineNumber)
-	}
-	if resp.Matches[1].File != "a.txt" || resp.Matches[1].LineNumber != 10 {
-		t.Errorf("expected a.txt:10, got %s:%d", resp.Matches[1].File, resp.Matches[1].LineNumber)
-	}
-	if resp.Matches[2].File != "b.txt" || resp.Matches[2].LineNumber != 5 {
-		t.Errorf("expected b.txt:5, got %s:%d", resp.Matches[2].File, resp.Matches[2].LineNumber)
+	// Verify sorting (by file, then line number) and grouping
+	expected := "a.txt:\n  Line 5: match\n  Line 10: match\n\nb.txt:\n  Line 5: match\n"
+	if resp.FormattedMatches != expected {
+		t.Errorf("expected sorted and grouped output:\n%q\ngot:\n%q", expected, resp.FormattedMatches)
 	}
 }
 
@@ -354,8 +332,8 @@ invalid json line
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches (invalid JSON skipped), got %d", len(resp.Matches))
+	if resp.TotalCount != 2 {
+		t.Fatalf("expected 2 matches (invalid JSON skipped), got %d", resp.TotalCount)
 	}
 }
 
@@ -402,8 +380,8 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(resp.Matches))
+	if resp.TotalCount != 1 {
+		t.Fatalf("expected 1 match, got %d", resp.TotalCount)
 	}
 
 	// Test with includeIgnored=true
@@ -422,26 +400,12 @@ func TestSearchContent_IncludeIgnored(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
+	if resp.TotalCount != 2 {
+		t.Fatalf("expected 2 matches, got %d", resp.TotalCount)
 	}
 
-	foundIgnored := false
-	foundVisible := false
-	for _, match := range resp.Matches {
-		if match.File == "ignored.go" {
-			foundIgnored = true
-		}
-		if match.File == "visible.go" {
-			foundVisible = true
-		}
-	}
-
-	if !foundIgnored {
-		t.Error("expected to find match in ignored.go when includeIgnored=true")
-	}
-	if !foundVisible {
-		t.Error("expected to find match in visible.go when includeIgnored=true")
+	if !strings.Contains(resp.FormattedMatches, "ignored.go") || !strings.Contains(resp.FormattedMatches, "visible.go") {
+		t.Error("expected matches in both ignored.go and visible.go")
 	}
 }
 
@@ -573,5 +537,37 @@ func TestSearchContent_EmptySearchPath(t *testing.T) {
 	lastArg := capturedCmd[len(capturedCmd)-1]
 	if lastArg != "/workspace" {
 		t.Errorf("expected search path '/workspace', got %q", lastArg)
+	}
+}
+
+func TestSearchContent_HitMaxResults(t *testing.T) {
+	fs := newMockFileSystemForSearch()
+	fs.createDir("/workspace")
+	workspaceRoot := "/workspace"
+	cfg := config.DefaultConfig()
+	cfg.Tools.MaxSearchContentResults = 2
+
+	mockRunner := &mockCommandExecutorForSearch{}
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		output := `{"type":"match","data":{"path":{"text":"/workspace/file1.go"},"lines":{"text":"match1"},"line_number":1}}
+{"type":"match","data":{"path":{"text":"/workspace/file2.go"},"lines":{"text":"match2"},"line_number":1}}
+{"type":"match","data":{"path":{"text":"/workspace/file3.go"},"lines":{"text":"match3"},"line_number":1}}`
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
+	}
+
+	searchTool := NewSearchContentTool(fs, mockRunner, cfg, path.NewResolver(workspaceRoot))
+
+	req := &SearchContentRequest{Query: "match", SearchPath: "", CaseSensitive: true, IncludeIgnored: false, Offset: 0, Limit: 100}
+	resp, err := searchTool.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !resp.HitMaxResults {
+		t.Error("expected HitMaxResults to be true")
+	}
+
+	if resp.TotalCount != 2 {
+		t.Errorf("expected 2 matches (capped), got %d", resp.TotalCount)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,14 +110,15 @@ func TestFindFile_BasicGlob(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
+	matches := strings.Split(strings.TrimSpace(resp.FormattedMatches), "\n")
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches, got %d. Output: %v", len(matches), resp.FormattedMatches)
 	}
 
 	expectedMatches := []string{"a/b/file.go", "a/file.go"}
 	for i, expected := range expectedMatches {
-		if resp.Matches[i] != expected {
-			t.Errorf("match %d: expected %q, got %q", i, expected, resp.Matches[i])
+		if matches[i] != expected {
+			t.Errorf("match %d: expected %q, got %q", i, expected, matches[i])
 		}
 	}
 }
@@ -145,8 +147,9 @@ func TestFindFile_Pagination(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
+	matches := strings.Split(strings.TrimSpace(resp.FormattedMatches), "\n")
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(matches))
 	}
 
 	if resp.TotalCount != 10 {
@@ -157,8 +160,8 @@ func TestFindFile_Pagination(t *testing.T) {
 		t.Error("expected Truncated=true")
 	}
 
-	if resp.Matches[0] != "file2.txt" {
-		t.Errorf("expected file2.txt, got %s", resp.Matches[0])
+	if matches[0] != "file2.txt" {
+		t.Errorf("expected file2.txt, got %s", matches[0])
 	}
 }
 
@@ -278,13 +281,14 @@ func TestFindFile_UnicodeFilenames(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
+	matches := strings.Split(strings.TrimSpace(resp.FormattedMatches), "\n")
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(matches))
 	}
 
 	foundEmoji := false
 	foundChinese := false
-	for _, match := range resp.Matches {
+	for _, match := range matches {
 		if match == "🚀.txt" {
 			foundEmoji = true
 		}
@@ -326,8 +330,9 @@ func TestFindFile_DeeplyNested(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(resp.Matches))
+	matches := strings.Split(strings.TrimSpace(resp.FormattedMatches), "\n")
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
 	}
 }
 
@@ -350,8 +355,8 @@ func TestFindFile_NoMatches(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(resp.Matches) != 0 {
-		t.Errorf("expected 0 matches, got %d", len(resp.Matches))
+	if resp.FormattedMatches != "No matches found." {
+		t.Errorf("expected 'No matches found.', got output: %q", resp.FormattedMatches)
 	}
 
 	if resp.Truncated {
@@ -381,9 +386,8 @@ func TestFindFile_IncludeIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if len(resp.Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(resp.Matches))
+	if resp.FormattedMatches == "" {
+		t.Fatal("expected 1 match, got empty string")
 	}
 
 	// Test with includeIgnored=true
@@ -401,13 +405,14 @@ func TestFindFile_IncludeIgnored(t *testing.T) {
 		t.Fatalf("unexpected error for includeIgnored=true: %v", err)
 	}
 
-	if len(resp.Matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(resp.Matches))
+	matches2 := strings.Split(strings.TrimSpace(resp.FormattedMatches), "\n")
+	if len(matches2) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(matches2))
 	}
 
 	foundIgnored := false
 	foundVisible := false
-	for _, match := range resp.Matches {
+	for _, match := range matches2 {
 		if match == "ignored.go" {
 			foundIgnored = true
 		}
@@ -495,5 +500,35 @@ func TestFindFile_EmptySearchPath(t *testing.T) {
 	lastArg := capturedCmd[len(capturedCmd)-1]
 	if lastArg != "/workspace" {
 		t.Errorf("expected search path '/workspace', got %q", lastArg)
+	}
+}
+
+func TestFindFile_HitMaxResults(t *testing.T) {
+	fs := newMockFileSystemForFind()
+	fs.createDir("/workspace")
+	workspaceRoot := "/workspace"
+	cfg := config.DefaultConfig()
+	cfg.Tools.MaxFindFileResults = 2
+
+	mockRunner := &mockCommandExecutorForFind{}
+	mockRunner.runFunc = func(ctx context.Context, cmd []string, dir string, env []string) (*executor.Result, error) {
+		output := "file1.go\nfile2.go\nfile3.go\n"
+		return &executor.Result{Stdout: output, ExitCode: 0}, nil
+	}
+
+	findTool := NewFindFileTool(fs, mockRunner, cfg, path.NewResolver(workspaceRoot))
+
+	req := &FindFileRequest{Pattern: "*.go", SearchPath: "", MaxDepth: 0, IncludeIgnored: false, Offset: 0, Limit: 100}
+	resp, err := findTool.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !resp.HitMaxResults {
+		t.Error("expected HitMaxResults to be true")
+	}
+
+	if resp.TotalCount != 2 {
+		t.Errorf("expected 2 matches (capped), got %d", resp.TotalCount)
 	}
 }

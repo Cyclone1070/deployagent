@@ -109,7 +109,8 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	}
 
 	// Process output
-	var matches []SearchContentMatch
+	var matches []searchContentMatch
+	hitMaxResults := false
 	lines := strings.SplitSeq(res.Stdout, "\n")
 
 	for line := range lines {
@@ -147,13 +148,14 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 				lineContent = lineContent[:maxLineLength] + "...[truncated]"
 			}
 
-			matches = append(matches, SearchContentMatch{
+			matches = append(matches, searchContentMatch{
 				File:        filepath.ToSlash(relPath),
 				LineNumber:  rgMatch.Data.LineNumber,
 				LineContent: lineContent,
 			})
 
 			if len(matches) >= maxResults {
+				hitMaxResults = true
 				break
 			}
 		}
@@ -171,10 +173,34 @@ func (t *SearchContentTool) Run(ctx context.Context, req *SearchContentRequest) 
 	paginatedMatches, paginationResult := pagination.ApplyPagination(matches, req.Offset, limit)
 
 	return &SearchContentResponse{
-		Matches:    paginatedMatches,
-		Offset:     req.Offset,
-		Limit:      limit,
-		TotalCount: paginationResult.TotalCount,
-		Truncated:  paginationResult.Truncated,
+		FormattedMatches: formatSearchMatches(paginatedMatches),
+		Offset:           req.Offset,
+		Limit:            limit,
+		TotalCount:       paginationResult.TotalCount,
+		Truncated:        paginationResult.Truncated,
+		HitMaxResults:    hitMaxResults,
 	}, nil
+}
+
+// formatSearchMatches groups matches by file and formats them in a grep-like output.
+func formatSearchMatches(matches []searchContentMatch) string {
+	if len(matches) == 0 {
+		return "No matches found."
+	}
+
+	var sb strings.Builder
+	currentFile := ""
+
+	for _, m := range matches {
+		if m.File != currentFile {
+			if currentFile != "" {
+				sb.WriteString("\n")
+			}
+			sb.WriteString(m.File + ":\n")
+			currentFile = m.File
+		}
+		sb.WriteString(fmt.Sprintf("  Line %d: %s\n", m.LineNumber, m.LineContent))
+	}
+
+	return sb.String()
 }
