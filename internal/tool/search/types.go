@@ -10,9 +10,9 @@ import (
 
 // searchContentMatch represents a single match in a file
 type searchContentMatch struct {
-	File        string `json:"file"`         // Relative path to the file
-	LineNumber  int    `json:"line_number"`  // 1-based line number
-	LineContent string `json:"line_content"` // Content of the matching line
+	File        string // Relative path to the file
+	LineNumber  int    // 1-based line number
+	LineContent string // Content of the matching line
 }
 
 // SearchContentRequest represents the parameters for a SearchContent operation

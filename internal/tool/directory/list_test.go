@@ -173,7 +173,12 @@ func (m *mockFileSystemForList) ListDir(path string) ([]os.FileInfo, error) {
 			if len(parts) > 0 && parts[0] != "" && !seen[parts[0]] {
 				seen[parts[0]] = true
 				childPath := filepath.Join(finalPath, parts[0])
-				info, _ := m.Lstat(childPath)
+				info, err := m.Lstat(childPath)
+				if err != nil {
+					// In a real filesystem, this might happen, but in our mock setup
+					// we expect children we've registered to be stat-able.
+					panic(fmt.Sprintf("mock setup error: failed to stat child %s: %v", childPath, err))
+				}
 				if info != nil {
 					entries = append(entries, info)
 				}

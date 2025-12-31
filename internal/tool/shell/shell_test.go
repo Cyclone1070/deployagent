@@ -575,3 +575,45 @@ func TestShellTool_Run_SpecificExitCode(t *testing.T) {
 		t.Errorf("ExitCode = %d, want 42", resp.ExitCode)
 	}
 }
+
+func TestShellTool_Run_DockerComposeNote(t *testing.T) {
+	mockFS := newMockFileSystemForShell()
+	mockFS.createDir("/workspace")
+	workspaceRoot := "/workspace"
+	cfg := config.DefaultConfig()
+
+	factory := &mockCommandExecutorForShell{}
+	factory.runWithTimeoutFunc = func(ctx context.Context, command []string, dir string, env []string, timeout time.Duration) (*executor.Result, error) {
+		// Mock the up -d command
+		if slices.Contains(command, "up") && slices.Contains(command, "-d") {
+			return &executor.Result{Stdout: "Started containers\n", ExitCode: 0}, nil
+		}
+		return nil, fmt.Errorf("unexpected RunWithTimeout command: %v", command)
+	}
+	factory.runFunc = func(ctx context.Context, command []string, dir string, env []string) (*executor.Result, error) {
+		// Mock the check command
+		if slices.Contains(command, "info") {
+			return &executor.Result{Stdout: "ok", ExitCode: 0}, nil
+		}
+		// Mock the ps -q command
+		if slices.Contains(command, "ps") && slices.Contains(command, "-q") {
+			return &executor.Result{Stdout: "id1\nid2\n", ExitCode: 0}, nil
+		}
+		return nil, fmt.Errorf("unexpected Run command: %v", command)
+	}
+
+	shellTool := NewShellTool(mockFS, factory, cfg, DockerConfig{
+		CheckCommand: []string{"docker", "info"},
+	}, path.NewResolver(workspaceRoot))
+
+	req := &ShellRequest{Command: []string{"docker", "compose", "up", "-d"}}
+	resp, err := shellTool.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	expectedNote := "Started 2 Docker containers"
+	if resp.Note != expectedNote {
+		t.Errorf("Note = %q, want %q", resp.Note, expectedNote)
+	}
+}
