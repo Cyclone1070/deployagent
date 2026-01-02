@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/tool/helper/content"
-	"github.com/Cyclone1070/iav/internal/tool/service/fs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
@@ -25,7 +24,7 @@ func (e *GitignoreReadError) Unwrap() error { return e.Cause }
 // fileSystem defines the minimal filesystem interface needed for gitignore service.
 type fileSystem interface {
 	Stat(path string) (os.FileInfo, error)
-	ReadFileLines(path string, startLine, endLine int) (*fs.ReadFileLinesResult, error)
+	ReadFile(path string) ([]byte, error)
 }
 
 // IgnoreMatcher implements gitignore pattern matching using go-git's gitignore matcher.
@@ -52,14 +51,14 @@ func NewIgnoreMatcher(workspaceRoot string, fs fileSystem) (*IgnoreMatcher, erro
 	}
 
 	// Read .gitignore file
-	result, err := fs.ReadFileLines(gitignorePath, 1, 0)
+	data, err := fs.ReadFile(gitignorePath)
 	if err != nil {
 		return nil, &GitignoreReadError{Path: gitignorePath, Cause: err}
 	}
 
 	// Parse gitignore patterns line by line
 	var patterns []gitignore.Pattern
-	lines := content.SplitLines(result.Content)
+	lines := content.SplitLines(string(data))
 	for _, line := range lines {
 		if line == "" {
 			continue // Skip blank lines

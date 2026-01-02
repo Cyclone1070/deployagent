@@ -13,6 +13,9 @@ func (c *Config) Validate() error {
 	if c.Tools.MaxFileSize < 1 {
 		errs = append(errs, "tools.max_file_size must be >= 1")
 	}
+	if c.Tools.DefaultReadFileLimit < 1 {
+		errs = append(errs, "tools.default_read_file_limit must be >= 1")
+	}
 	if c.Tools.DefaultListDirectoryLimit < 1 {
 		errs = append(errs, "tools.default_list_directory_limit must be >= 1")
 	}

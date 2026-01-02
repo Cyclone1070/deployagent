@@ -2,13 +2,10 @@ package shell
 
 import (
 	"os"
-	"strings"
 	"testing"
-
-	"github.com/Cyclone1070/iav/internal/tool/service/fs"
 )
 
-// mockFileSystem is a local mock implementing shell.fileSystem for testing
+// mockFileSystem is a local mock implementing shell.envFileOps for testing
 type mockFileSystemForEnv struct {
 	files map[string][]byte
 }
@@ -23,58 +20,12 @@ func (m *mockFileSystemForEnv) createFile(path string, content []byte) {
 	m.files[path] = content
 }
 
-func (m *mockFileSystemForEnv) Stat(path string) (os.FileInfo, error) {
-	if _, ok := m.files[path]; ok {
-		return nil, nil
-	}
-	return nil, os.ErrNotExist
-}
-
-func (m *mockFileSystemForEnv) Lstat(path string) (os.FileInfo, error) {
-	return m.Stat(path)
-}
-
-func (m *mockFileSystemForEnv) Readlink(path string) (string, error) {
-	return "", os.ErrInvalid
-}
-
-func (m *mockFileSystemForEnv) UserHomeDir() (string, error) {
-	return "/home/user", nil
-}
-
-func (m *mockFileSystemForEnv) ReadFileLines(path string, startLine, endLine int) (*fs.ReadFileLinesResult, error) {
+func (m *mockFileSystemForEnv) ReadFile(path string) ([]byte, error) {
 	content, ok := m.files[path]
 	if !ok {
 		return nil, os.ErrNotExist
 	}
-
-	lines := strings.Split(string(content), "\n")
-	totalLines := len(lines)
-
-	if startLine <= 0 {
-		startLine = 1
-	}
-
-	if startLine > totalLines {
-		return &fs.ReadFileLinesResult{
-			Content:    "",
-			TotalLines: totalLines,
-			StartLine:  startLine,
-			EndLine:    0,
-		}, nil
-	}
-
-	if endLine == 0 || endLine > totalLines {
-		endLine = totalLines
-	}
-
-	selected := lines[startLine-1 : endLine]
-	return &fs.ReadFileLinesResult{
-		Content:    strings.Join(selected, "\n"),
-		TotalLines: totalLines,
-		StartLine:  startLine,
-		EndLine:    endLine,
-	}, nil
+	return content, nil
 }
 
 func TestParseEnvFile(t *testing.T) {

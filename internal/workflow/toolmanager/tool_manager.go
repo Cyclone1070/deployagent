@@ -13,12 +13,12 @@ import (
 )
 
 type ToolManager struct {
-	registry map[string]toolImpl
+	registry map[string]Tool
 }
 
-func NewToolManager(tools ...toolImpl) *ToolManager {
+func NewToolManager(tools ...Tool) *ToolManager {
 	tm := &ToolManager{
-		registry: make(map[string]toolImpl),
+		registry: make(map[string]Tool),
 	}
 	for _, t := range tools {
 		tm.Register(t)
@@ -26,7 +26,7 @@ func NewToolManager(tools ...toolImpl) *ToolManager {
 	return tm
 }
 
-func (m *ToolManager) Register(t toolImpl) {
+func (m *ToolManager) Register(t Tool) {
 	m.registry[t.Name()] = t
 }
 
@@ -67,7 +67,7 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 		}, nil
 	}
 
-	req := t.Input()
+	req := t.Request()
 	if err := json.Unmarshal(tc.Function.Arguments, req); err != nil {
 		declJSON, _ := json.MarshalIndent(t.Declaration(), "", "  ")
 		errMsg := fmt.Sprintf("Error: invalid arguments for tool %q: %v\n\nExpected schema:\n%s", tc.Function.Name, err, declJSON)
@@ -92,13 +92,9 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 	}
 
 	if events != nil {
-		display := ""
-		if s, ok := req.(fmt.Stringer); ok {
-			display = s.String()
-		}
 		events <- workflow.ToolStartEvent{
 			ToolName:       tc.Function.Name,
-			RequestDisplay: display,
+			RequestDisplay: req.Display(),
 		}
 	}
 

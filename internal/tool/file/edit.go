@@ -7,13 +7,12 @@ import (
 	"strings"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/service/fs"
 )
 
 // fileEditor defines the minimal filesystem operations needed for editing files.
 type fileEditor interface {
 	Stat(path string) (os.FileInfo, error)
-	ReadFileLines(path string, startLine, endLine int) (*fs.ReadFileLinesResult, error)
+	ReadFile(path string) ([]byte, error)
 	WriteFileAtomic(path string, content []byte, perm os.FileMode) error
 }
 
@@ -90,14 +89,14 @@ func (t *EditFileTool) Run(ctx context.Context, req *EditFileRequest) (*EditFile
 		return nil, fmt.Errorf("failed to stat %s: %w", abs, err)
 	}
 
-	// Read full file (binary check and size check are done inside ReadFileLines)
-	result, err := t.fileOps.ReadFileLines(abs, 1, 0)
+	// Read full file content
+	data, err := t.fileOps.ReadFile(abs)
 	if err != nil {
-		return nil, err // propagates "binary file", "file exceeds max size", and "failed to stat" errors
+		return nil, err
 	}
 
-	content := result.Content
-	contentBytes := []byte(content)
+	content := string(data)
+	contentBytes := data
 
 	// Compute current checksum
 	currentChecksum := t.checksumManager.Compute(contentBytes)

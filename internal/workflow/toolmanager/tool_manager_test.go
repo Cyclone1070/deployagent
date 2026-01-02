@@ -29,20 +29,20 @@ type mockInput struct {
 	Value string `json:"value"`
 }
 
-func (m *mockInput) String() string { return m.Value }
+func (m *mockInput) Display() string { return m.Value }
 
 type mockTool struct {
 	name        string
 	declaration tool.Declaration
-	executeFunc func(ctx context.Context, input any) (toolResult, error)
+	executeFunc func(ctx context.Context, req ToolRequest) (ToolResult, error)
 }
 
 func (m *mockTool) Name() string                  { return m.name }
 func (m *mockTool) Declaration() tool.Declaration { return m.declaration }
-func (m *mockTool) Input() any                    { return &mockInput{} }
-func (m *mockTool) Execute(ctx context.Context, input any) (toolResult, error) {
+func (m *mockTool) Request() ToolRequest          { return &mockInput{} }
+func (m *mockTool) Execute(ctx context.Context, req ToolRequest) (ToolResult, error) {
 	if m.executeFunc != nil {
-		return m.executeFunc(ctx, input)
+		return m.executeFunc(ctx, req)
 	}
 	return &mockResult{llmContent: "ok", display: tool.StringDisplay("ok"), success: true}, nil
 }
@@ -100,8 +100,8 @@ func TestExecute_ValidJSON_ParsesCorrectly(t *testing.T) {
 	var capturedInput *mockInput
 	tm.Register(&mockTool{
 		name: "test",
-		executeFunc: func(ctx context.Context, input any) (toolResult, error) {
-			capturedInput = input.(*mockInput)
+		executeFunc: func(ctx context.Context, req ToolRequest) (ToolResult, error) {
+			capturedInput = req.(*mockInput)
 			return &mockResult{llmContent: "ok", success: true}, nil
 		},
 	})
@@ -141,7 +141,7 @@ func TestExecute_EmitsToolEvents(t *testing.T) {
 	tm := NewToolManager()
 	tm.Register(&mockTool{
 		name: "test",
-		executeFunc: func(ctx context.Context, input any) (toolResult, error) {
+		executeFunc: func(ctx context.Context, req ToolRequest) (ToolResult, error) {
 			return &mockResult{llmContent: "ok", display: tool.StringDisplay("result"), success: true}, nil
 		},
 	})
@@ -174,7 +174,7 @@ func TestExecute_Shell_StreamsAndEnds(t *testing.T) {
 	tm := NewToolManager()
 	tm.Register(&mockTool{
 		name: "shell",
-		executeFunc: func(ctx context.Context, input any) (toolResult, error) {
+		executeFunc: func(ctx context.Context, req ToolRequest) (ToolResult, error) {
 			return &mockResult{
 				llmContent: "Command finished",
 				display: tool.ShellDisplay{
@@ -223,7 +223,7 @@ func TestExecute_ContextCancelled_StopsStreaming(t *testing.T) {
 	tm := NewToolManager()
 	tm.Register(&mockTool{
 		name: "shell",
-		executeFunc: func(ctx context.Context, input any) (toolResult, error) {
+		executeFunc: func(ctx context.Context, req ToolRequest) (ToolResult, error) {
 			pipeR, pipeW := io.Pipe()
 			go func() {
 				<-ctx.Done()

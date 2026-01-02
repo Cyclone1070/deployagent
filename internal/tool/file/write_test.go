@@ -1,12 +1,9 @@
 package file
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Cyclone1070/iav/internal/config"
-	"github.com/Cyclone1070/iav/internal/tool/service/fs"
 	"github.com/Cyclone1070/iav/internal/tool/service/path"
 )
 
@@ -95,7 +91,7 @@ func (m *mockFileSystemForWrite) Stat(path string) (os.FileInfo, error) {
 	return nil, os.ErrNotExist
 }
 
-func (m *mockFileSystemForWrite) ReadFileLines(path string, startLine, endLine int) (*fs.ReadFileLinesResult, error) {
+func (m *mockFileSystemForWrite) ReadFile(path string) ([]byte, error) {
 	entry, ok := m.files[path]
 	if !ok {
 		return nil, os.ErrNotExist
@@ -105,68 +101,7 @@ func (m *mockFileSystemForWrite) ReadFileLines(path string, startLine, endLine i
 		return nil, fmt.Errorf("file too large: %d bytes exceeds limit %d", len(entry.content), m.config.Tools.MaxFileSize)
 	}
 
-	content := entry.content
-
-	// Count lines using same logic as fs.go
-	totalLines := 0
-	if len(content) > 0 {
-		for _, b := range content {
-			if b == '\n' {
-				totalLines++
-			}
-		}
-		if content[len(content)-1] != '\n' {
-			totalLines++
-		}
-	}
-
-	if startLine <= 0 {
-		startLine = 1
-	}
-
-	if startLine > totalLines {
-		return &fs.ReadFileLinesResult{
-			Content:    "",
-			TotalLines: totalLines,
-			StartLine:  startLine,
-			EndLine:    0,
-		}, nil
-	}
-
-	// Read content using same logic as fs.go (preserving newlines)
-	actualEndLine := 0
-	var buffer bytes.Buffer
-	currentLine := 1
-
-	reader := bufio.NewReader(bytes.NewReader(content))
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-
-		if currentLine >= startLine {
-			if endLine == 0 || currentLine <= endLine {
-				buffer.WriteString(line)
-				actualEndLine = currentLine
-			}
-		}
-
-		if endLine > 0 && currentLine >= endLine {
-			break
-		}
-		if err == io.EOF {
-			break
-		}
-		currentLine++
-	}
-
-	return &fs.ReadFileLinesResult{
-		Content:    buffer.String(),
-		TotalLines: totalLines,
-		StartLine:  startLine,
-		EndLine:    actualEndLine,
-	}, nil
+	return entry.content, nil
 }
 
 func (m *mockFileSystemForWrite) EnsureDirs(path string) error {
@@ -254,12 +189,12 @@ func TestWriteFile(t *testing.T) {
 		}
 
 		// Verify file was created
-		result, err := fs.ReadFileLines("/workspace/new.txt", 1, 0)
+		data, err := fs.ReadFile("/workspace/new.txt")
 		if err != nil {
 			t.Fatalf("failed to read created file: %v", err)
 		}
-		if result.Content != content {
-			t.Errorf("expected content %q, got %q", content, result.Content)
+		if string(data) != content {
+			t.Errorf("expected content %q, got %q", content, string(data))
 		}
 
 		// Verify cache was updated
@@ -361,12 +296,12 @@ func TestWriteFile(t *testing.T) {
 		}
 
 		// Verify file was created
-		result, err := fs.ReadFileLines("/workspace/nested/deep/file.txt", 1, 0)
+		data, err := fs.ReadFile("/workspace/nested/deep/file.txt")
 		if err != nil {
 			t.Fatalf("failed to read created file: %v", err)
 		}
-		if result.Content != "content" {
-			t.Errorf("expected content %q, got %q", "content", result.Content)
+		if string(data) != "content" {
+			t.Errorf("expected content %q, got %q", "content", string(data))
 		}
 	})
 

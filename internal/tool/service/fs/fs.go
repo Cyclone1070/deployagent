@@ -1,8 +1,6 @@
 package fs
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -22,22 +20,9 @@ func NewOSFileSystem(cfg *config.Config) *OSFileSystem {
 	return &OSFileSystem{config: cfg}
 }
 
-// ReadFileLinesResult holds the result of a line-based file read.
-type ReadFileLinesResult struct {
-	Content    string // RAW content (no line numbers - formatting is caller's job)
-	TotalLines int
-	StartLine  int // actual start (1-indexed)
-	EndLine    int // actual end (1-indexed)
-}
-
-// ReadFileLines reads lines from a file with safety limits.
-// startLine: 1-indexed, 0 means 1
-// endLine: 1-indexed, 0 means read to EOF
-func (fs *OSFileSystem) ReadFileLines(path string, startLine, endLine int) (*ReadFileLinesResult, error) {
-	if startLine <= 0 {
-		startLine = 1
-	}
-
+// ReadFile reads the entire content of a file with safety limits.
+// It checks for MaxFileSize and binary content.
+func (fs *OSFileSystem) ReadFile(path string) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -53,118 +38,16 @@ func (fs *OSFileSystem) ReadFileLines(path string, startLine, endLine int) (*Rea
 		return nil, fmt.Errorf("file %s exceeds max size (%d bytes)", path, fs.config.Tools.MaxFileSize)
 	}
 
-	// Read first 8KB for binary check
-	sample := make([]byte, 8192)
-	n, err := file.Read(sample)
-	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("read sample: %w", err)
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
 	}
-	if content.IsBinaryContent(sample[:n]) {
+
+	if content.IsBinaryContent(data) {
 		return nil, fmt.Errorf("binary file: %s", path)
 	}
 
-	// Seek back to start for Pass 1 (counting lines)
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("seek to start: %w", err)
-	}
-
-	// Pass 1: Count total lines
-	totalLines := 0
-	// Use a fixed buffer to avoid loading large lines if we don't need them yet
-	// But we need to count them. bufio.Scanner can handle lines up to 64KB by default.
-	// If a line is longer, it will return an error.
-	// Actually, let's use a simpler line counter that doesn't care about line length.
-	totalLines, err = countLines(file)
-	if err != nil {
-		return nil, fmt.Errorf("count lines: %w", err)
-	}
-
-	// Seek back to start for Pass 2 (reading content)
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("seek to start: %w", err)
-	}
-
-	if startLine > totalLines {
-		return &ReadFileLinesResult{
-			Content:    "",
-			TotalLines: totalLines,
-			StartLine:  startLine,
-			EndLine:    0,
-		}, nil
-	}
-
-	// Pass 2: Skip to startLine and read until endLine
-	var buffer bytes.Buffer
-	currentLine := 1
-	actualEndLine := 0
-
-	reader := bufio.NewReader(file)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return nil, fmt.Errorf("read line %d: %w", currentLine, err)
-		}
-
-		if currentLine >= startLine {
-			if endLine == 0 || currentLine <= endLine {
-				buffer.WriteString(line)
-				actualEndLine = currentLine
-			}
-		}
-
-		if endLine > 0 && currentLine >= endLine {
-			break
-		}
-
-		if err == io.EOF {
-			break
-		}
-		currentLine++
-	}
-
-	return &ReadFileLinesResult{
-		Content:    buffer.String(),
-		TotalLines: totalLines,
-		StartLine:  startLine,
-		EndLine:    actualEndLine,
-	}, nil
-}
-
-// countLines counts newlines in a file efficiently.
-func countLines(r io.Reader) (int, error) {
-	buf := make([]byte, 32*1024)
-	count := 0
-	hasContent := false
-	lastByte := byte(0)
-
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			hasContent = true
-			for i := 0; i < n; i++ {
-				if buf[i] == '\n' {
-					count++
-				}
-				lastByte = buf[i]
-			}
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	// If the file is not empty and doesn't end with a newline, it still has 1 line.
-	// E.g., "hello" (no \n) -> count is 0, but it's 1 line.
-	// "hello\n" -> count is 1, it's 1 line.
-	// "hello\nworld" -> count is 1, it's 2 lines.
-	if hasContent && lastByte != '\n' {
-		count++
-	}
-
-	return count, nil
+	return data, nil
 }
 
 // WriteFileAtomic writes content to a file atomically using temp file + rename pattern.
@@ -251,4 +134,9 @@ func (fs *OSFileSystem) ListDir(path string) ([]os.FileInfo, error) {
 	}
 
 	return infos, nil
+}
+
+// Stat returns the FileInfo for a file.
+func (fs *OSFileSystem) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(path)
 }

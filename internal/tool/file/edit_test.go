@@ -23,7 +23,7 @@ func TestEditFile(t *testing.T) {
 		originalContent := []byte("original content")
 		fs.createFile("/workspace/test.txt", originalContent, 0o644)
 
-		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot))
+		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot), cfg)
 		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		// Read file to populate cache
@@ -90,7 +90,7 @@ func TestEditFile(t *testing.T) {
 		content := []byte("line1\nline2\nline3")
 		fs.createFile("/workspace/test.txt", content, 0o644)
 
-		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot))
+		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot), cfg)
 		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
@@ -124,10 +124,10 @@ func TestEditFile(t *testing.T) {
 		}
 
 		// Verify final content
-		result, _ := fs.ReadFileLines("/workspace/test.txt", 1, 0)
+		data, _ := fs.ReadFile("/workspace/test.txt")
 		expected := "modified1\nmodified2\nline3"
-		if result.Content != expected {
-			t.Errorf("expected content %q, got %q", expected, result.Content)
+		if string(data) != expected {
+			t.Errorf("expected content %q, got %q", expected, string(data))
 		}
 	})
 
@@ -139,7 +139,7 @@ func TestEditFile(t *testing.T) {
 		content := []byte("line1\nline1\nline3")
 		fs.createFile("/workspace/test.txt", content, 0o644)
 
-		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot))
+		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot), cfg)
 		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
@@ -171,7 +171,7 @@ func TestEditFile(t *testing.T) {
 		content := []byte("foo\nfoo\nbar")
 		fs.createFile("/workspace/test.txt", content, 0o644)
 
-		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot))
+		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot), cfg)
 		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
@@ -196,10 +196,10 @@ func TestEditFile(t *testing.T) {
 			t.Errorf("expected 1 operation applied, got %d", resp.OperationsApplied)
 		}
 
-		result, _ := fs.ReadFileLines("/workspace/test.txt", 1, 0)
+		data, _ := fs.ReadFile("/workspace/test.txt")
 		expected := "baz\nbaz\nbar"
-		if result.Content != expected {
-			t.Errorf("expected %q, got %q", expected, result.Content)
+		if string(data) != expected {
+			t.Errorf("expected %q, got %q", expected, string(data))
 		}
 	})
 
@@ -210,7 +210,7 @@ func TestEditFile(t *testing.T) {
 		content := []byte("foo\nfoo\nbar")
 		fs.createFile("/workspace/test.txt", content, 0o644)
 
-		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot))
+		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot), cfg)
 		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		// Read first to populate cache
@@ -238,7 +238,7 @@ func TestEditFile(t *testing.T) {
 		checksumManager := newMockChecksumManagerForWrite()
 		fs.createFile("/workspace/test.txt", []byte("content"), 0o644)
 
-		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot))
+		readTool := NewReadFileTool(fs, checksumManager, path.NewResolver(workspaceRoot), cfg)
 		editTool := NewEditFileTool(fs, checksumManager, cfg, path.NewResolver(workspaceRoot))
 
 		readReq := &ReadFileRequest{Path: "test.txt"}
@@ -283,10 +283,10 @@ func TestEditFile(t *testing.T) {
 			t.Errorf("expected 1 op applied, got %d", resp.OperationsApplied)
 		}
 
-		result, _ := fs.ReadFileLines("/workspace/test.txt", 1, 0)
+		data, _ := fs.ReadFile("/workspace/test.txt")
 		expected := "existing\nnew line"
-		if result.Content != expected {
-			t.Errorf("expected content %q, got %q", expected, result.Content)
+		if string(data) != expected {
+			t.Errorf("expected content %q, got %q", expected, string(data))
 		}
 	})
 
@@ -315,10 +315,10 @@ func TestEditFile(t *testing.T) {
 			t.Errorf("expected 1 op applied, got %d", resp.OperationsApplied)
 		}
 
-		result, _ := fs.ReadFileLines("/workspace/test.txt", 1, 0)
+		data, _ := fs.ReadFile("/workspace/test.txt")
 		expected := "first content"
-		if result.Content != expected {
-			t.Errorf("expected content %q, got %q", expected, result.Content)
+		if string(data) != expected {
+			t.Errorf("expected content %q, got %q", expected, string(data))
 		}
 	})
 
@@ -351,10 +351,10 @@ func TestEditFile(t *testing.T) {
 			t.Errorf("expected 2 ops applied, got %d", resp.OperationsApplied)
 		}
 
-		result, _ := fs.ReadFileLines("/workspace/test.txt", 1, 0)
+		data, _ := fs.ReadFile("/workspace/test.txt")
 		expected := "start12"
-		if result.Content != expected {
-			t.Errorf("expected content %q, got %q", expected, result.Content)
+		if string(data) != expected {
+			t.Errorf("expected content %q, got %q", expected, string(data))
 		}
 	})
 
@@ -388,10 +388,10 @@ func TestEditFile(t *testing.T) {
 			t.Errorf("expected 2 ops applied, got %d", resp.OperationsApplied)
 		}
 
-		result, _ := fs.ReadFileLines("/workspace/test.txt", 1, 0)
+		data, _ := fs.ReadFile("/workspace/test.txt")
 		expected := "baz\nbar\nend"
-		if result.Content != expected {
-			t.Errorf("expected content %q, got %q", expected, result.Content)
+		if string(data) != expected {
+			t.Errorf("expected content %q, got %q", expected, string(data))
 		}
 	})
 

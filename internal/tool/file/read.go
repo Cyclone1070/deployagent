@@ -3,18 +3,18 @@ package file
 import (
 	"context"
 	"fmt"
-	"os"
-
 	"strings"
 
+	"github.com/Cyclone1070/iav/internal/config"
+	"github.com/Cyclone1070/iav/internal/tool"
 	"github.com/Cyclone1070/iav/internal/tool/helper/content"
-	"github.com/Cyclone1070/iav/internal/tool/service/fs"
+	"github.com/Cyclone1070/iav/internal/tool/helper/pagination"
+	"github.com/Cyclone1070/iav/internal/workflow/toolmanager"
 )
 
 // fileReader defines the minimal filesystem operations needed for reading files.
 type fileReader interface {
-	Stat(path string) (os.FileInfo, error)
-	ReadFileLines(path string, startLine, endLine int) (*fs.ReadFileLinesResult, error)
+	ReadFile(path string) ([]byte, error)
 }
 
 // checksumComputer defines the interface for checksum computation and updates.
@@ -28,6 +28,7 @@ type ReadFileTool struct {
 	fileOps         fileReader
 	checksumManager checksumComputer
 	pathResolver    pathResolver
+	config          *config.Config
 }
 
 // NewReadFileTool creates a new ReadFileTool with injected dependencies.
@@ -35,6 +36,7 @@ func NewReadFileTool(
 	fileOps fileReader,
 	checksumManager checksumComputer,
 	pathResolver pathResolver,
+	cfg *config.Config,
 ) *ReadFileTool {
 	if fileOps == nil {
 		panic("fileOps is required")
@@ -45,83 +47,102 @@ func NewReadFileTool(
 	if pathResolver == nil {
 		panic("pathResolver is required")
 	}
+	if cfg == nil {
+		panic("config is required")
+	}
 	return &ReadFileTool{
 		fileOps:         fileOps,
 		checksumManager: checksumManager,
 		pathResolver:    pathResolver,
+		config:          cfg,
 	}
 }
 
-// Run reads a file from the workspace with line-based pagination.
-// It validates the path is within workspace boundaries, checks for binary content,
-// enforces size limits, and caches checksums for full file reads.
-// Returns an error if the file is binary, too large, or outside the workspace.
-//
-// Note: ctx is accepted for API consistency but not used - file I/O is synchronous.
-func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFileResponse, error) {
-	if err := req.Validate(); err != nil {
-		return nil, err
+// Name returns the tool's identifier.
+func (t *ReadFileTool) Name() string {
+	return "read_file"
+}
+
+// Declaration returns the tool's schema for the LLM.
+func (t *ReadFileTool) Declaration() tool.Declaration {
+	return tool.Declaration{
+		Name:        "read_file",
+		Description: "Read file contents with optional pagination. Use offset/limit to read large files in chunks.",
+		Parameters: &tool.Schema{
+			Type: tool.TypeObject,
+			Properties: map[string]*tool.Schema{
+				"path":   {Type: tool.TypeString, Description: "Path to file"},
+				"offset": {Type: tool.TypeInteger, Description: "Start line index (0-indexed)"},
+				"limit":  {Type: tool.TypeInteger, Description: "Max lines to return"},
+			},
+			Required: []string{"path"},
+		},
+	}
+}
+
+// Request returns a new request struct for JSON unmarshalling.
+func (t *ReadFileTool) Request() toolmanager.ToolRequest {
+	return &ReadFileRequest{}
+}
+
+// Execute runs the tool with the request and returns a ToolResult.
+func (t *ReadFileTool) Execute(ctx context.Context, req toolmanager.ToolRequest) (toolmanager.ToolResult, error) {
+	r, ok := req.(*ReadFileRequest)
+	if !ok {
+		return nil, fmt.Errorf("invalid request type: %T", req)
 	}
 
+	if err := r.Validate(t.config); err != nil {
+		return &ReadFileResponse{Error: err.Error()}, nil
+	}
+
+	resp, err := t.Run(ctx, r)
+	if err != nil {
+		// PER CONTRACT: Infra/Context errors return error, stopping the loop.
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		// Tool failures (file not found, validation, etc) return response with Error field set
+		return &ReadFileResponse{Error: err.Error()}, nil
+	}
+
+	return resp, nil
+}
+
+// Run reads a file from the workspace with line-based pagination.
+func (t *ReadFileTool) Run(ctx context.Context, req *ReadFileRequest) (*ReadFileResponse, error) {
 	abs, err := t.pathResolver.Abs(req.Path)
 	if err != nil {
 		return nil, err
 	}
-	rel, err := t.pathResolver.Rel(abs)
+
+	// Read full file content
+	data, err := t.fileOps.ReadFile(abs)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get file info for total size
-	info, err := t.fileOps.Stat(abs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat %s: %w", abs, err)
-	}
+	// Always update checksum since we read the full file
+	checksum := t.checksumManager.Compute(data)
+	t.checksumManager.Update(abs, checksum)
 
-	// Check if it's a directory
-	if info.IsDir() {
-		return nil, fmt.Errorf("path is a directory: %s", abs)
-	}
+	// Split into lines using content.SplitLines which handles both \n and \r\n
+	lines := content.SplitLines(string(data))
 
-	// Read the lines (binary check and size check are done inside ReadFileLines)
-	result, err := t.fileOps.ReadFileLines(abs, req.StartLine, req.EndLine)
-	if err != nil {
-		return nil, err // propagates "binary file", "file exceeds max size", and "failed to stat" errors
-	}
+	// Apply pagination
+	paginatedLines, pagRes := pagination.ApplyPagination(lines, req.Offset, req.Limit)
 
-	// Only cache checksum if we read the entire file
-	if req.StartLine == 1 && req.EndLine == 0 {
-		checksum := t.checksumManager.Compute([]byte(result.Content))
-		t.checksumManager.Update(abs, checksum)
+	// Calculate display lines
+	startLine := req.Offset + 1
+	endLine := startLine + len(paginatedLines) - 1
+	if len(paginatedLines) == 0 {
+		endLine = startLine - 1
 	}
 
 	return &ReadFileResponse{
-		AbsolutePath: abs,
-		RelativePath: rel,
-		Size:         info.Size(),
-		Content:      formatFileContent(result.Content, result.StartLine),
-		StartLine:    result.StartLine,
-		EndLine:      result.EndLine,
-		TotalLines:   result.TotalLines,
+		Content:    strings.Join(paginatedLines, "\n"),
+		StartLine:  startLine,
+		EndLine:    endLine,
+		TotalLines: pagRes.TotalCount,
 	}, nil
-}
-
-// formatFileContent wraps file content in <file> tags and adds line number prefixes.
-func formatFileContent(text string, startLine int) string {
-	if text == "" {
-		return "<file>\n(Empty file)\n</file>"
-	}
-
-	var sb strings.Builder
-	sb.WriteString("<file>\n")
-
-	lines := content.SplitLines(text)
-
-	for i, line := range lines {
-		lineNum := startLine + i
-		sb.WriteString(fmt.Sprintf("%05d| %s\n", lineNum, line))
-	}
-
-	sb.WriteString("</file>")
-	return sb.String()
 }

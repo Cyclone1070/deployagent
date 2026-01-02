@@ -19,13 +19,13 @@ import (
 // - Variable expansion
 // - Complex shell escaping
 func ParseEnvFile(fs envFileOps, path string) (map[string]string, error) {
-	result, err := fs.ReadFileLines(path, 1, 0)
+	data, err := fs.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read env file %s: %w", path, err)
 	}
 
 	env := make(map[string]string)
-	lines := content.SplitLines(result.Content)
+	lines := content.SplitLines(string(data))
 
 	for i, rawLine := range lines {
 		lineNum := i + 1

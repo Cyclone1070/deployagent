@@ -6,8 +6,8 @@ import (
 	"github.com/Cyclone1070/iav/internal/tool"
 )
 
-// toolResult is returned by tools after execution.
-type toolResult interface {
+// ToolResult is returned by tools after execution.
+type ToolResult interface {
 	// LLMContent returns the string content sent to the LLM.
 	LLMContent() string
 
@@ -18,19 +18,23 @@ type toolResult interface {
 	Success() bool
 }
 
-// toolImpl defines the interface for individual tools.
-// Request structs should implement fmt.Stringer for display.
-type toolImpl interface {
+// ToolRequest is implemented by tool request structs.
+type ToolRequest interface {
+	// Display returns a human-readable summary for tool start events.
+	Display() string
+}
+
+// Tool defines the interface for individual tools.
+type Tool interface {
 	// Name returns the tool's identifier.
 	Name() string
 
 	// Declaration returns the tool's schema for the LLM.
 	Declaration() tool.Declaration
 
-	// Input returns a pointer to the input struct (e.g., &ReadFileRequest{}).
-	// The request struct should implement fmt.Stringer for the request display.
-	Input() any
+	// Request returns a pointer to the request struct (e.g., &ReadFileRequest{}).
+	Request() ToolRequest
 
-	// Execute runs the tool with typed input and returns a toolResult.
-	Execute(ctx context.Context, input any) (toolResult, error)
+	// Execute runs the tool with the request and returns a ToolResult.
+	Execute(ctx context.Context, req ToolRequest) (ToolResult, error)
 }

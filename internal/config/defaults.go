@@ -20,7 +20,8 @@ type SessionConfig struct {
 
 type ToolsConfig struct {
 	// File Operations
-	MaxFileSize int64 `json:"max_file_size"` // Default: 20 * 1024 * 1024 (20MB)
+	MaxFileSize          int64 `json:"max_file_size"`           // Default: 20 * 1024 * 1024 (20MB)
+	DefaultReadFileLimit int   `json:"default_read_file_limit"` // Default: 2000
 
 	// Directory Listing
 	DefaultListDirectoryLimit int `json:"default_list_directory_limit"` // Default: 1000
@@ -54,6 +55,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Tools: ToolsConfig{
 			MaxFileSize:                 20 * 1024 * 1024,
+			DefaultReadFileLimit:        2000,
 			DefaultListDirectoryLimit:   1000,
 			MaxListDirectoryLimit:       10000,
 			MaxListDirectoryResults:     50000,
