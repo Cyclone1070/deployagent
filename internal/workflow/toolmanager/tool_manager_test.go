@@ -18,10 +18,12 @@ import (
 type mockResult struct {
 	llmContent string
 	display    tool.ToolDisplay
+	success    bool
 }
 
 func (m *mockResult) LLMContent() string        { return m.llmContent }
 func (m *mockResult) Display() tool.ToolDisplay { return m.display }
+func (m *mockResult) Success() bool             { return m.success }
 
 type mockInput struct {
 	Value string `json:"value"`
@@ -42,7 +44,7 @@ func (m *mockTool) Execute(ctx context.Context, input any) (toolResult, error) {
 	if m.executeFunc != nil {
 		return m.executeFunc(ctx, input)
 	}
-	return &mockResult{llmContent: "ok", display: tool.StringDisplay("ok")}, nil
+	return &mockResult{llmContent: "ok", display: tool.StringDisplay("ok"), success: true}, nil
 }
 
 func TestRegister_AddsTool(t *testing.T) {
@@ -100,7 +102,7 @@ func TestExecute_ValidJSON_ParsesCorrectly(t *testing.T) {
 		name: "test",
 		executeFunc: func(ctx context.Context, input any) (toolResult, error) {
 			capturedInput = input.(*mockInput)
-			return &mockResult{llmContent: "ok"}, nil
+			return &mockResult{llmContent: "ok", success: true}, nil
 		},
 	})
 
@@ -140,7 +142,7 @@ func TestExecute_EmitsToolEvents(t *testing.T) {
 	tm.Register(&mockTool{
 		name: "test",
 		executeFunc: func(ctx context.Context, input any) (toolResult, error) {
-			return &mockResult{llmContent: "ok", display: tool.StringDisplay("result")}, nil
+			return &mockResult{llmContent: "ok", display: tool.StringDisplay("result"), success: true}, nil
 		},
 	})
 
@@ -165,6 +167,7 @@ func TestExecute_EmitsToolEvents(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "test", end.ToolName)
 	assert.Equal(t, tool.StringDisplay("result"), end.Display)
+	assert.True(t, end.Success)
 }
 
 func TestExecute_Shell_StreamsAndEnds(t *testing.T) {
@@ -178,10 +181,9 @@ func TestExecute_Shell_StreamsAndEnds(t *testing.T) {
 					Command:    "ls",
 					WorkingDir: "/",
 					Output:     strings.NewReader("file1\nfile2\n"),
-					Wait: func() int {
-						return 0
-					},
+					Wait:       func() {},
 				},
+				success: true,
 			}, nil
 		},
 	})
@@ -206,11 +208,11 @@ loop:
 		switch ev := e.(type) {
 		case workflow.ToolStreamEvent:
 			streamOutput.WriteString(ev.Chunk)
-		case workflow.ShellEndEvent:
-			assert.Equal(t, 0, ev.ExitCode)
-			break loop
 		case workflow.ToolEndEvent:
-			t.Fatalf("received ToolEndEvent instead of ShellEndEvent")
+			assert.Equal(t, "shell", ev.ToolName)
+			assert.True(t, ev.Success)
+			assert.Nil(t, ev.Display)
+			break loop
 		}
 	}
 
@@ -230,8 +232,9 @@ func TestExecute_ContextCancelled_StopsStreaming(t *testing.T) {
 			return &mockResult{
 				display: tool.ShellDisplay{
 					Output: pipeR,
-					Wait:   func() int { return 0 },
+					Wait:   func() {},
 				},
+				success: true,
 			}, nil
 		},
 	})

@@ -58,8 +58,8 @@ func (DiffDisplay) isToolDisplay() {}
 type ShellDisplay struct {
 	Command    string
 	WorkingDir string
-	Output     io.Reader  // Stream stdout/stderr from here
-	Wait       func() int // Call after reading Output to get exit code
+	Output     io.Reader // Stream stdout/stderr from here
+	Wait       func()    // Call after reading Output to wait for execution to finish.
 }
 
 func (ShellDisplay) isToolDisplay() {}

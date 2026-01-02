@@ -13,6 +13,9 @@ type toolResult interface {
 
 	// Display returns the display type for UI rendering.
 	Display() tool.ToolDisplay
+
+	// Success returns true if the tool execution succeeded.
+	Success() bool
 }
 
 // toolImpl defines the interface for individual tools.

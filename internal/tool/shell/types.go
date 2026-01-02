@@ -40,3 +40,7 @@ type ShellResponse struct {
 	WorkingDir string `json:"working_dir"`
 	Note       string `json:"note,omitempty"`
 }
+
+func (r ShellResponse) Success() bool {
+	return r.ExitCode == 0
+}

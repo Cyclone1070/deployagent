@@ -41,18 +41,11 @@ type ToolStreamEvent struct {
 
 func (ToolStreamEvent) isEvent() {}
 
-// ToolEndEvent is emitted when a non-streaming tool completes.
+// ToolEndEvent is emitted when any tool execution completes.
 type ToolEndEvent struct {
 	ToolName string
 	Display  tool.ToolDisplay
+	Success  bool
 }
 
 func (ToolEndEvent) isEvent() {}
-
-// ShellEndEvent is emitted when a shell command completes.
-type ShellEndEvent struct {
-	ToolName string
-	ExitCode int
-}
-
-func (ShellEndEvent) isEvent() {}

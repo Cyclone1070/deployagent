@@ -56,6 +56,7 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 			events <- workflow.ToolEndEvent{
 				ToolName: tc.Function.Name,
 				Display:  tool.StringDisplay("Invalid tool request"),
+				Success:  false,
 			}
 		}
 
@@ -79,6 +80,7 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 			events <- workflow.ToolEndEvent{
 				ToolName: tc.Function.Name,
 				Display:  tool.StringDisplay("Invalid tool request"),
+				Success:  false,
 			}
 		}
 
@@ -107,6 +109,7 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 			events <- workflow.ToolEndEvent{
 				ToolName: tc.Function.Name,
 				Display:  tool.StringDisplay("Cancelled"),
+				Success:  false,
 			}
 		}
 		return provider.Message{}, err
@@ -121,9 +124,10 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 			select {
 			case <-ctx.Done():
 				if events != nil {
-					events <- workflow.ShellEndEvent{
+					events <- workflow.ToolEndEvent{
 						ToolName: tc.Function.Name,
-						ExitCode: -1,
+						Display:  nil,
+						Success:  false,
 					}
 				}
 				return provider.Message{}, ctx.Err()
@@ -146,11 +150,12 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 			}
 		}
 
-		exitCode := sh.Wait()
+		sh.Wait()
 		if events != nil {
-			events <- workflow.ShellEndEvent{
+			events <- workflow.ToolEndEvent{
 				ToolName: tc.Function.Name,
-				ExitCode: exitCode,
+				Display:  nil,
+				Success:  res.Success(),
 			}
 		}
 	} else {
@@ -158,6 +163,7 @@ func (m *ToolManager) Execute(ctx context.Context, tc provider.ToolCall, events 
 			events <- workflow.ToolEndEvent{
 				ToolName: tc.Function.Name,
 				Display:  display,
+				Success:  res.Success(),
 			}
 		}
 	}

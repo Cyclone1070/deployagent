@@ -20,7 +20,7 @@ type toolManager interface {
 	Declarations() []tool.Declaration
 
 	// Execute runs a tool call and returns the result as a provider.Message.
-	// It emits ToolStartEvent, ToolEndEvent, ToolStreamEvent, and ShellEndEvent to the events channel.
+	// It emits ToolStartEvent, ToolEndEvent, and ToolStreamEvent to the events channel.
 	Execute(ctx context.Context, tc provider.ToolCall, events chan<- workflow.Event) (provider.Message, error)
 }
 

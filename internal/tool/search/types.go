@@ -49,3 +49,7 @@ type SearchContentResponse struct {
 	TotalCount       int    `json:"total_count"` // Total matches found (may be capped for performance)
 	HitMaxResults    bool   `json:"hit_max_results"`
 }
+
+func (r SearchContentResponse) Success() bool {
+	return true
+}

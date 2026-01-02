@@ -38,6 +38,11 @@ type ReadFileResponse struct {
 	StartLine    int
 	EndLine      int
 	TotalLines   int
+	Error        string // Set if the tool failed (e.g. file not found)
+}
+
+func (r ReadFileResponse) Success() bool {
+	return r.Error == ""
 }
 
 // -- Write File --
@@ -64,6 +69,10 @@ type WriteFileResponse struct {
 	AbsolutePath string
 	RelativePath string
 	BytesWritten int
+}
+
+func (r WriteFileResponse) Success() bool {
+	return true
 }
 
 // -- Edit File --
@@ -99,4 +108,8 @@ type EditFileResponse struct {
 	RelativePath      string
 	OperationsApplied int
 	FileSize          int64
+}
+
+func (r EditFileResponse) Success() bool {
+	return true
 }

@@ -36,6 +36,10 @@ type ReadTodosResponse struct {
 	Todos []Todo `json:"todos"`
 }
 
+func (r ReadTodosResponse) Success() bool {
+	return true
+}
+
 // WriteTodosRequest represents a request to update the list of todos.
 type WriteTodosRequest struct {
 	Todos []Todo `json:"todos"`
@@ -62,4 +66,8 @@ func (r *WriteTodosRequest) Validate(cfg *config.Config) error {
 // WriteTodosResponse contains the result of a WriteTodos operation.
 type WriteTodosResponse struct {
 	Count int `json:"count"`
+}
+
+func (r WriteTodosResponse) Success() bool {
+	return true
 }

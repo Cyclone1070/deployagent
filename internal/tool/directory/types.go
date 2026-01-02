@@ -43,6 +43,10 @@ type ListDirectoryResponse struct {
 	HitMaxResults    bool
 }
 
+func (r ListDirectoryResponse) Success() bool {
+	return true
+}
+
 // FindFileRequest represents the parameters for a FindFile operation
 type FindFileRequest struct {
 	Pattern        string `json:"pattern"`
@@ -76,4 +80,8 @@ type FindFileResponse struct {
 	Limit            int
 	TotalCount       int
 	HitMaxResults    bool
+}
+
+func (r FindFileResponse) Success() bool {
+	return true
 }
