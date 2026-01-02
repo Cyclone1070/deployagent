@@ -36,6 +36,22 @@ func (m *mockToolManager) Execute(ctx context.Context, tc provider.ToolCall, eve
 	return provider.Message{Role: provider.RoleTool, Content: "ok"}, nil
 }
 
+type mockSession struct {
+	messages []provider.Message
+}
+
+func (m *mockSession) Messages() []provider.Message {
+	return m.messages
+}
+
+func (m *mockSession) Add(msg provider.Message) {
+	m.messages = append(m.messages, msg)
+}
+
+func (m *mockSession) Save() error {
+	return nil
+}
+
 func TestRun_SingleTurn_TextOnly(t *testing.T) {
 	ctx := context.Background()
 	events := make(chan workflow.Event, 10)
@@ -46,11 +62,16 @@ func TestRun_SingleTurn_TextOnly(t *testing.T) {
 		},
 	}
 	mtm := &mockToolManager{}
+	ms := &mockSession{}
 
-	l := NewLoop(mp, mtm, events, 5)
+	l := NewLoop(mp, mtm, ms, events, 5)
 	err := l.Run(ctx, "Hi")
 
 	assert.NoError(t, err)
+
+	assert.Equal(t, 2, len(ms.Messages()))
+	assert.Equal(t, "Hi", ms.Messages()[0].Content)
+	assert.Equal(t, "Hello!", ms.Messages()[1].Content)
 
 	assert.IsType(t, workflow.ThinkingEvent{}, <-events)
 	assert.Equal(t, workflow.TextEvent{Text: "Hello!"}, <-events)
@@ -83,12 +104,14 @@ func TestRun_SingleToolCall(t *testing.T) {
 			return provider.Message{Role: provider.RoleTool, Content: "Sunny"}, nil
 		},
 	}
+	ms := &mockSession{}
 
-	l := NewLoop(mp, mtm, events, 5)
+	l := NewLoop(mp, mtm, ms, events, 5)
 	err := l.Run(ctx, "Weather?")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 4, len(ms.Messages())) // User, Assist(ToolCall), ToolResp, Assist(Text)
 
 	// Thinking
 	assert.IsType(t, workflow.ThinkingEvent{}, <-events)
@@ -111,11 +134,13 @@ func TestRun_MaxIterationsExceeded_ReturnsError(t *testing.T) {
 			}, nil
 		},
 	}
-	l := NewLoop(mp, &mockToolManager{}, nil, 3)
+	ms := &mockSession{}
+	l := NewLoop(mp, &mockToolManager{}, ms, nil, 3)
 	err := l.Run(context.Background(), "go")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "max iterations (3) reached")
+	assert.Equal(t, "[Max iterations reached]", ms.Messages()[len(ms.Messages())-1].Content)
 }
 
 func TestRun_ProviderError_ReturnsError(t *testing.T) {
@@ -124,7 +149,8 @@ func TestRun_ProviderError_ReturnsError(t *testing.T) {
 			return nil, fmt.Errorf("provider fail")
 		},
 	}
-	l := NewLoop(mp, &mockToolManager{}, make(chan workflow.Event, 10), 5)
+	ms := &mockSession{}
+	l := NewLoop(mp, &mockToolManager{}, ms, make(chan workflow.Event, 10), 5)
 	err := l.Run(context.Background(), "hi")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "provider.Generate")
@@ -146,7 +172,8 @@ func TestRun_ToolError_ReturnsError(t *testing.T) {
 			return provider.Message{}, fmt.Errorf("tool fail")
 		},
 	}
-	l := NewLoop(mp, mtm, make(chan workflow.Event, 10), 5)
+	ms := &mockSession{}
+	l := NewLoop(mp, mtm, ms, make(chan workflow.Event, 10), 5)
 	err := l.Run(context.Background(), "hi")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "tools.Execute")
@@ -162,8 +189,10 @@ func TestRun_ContextCancelled_DuringThinking_ReturnsError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	l := NewLoop(mp, &mockToolManager{}, nil, 5)
+	ms := &mockSession{}
+	l := NewLoop(mp, &mockToolManager{}, ms, nil, 5)
 	err := l.Run(ctx, "hi")
 
 	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, "[Session cancelled by user]", ms.Messages()[len(ms.Messages())-1].Content)
 }

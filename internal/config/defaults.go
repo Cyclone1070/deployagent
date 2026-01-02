@@ -1,11 +1,21 @@
 package config
 
+import (
+	"os"
+	"path/filepath"
+)
+
 // Config holds all application configuration values.
 // Defaults are set in DefaultConfig() and can be overridden via dotfile.
 // NOTE: Values in config files override defaults, including explicit zero values.
 // Missing keys are left at their default values.
 type Config struct {
-	Tools ToolsConfig `json:"tools"`
+	Tools   ToolsConfig   `json:"tools"`
+	Session SessionConfig `json:"session"`
+}
+
+type SessionConfig struct {
+	StorageDir string `json:"storage_dir"` // Default: ~/.iav/sessions
 }
 
 type ToolsConfig struct {
@@ -60,6 +70,9 @@ func DefaultConfig() *Config {
 			DockerRetryIntervalMs:       1000,
 			DockerGracefulShutdownMs:    2000,
 			MaxIterations:               20,
+		},
+		Session: SessionConfig{
+			StorageDir: filepath.Join(os.Getenv("HOME"), ".iav", "sessions"),
 		},
 	}
 }

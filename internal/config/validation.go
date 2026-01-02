@@ -77,6 +77,11 @@ func (c *Config) Validate() error {
 		errs = append(errs, "tools.max_iterations must be >= 1")
 	}
 
+	// Session validation
+	if c.Session.StorageDir == "" {
+		errs = append(errs, "session.storage_dir must not be empty")
+	}
+
 	if len(errs) > 0 {
 		return fmt.Errorf("config validation failed: %v", errs)
 	}

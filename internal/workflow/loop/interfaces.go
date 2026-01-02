@@ -23,3 +23,10 @@ type toolManager interface {
 	// It emits ToolStartEvent, ToolEndEvent, ToolStreamEvent, and ShellEndEvent to the events channel.
 	Execute(ctx context.Context, tc provider.ToolCall, events chan<- workflow.Event) (provider.Message, error)
 }
+
+// session defines the contract for message history
+type session interface {
+	Messages() []provider.Message
+	Add(msg provider.Message)
+	Save() error
+}
